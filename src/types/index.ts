@@ -67,3 +67,12 @@ export interface Auditoria {
   ip?: string;
   justificativa?: string;
 }
+
+export type UserRole = 'COMPRADOR' | 'FORNECEDOR';
+
+export interface User {
+  id: string;
+  nome: string;
+  role: UserRole;
+  email: string;
+}

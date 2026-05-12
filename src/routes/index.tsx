@@ -1,18 +1,33 @@
-import { createBrowserRouter } from 'react-router';
+import { createBrowserRouter, Navigate } from 'react-router';
 import Layout from '../components/Layout/Layout';
-import Auth from '../pages/Auth';
+import LoginPage from '../pages/LoginPage';
 import Comprador from '../pages/Comprador';
 import Fornecedor from '../pages/Fornecedor';
 import Fallback from '../pages/Fallback';
+import AccessDenied from '../pages/AccessDenied';
+import { ProtectedRoute } from '../components/ProtectedRoute';
 
 export const router = createBrowserRouter([
   {
     path: '/',
+    element: <LoginPage />,
     errorElement: <Fallback />,
-    element: <Layout />,
+  },
+  {
+    path: '/acesso-negado',
+    element: <AccessDenied />,
+  },
+  {
+    path: '/',
+    element: (
+      <ProtectedRoute>
+        <Layout />
+      </ProtectedRoute>
+    ),
+    errorElement: <Fallback />,
     children: [
       {
-        index: true,
+        path: 'dashboard',
         element: (
           <div className="p-6">
             <h1 className="text-2xl font-bold text-gray-800">Início</h1>
@@ -22,11 +37,19 @@ export const router = createBrowserRouter([
       },
       {
         path: 'comprador',
-        element: <Comprador />,
+        element: (
+          <ProtectedRoute allowedRoles={['COMPRADOR']}>
+            <Comprador />
+          </ProtectedRoute>
+        ),
       },
       {
         path: 'fornecedor',
-        element: <Fornecedor />,
+        element: (
+          <ProtectedRoute allowedRoles={['FORNECEDOR']}>
+            <Fornecedor />
+          </ProtectedRoute>
+        ),
       },
       {
         path: 'atas',
@@ -81,14 +104,19 @@ export const router = createBrowserRouter([
         path: 'auditoria',
         lazy: async () => {
           const { AuditoriaLista } = await import('../pages/Auditoria');
-          return { Component: AuditoriaLista };
+          return { 
+            Component: () => (
+              <ProtectedRoute allowedRoles={['COMPRADOR']}>
+                <AuditoriaLista />
+              </ProtectedRoute>
+            ) 
+          };
         },
       },
     ],
   },
   {
-    path: '/auth',
-    element: <Auth />,
-    errorElement: <Fallback />,
-  },
+    path: '*',
+    element: <Navigate to="/" replace />,
+  }
 ]);

@@ -1,18 +1,25 @@
 import { Link, useLocation } from 'react-router';
-import { LayoutDashboard, ShoppingCart, Truck, Menu, FileText, ClipboardList, Scale, CheckSquare, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Truck, FileText, ClipboardList, Scale, CheckSquare, ShieldCheck } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 export default function Sidebar({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (val: boolean) => void }) {
   const location = useLocation();
+  const { user } = useAuth();
 
-  const links = [
-    { name: 'Comprador', path: '/comprador', icon: ShoppingCart },
-    { name: 'Fornecedor', path: '/fornecedor', icon: Truck },
-    { name: 'Atas', path: '/atas', icon: FileText },
-    { name: 'Pedidos', path: '/pedidos', icon: ClipboardList },
-    { name: 'Solicitar Reequilíbrio', path: '/solicitar-reequilibrio', icon: Scale },
-    { name: 'Aprovar Reequilíbrio', path: '/aprovar-reequilibrio', icon: CheckSquare },
-    { name: 'Auditoria TCU', path: '/auditoria', icon: ShieldCheck },
+  const allLinks = [
+    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['COMPRADOR', 'FORNECEDOR'] },
+    { name: 'Comprador', path: '/comprador', icon: ShoppingCart, roles: ['COMPRADOR'] },
+    { name: 'Fornecedor', path: '/fornecedor', icon: Truck, roles: ['FORNECEDOR'] },
+    { name: 'Atas', path: '/atas', icon: FileText, roles: ['COMPRADOR', 'FORNECEDOR'] },
+    { name: 'Pedidos', path: '/pedidos', icon: ClipboardList, roles: ['COMPRADOR', 'FORNECEDOR'] },
+    { name: 'Solicitar Reequilíbrio', path: '/solicitar-reequilibrio', icon: Scale, roles: ['FORNECEDOR'] },
+    { name: 'Aprovar Reequilíbrio', path: '/aprovar-reequilibrio', icon: CheckSquare, roles: ['COMPRADOR'] },
+    { name: 'Auditoria TCU', path: '/auditoria', icon: ShieldCheck, roles: ['COMPRADOR'] },
   ];
+
+  const filteredLinks = allLinks.filter(link => 
+    !link.roles || (user && link.roles.includes(user.role))
+  );
 
   return (
     <>
@@ -30,16 +37,16 @@ export default function Sidebar({ isOpen, setIsOpen }: { isOpen: boolean; setIsO
         }`}
       >
         <div className="flex h-16 items-center justify-between px-6 border-b border-gray-100">
-          <Link to="/" className="flex items-center gap-2 font-bold text-blue-600 text-xl">
+          <Link to="/dashboard" className="flex items-center gap-2 font-bold text-blue-600 text-xl">
             <LayoutDashboard className="h-6 w-6" />
             Vigia Saúde
           </Link>
         </div>
 
         <nav className="mt-6 flex flex-col gap-2 px-4">
-          {links.map((link) => {
+          {filteredLinks.map((link) => {
             const Icon = link.icon;
-            const isActive = location.pathname.startsWith(link.path);
+            const isActive = location.pathname === link.path;
             
             return (
               <Link
