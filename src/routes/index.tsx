@@ -63,6 +63,20 @@ export const router = createBrowserRouter([
           return { Component: CompararOrcamentos };
         },
       },
+      {
+        path: 'solicitar-reequilibrio',
+        lazy: async () => {
+          const { SolicitarReequilibrio } = await import('../pages/Reequilibrio/Solicitar');
+          return { Component: SolicitarReequilibrio };
+        },
+      },
+      {
+        path: 'aprovar-reequilibrio',
+        lazy: async () => {
+          const { AprovarReequilibrio } = await import('../pages/Reequilibrio/Aprovar');
+          return { Component: AprovarReequilibrio };
+        },
+      },
     ],
   },
   {

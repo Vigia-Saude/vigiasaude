@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router';
-import { LayoutDashboard, ShoppingCart, Truck, Menu, FileText, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Truck, Menu, FileText, ClipboardList, Scale, CheckSquare } from 'lucide-react';
 
 export default function Sidebar({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (val: boolean) => void }) {
   const location = useLocation();
@@ -9,6 +9,8 @@ export default function Sidebar({ isOpen, setIsOpen }: { isOpen: boolean; setIsO
     { name: 'Fornecedor', path: '/fornecedor', icon: Truck },
     { name: 'Atas', path: '/atas', icon: FileText },
     { name: 'Pedidos', path: '/pedidos', icon: ClipboardList },
+    { name: 'Solicitar Reequilíbrio', path: '/solicitar-reequilibrio', icon: Scale },
+    { name: 'Aprovar Reequilíbrio', path: '/aprovar-reequilibrio', icon: CheckSquare },
   ];
 
   return (
