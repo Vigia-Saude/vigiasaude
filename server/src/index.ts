@@ -32,6 +32,10 @@ app.use('/auth', loginLimiter, authRoutes)
 app.use('/api', apiRoutes)
 
 // Rota de teste pública
+app.get('/', (req, res) => {
+  res.send('Vigia Saúde API is running')
+})
+
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', message: 'Servidor Vigia Saúde está online.' })
 })

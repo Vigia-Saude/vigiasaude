@@ -30,7 +30,7 @@ export class AtaController {
     const id = req.params.id;
     try {
       const ata = await prisma.ata.findUnique({
-        where: { id },
+        where: { id: String(id) },
         include: {
           medicamentos: true,
           pedidos: true
