@@ -34,9 +34,7 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
   const [fornecedorCnpj, setFornecedorCnpj] = useState('');
   const [isSearchingCnpj, setIsSearchingCnpj] = useState(false);
   
-  const [processoLicitatorio, setProcessoLicitatorio] = useState('');
-  const [numeroPregao, setNumeroPregao] = useState('');
-  const [numeroEdital, setNumeroEdital] = useState('');
+
   const [vigenciaInicio, setVigenciaInicio] = useState('');
   const [vigenciaFim, setVigenciaFim] = useState('');
   const [valorTeto, setValorTeto] = useState<number>(0);
@@ -216,9 +214,7 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
         numero,
         fornecedorNome,
         fornecedorCnpj,
-        processoLicitatorio,
-        numeroPregao,
-        numeroEdital,
+
         vigenciaInicio,
         vigenciaFim,
         valorTeto,
@@ -321,40 +317,7 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Processo Licitatório</label>
-                      <input
-                        type="text"
-                        placeholder="Ex: 123/2024"
-                        value={processoLicitatorio}
-                        onChange={(e) => setProcessoLicitatorio(e.target.value)}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
-                      />
-                    </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Número do Pregão</label>
-                      <input
-                        type="text"
-                        placeholder="Ex: 45/2024"
-                        value={numeroPregao}
-                        onChange={(e) => setNumeroPregao(e.target.value)}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Número do Edital</label>
-                      <input
-                        type="text"
-                        placeholder="Ex: 01/2024"
-                        value={numeroEdital}
-                        onChange={(e) => setNumeroEdital(e.target.value)}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
-                      />
-                    </div>
-                  </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
