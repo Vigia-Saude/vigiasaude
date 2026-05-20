@@ -27,3 +27,18 @@ dist-ssr
 .env
 
 .env*.local
+
+# Temporary development/test files
+env-preview
+env-prod
+.env.preview.developer.local
+catmat_medicamentos.csv
+server/check-db.js
+server/check-db2.js
+server/check-users.js
+server/test-controller.js
+server/test-controller.ts
+server/update-password.js
+server/src/test-db-connection.ts
+server/src/test-pg-connection.ts
+
