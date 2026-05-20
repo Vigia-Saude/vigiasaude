@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://apibackend-development.up.railway.app',
+  baseURL: 'https://apibackend-development.up.railway.app',
 });
 
 // Interceptor de Request: Injetar JWT
