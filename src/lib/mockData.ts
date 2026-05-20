@@ -13,8 +13,12 @@ export const mockAtas: Ata[] = [
     numero: 'SRP 045/2025',
     dataInicio: '2025-01-10T00:00:00Z',
     dataFim: '2026-01-10T00:00:00Z',
+    vigenciaInicio: '2025-01-10T00:00:00Z',
+    vigenciaFim: '2026-01-10T00:00:00Z',
     valorTeto: 2500000.0,
+    valorConsumido: 0,
     fornecedorId: 'f1',
+    fornecedorNome: 'MedSupply Nacional LTDA',
     status: 'ATIVA',
   },
   {
@@ -22,8 +26,12 @@ export const mockAtas: Ata[] = [
     numero: 'SRP 112/2024',
     dataInicio: '2024-05-15T00:00:00Z',
     dataFim: '2025-05-15T00:00:00Z',
+    vigenciaInicio: '2024-05-15T00:00:00Z',
+    vigenciaFim: '2025-05-15T00:00:00Z',
     valorTeto: 1800000.0,
+    valorConsumido: 0,
     fornecedorId: 'f2',
+    fornecedorNome: 'FarmaDistribuidora Regional',
     status: 'ATIVA',
   },
   {
@@ -31,20 +39,24 @@ export const mockAtas: Ata[] = [
     numero: 'SRP 010/2023',
     dataInicio: '2023-02-20T00:00:00Z',
     dataFim: '2024-02-20T00:00:00Z',
+    vigenciaInicio: '2023-02-20T00:00:00Z',
+    vigenciaFim: '2024-02-20T00:00:00Z',
     valorTeto: 500000.0,
+    valorConsumido: 0,
     fornecedorId: 'f1',
+    fornecedorNome: 'MedSupply Nacional LTDA',
     status: 'VENCIDA',
   },
 ];
 
 export const mockMedicamentosAta: MedicamentoAta[] = [
   // Ata 1 (f1)
-  { id: 'm1', ataId: 'a1', nome: 'Dipirona Sódica 500mg/ml', precoUnitario: 0.85, quantidadeInicial: 100000, quantidadeUsada: 45000, precoBPS: 0.90, precoCMED: 1.20 },
-  { id: 'm2', ataId: 'a1', nome: 'Paracetamol 750mg', precoUnitario: 0.45, quantidadeInicial: 50000, quantidadeUsada: 48000, precoBPS: 0.50, precoCMED: 0.75 },
-  { id: 'm3', ataId: 'a1', nome: 'Amoxicilina 500mg', precoUnitario: 1.20, quantidadeInicial: 20000, quantidadeUsada: 5000, precoBPS: 1.15, precoCMED: 2.10 },
+  { id: 'm1', ataId: 'a1', nome: 'Dipirona Sódica 500mg/ml', precoUnitario: 0.85, qtdeInicial: 100000, quantidadeInicial: 100000, quantidadeUsada: 45000, precoBPS: 0.90, precoCMED: 1.20 },
+  { id: 'm2', ataId: 'a1', nome: 'Paracetamol 750mg', precoUnitario: 0.45, qtdeInicial: 50000, quantidadeInicial: 50000, quantidadeUsada: 48000, precoBPS: 0.50, precoCMED: 0.75 },
+  { id: 'm3', ataId: 'a1', nome: 'Amoxicilina 500mg', precoUnitario: 1.20, qtdeInicial: 20000, quantidadeInicial: 20000, quantidadeUsada: 5000, precoBPS: 1.15, precoCMED: 2.10 },
   // Ata 2 (f2)
-  { id: 'm4', ataId: 'a2', nome: 'Losartana Potássica 50mg', precoUnitario: 0.30, quantidadeInicial: 200000, quantidadeUsada: 120000, precoBPS: 0.35, precoCMED: 0.60 },
-  { id: 'm5', ataId: 'a2', nome: 'Omeprazol 20mg', precoUnitario: 0.60, quantidadeInicial: 80000, quantidadeUsada: 80000, precoBPS: 0.65, precoCMED: 1.05 }, // Esgotado
+  { id: 'm4', ataId: 'a2', nome: 'Losartana Potássica 50mg', precoUnitario: 0.30, qtdeInicial: 200000, quantidadeInicial: 200000, quantidadeUsada: 120000, precoBPS: 0.35, precoCMED: 0.60 },
+  { id: 'm5', ataId: 'a2', nome: 'Omeprazol 20mg', precoUnitario: 0.60, qtdeInicial: 80000, quantidadeInicial: 80000, quantidadeUsada: 80000, precoBPS: 0.65, precoCMED: 1.05 }, // Esgotado
 ];
 
 export const mockPedidosCompra: PedidoCompra[] = [
