@@ -89,7 +89,7 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
     setValorTeto(total);
   }, [medicamentos]);
 
-  if (!isOpen) return null;
+
 
   // Handle CATMAT Search with 300ms debounce
   const handleCatmatSearch = useCallback((index: number, query: string) => {
@@ -239,6 +239,8 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
       setIsSubmitting(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">

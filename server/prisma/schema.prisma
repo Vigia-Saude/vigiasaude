@@ -38,8 +38,6 @@ model CatmatMedicamento {
   unidadeFornecimento String
   criadoEm            DateTime @default(now())
 
-  // Índice para buscas rápidas por descrição (autocomplete)
-  @@index([descricao])
   @@map("catmat_medicamentos")
 }
 
