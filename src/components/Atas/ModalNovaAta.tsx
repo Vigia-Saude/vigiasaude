@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, HelpCircle, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { X, Plus, Trash2, HelpCircle, Loader2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { FileUpload } from '../ui/FileUpload';
-import { criarAta, buscarCatmat, uploadFile } from '../../services/ataService';
+import { criarAta, buscarCatmat, buscarCatmatPorCodigo, uploadFile } from '../../services/ataService';
 import type { CatmatMedicamento } from '../../types';
 
 interface ModalNovaAtaProps {
@@ -53,7 +53,10 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
   // Autocomplete CATMAT states per index
   const [catmatQueries, setCatmatQueries] = useState<{ [key: number]: string }>({});
   const [catmatResults, setCatmatResults] = useState<{ [key: number]: CatmatMedicamento[] }>({});
+  const [catmatLoading, setCatmatLoading] = useState<{ [key: number]: boolean }>({});
   const [activeSearchIndex, setActiveSearchIndex] = useState<number | null>(null);
+  // Debounce timers ref
+  const debounceTimers = useRef<{ [key: number]: ReturnType<typeof setTimeout> }>({});
 
   // CNPJ autocomplete via BrasilAPI
   useEffect(() => {
@@ -88,21 +91,44 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
 
   if (!isOpen) return null;
 
-  // Handle CATMAT Search for a specific index
-  const handleCatmatSearch = async (index: number, query: string) => {
+  // Handle CATMAT Search with 300ms debounce
+  const handleCatmatSearch = useCallback((index: number, query: string) => {
     setCatmatQueries(prev => ({ ...prev, [index]: query }));
-    if (query.trim().length < 3) {
+
+    // Clear previous timer
+    if (debounceTimers.current[index]) {
+      clearTimeout(debounceTimers.current[index]);
+    }
+
+    if (query.trim().length < 2) {
       setCatmatResults(prev => ({ ...prev, [index]: [] }));
+      setCatmatLoading(prev => ({ ...prev, [index]: false }));
       return;
     }
 
-    try {
-      const results = await buscarCatmat(query);
-      setCatmatResults(prev => ({ ...prev, [index]: results }));
-    } catch (error) {
-      console.error('Erro ao buscar CATMAT:', error);
-    }
-  };
+    // Debounce: wait 300ms before searching
+    debounceTimers.current[index] = setTimeout(async () => {
+      setCatmatLoading(prev => ({ ...prev, [index]: true }));
+      try {
+        // Se o query parece um código BR exato (começa com BR + dígitos), tenta busca direta primeiro
+        const isBrCode = /^BR\d+$/i.test(query.trim());
+        if (isBrCode && query.trim().length >= 8) {
+          const exact = await buscarCatmatPorCodigo(query.trim());
+          if (exact) {
+            // Auto-preencher automaticamente sem precisar selecionar
+            handleSelectCatmat(index, exact);
+            return;
+          }
+        }
+        const results = await buscarCatmat(query);
+        setCatmatResults(prev => ({ ...prev, [index]: results }));
+      } catch (error) {
+        console.error('Erro ao buscar CATMAT:', error);
+      } finally {
+        setCatmatLoading(prev => ({ ...prev, [index]: false }));
+      }
+    }, 300);
+  }, [medicamentos]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSelectCatmat = (index: number, item: CatmatMedicamento) => {
     const newMedicamentos = [...medicamentos];
@@ -111,14 +137,17 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
       catmatCodigo: item.codigoBr,
       nome: item.descricao,
       unidadeFornecimento: item.unidadeFornecimento,
+      // Preenche unidadeAta com a unidade do CATMAT (editável pelo usuário)
       unidadeAta: item.unidadeFornecimento || 'UNIDADE',
     };
     setMedicamentos(newMedicamentos);
-    
-    // Clear search results
+
+    // Limpar busca e fechar dropdown
     setCatmatResults(prev => ({ ...prev, [index]: [] }));
     setCatmatQueries(prev => ({ ...prev, [index]: '' }));
+    setCatmatLoading(prev => ({ ...prev, [index]: false }));
     setActiveSearchIndex(null);
+    toast.success(`Medicamento CATMAT preenchido: ${item.codigoBr}`);
   };
 
   const handleAddMedicine = () => {
@@ -413,35 +442,66 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
                         <h4 className="text-sm font-semibold text-gray-700">Medicamento</h4>
                       </div>
 
-                      {/* CATMAT Search */}
+                      {/* CATMAT Search com Autocomplete */}
                       <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                         <div className="md:col-span-4 relative">
-                          <label className="block text-xs font-medium text-gray-500">Busca CATMAT / Código BR</label>
-                          <input
-                            type="text"
-                            placeholder="Buscar código ou descrição..."
-                            value={catmatQueries[index] !== undefined ? catmatQueries[index] : (med.catmatCodigo || '')}
-                            onFocus={() => setActiveSearchIndex(index)}
-                            onChange={(e) => {
-                              handleCatmatSearch(index, e.target.value);
-                            }}
-                            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs"
-                          />
-                          
-                          {/* Autocomplete Dropdown */}
+                          <label className="block text-xs font-medium text-gray-500 flex items-center gap-1">
+                            <Search className="w-3 h-3" />
+                            Busca CATMAT / Código BR
+                          </label>
+                          {/* Exibe badge verde quando medicamento já está vinculado ao CATMAT */}
+                          {med.catmatCodigo && !catmatQueries[index] && (
+                            <div className="absolute top-0 right-0 flex items-center">
+                              <span className="text-[10px] bg-green-100 text-green-700 rounded px-1.5 py-0.5 font-semibold">
+                                ✓ {med.catmatCodigo}
+                              </span>
+                            </div>
+                          )}
+                          <div className="relative mt-1">
+                            <input
+                              type="text"
+                              placeholder="Digite o código BR ou parte da descrição..."
+                              value={catmatQueries[index] !== undefined ? catmatQueries[index] : (med.catmatCodigo || '')}
+                              onFocus={() => setActiveSearchIndex(index)}
+                              onBlur={() => {
+                                // Delay para permitir clique no dropdown
+                                setTimeout(() => setActiveSearchIndex(null), 200);
+                              }}
+                              onChange={(e) => handleCatmatSearch(index, e.target.value)}
+                              className="block w-full rounded-md border border-gray-300 px-3 py-1.5 pr-8 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs"
+                            />
+                            {/* Spinner de carregamento */}
+                            {catmatLoading[index] && (
+                              <div className="absolute inset-y-0 right-2 flex items-center">
+                                <Loader2 className="w-3.5 h-3.5 text-blue-400 animate-spin" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Dropdown de resultados */}
                           {activeSearchIndex === index && catmatResults[index] && catmatResults[index].length > 0 && (
-                            <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto text-xs">
+                            <div className="absolute z-20 mt-1 w-full min-w-[320px] bg-white border border-gray-200 rounded-lg shadow-xl max-h-56 overflow-y-auto text-xs">
+                              <div className="px-3 py-1.5 bg-gray-50 border-b text-[10px] text-gray-500 font-medium">
+                                {catmatResults[index].length} resultado(s) encontrado(s)
+                              </div>
                               {catmatResults[index].map((item) => (
                                 <button
                                   key={item.id}
                                   type="button"
-                                  onClick={() => handleSelectCatmat(index, item)}
-                                  className="w-full text-left px-3 py-2 hover:bg-gray-100 border-b last:border-b-0 flex flex-col"
+                                  onMouseDown={() => handleSelectCatmat(index, item)}
+                                  className="w-full text-left px-3 py-2.5 hover:bg-blue-50 border-b last:border-b-0 flex flex-col gap-0.5 transition-colors"
                                 >
-                                  <span className="font-semibold text-gray-800">{item.descricao}</span>
-                                  <span className="text-gray-500 text-[10px]">Código: {item.codigoBr} | {item.unidadeFornecimento}</span>
+                                  <span className="font-semibold text-gray-800 text-xs leading-tight">{item.descricao}</span>
+                                  <span className="text-gray-400 text-[10px]">Código: <strong className="text-blue-600">{item.codigoBr}</strong> &nbsp;·&nbsp; {item.unidadeFornecimento}</span>
                                 </button>
                               ))}
+                            </div>
+                          )}
+
+                          {/* Mensagem quando não há resultados mas há busca ativa */}
+                          {activeSearchIndex === index && (catmatQueries[index]?.length ?? 0) >= 2 && !catmatLoading[index] && catmatResults[index]?.length === 0 && (
+                            <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-md px-3 py-2.5 text-xs text-gray-500">
+                              Nenhum medicamento encontrado para "<strong>{catmatQueries[index]}</strong>"
                             </div>
                           )}
                         </div>

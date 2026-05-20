@@ -24,6 +24,7 @@ router.post('/atas/:ataId/consumos', ataController.registrarConsumo);
 
 // Rotas de CATMAT
 router.get('/catmat/buscar', catmatController.buscar);
+router.get('/catmat/:codigoBr', catmatController.buscarPorCodigo);
 
 // Rotas de Upload
 router.post('/upload', uploadConfig.single('file'), uploadController.upload);

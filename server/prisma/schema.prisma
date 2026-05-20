@@ -32,12 +32,14 @@ enum AtaStatus {
 }
 
 model CatmatMedicamento {
-  id                 String   @id @default(uuid())
-  codigoBr           String   @unique // Ex: BR027xxxx
-  descricao          String
+  id                  String   @id @default(uuid())
+  codigoBr            String   @unique // Ex: BR027xxxx — índice único automático
+  descricao           String
   unidadeFornecimento String
-  criadoEm           DateTime @default(now())
+  criadoEm            DateTime @default(now())
 
+  // Índice para buscas rápidas por descrição (autocomplete)
+  @@index([descricao])
   @@map("catmat_medicamentos")
 }
 

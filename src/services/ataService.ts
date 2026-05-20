@@ -54,8 +54,19 @@ export const criarAta = async (payload: CreateAtaPayload): Promise<Ata> => {
 };
 
 export const buscarCatmat = async (query: string): Promise<CatmatMedicamento[]> => {
+  if (query.trim().length < 2) return []; // Mínimo de 2 caracteres
   const response = await apiClient.get<CatmatMedicamento[]>('/api/catmat/buscar', { params: { q: query } });
   return response.data;
+};
+
+/** Busca um medicamento CATMAT pelo código BR exato */
+export const buscarCatmatPorCodigo = async (codigoBr: string): Promise<CatmatMedicamento | null> => {
+  try {
+    const response = await apiClient.get<CatmatMedicamento>(`/api/catmat/${codigoBr.toUpperCase().trim()}`);
+    return response.data;
+  } catch {
+    return null; // Retorna null se não encontrar
+  }
 };
 
 export const uploadFile = async (file: File): Promise<{ url: string }> => {
