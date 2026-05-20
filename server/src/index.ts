@@ -13,7 +13,7 @@ dotenv.config()
 const app = express()
 const PORT = process.env.PORT || 3001
 
-// Confiar no proxy do Railway para o rate limiter funcionar
+// Confiar no proxy reverso para o rate limiter funcionar
 app.set('trust proxy', 1)
 
 // Middlewares de Segurança
