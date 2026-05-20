@@ -46,6 +46,16 @@ async function main() {
 
   console.log({ comprador, fornecedor })
 
+  // Criar CatmatMedicamentos
+  await prisma.catmatMedicamento.createMany({
+    data: [
+      { codigoBr: 'BR0271234', descricao: 'AMOXICILINA 500 MG', unidadeFornecimento: 'CAPSULA' },
+      { codigoBr: 'BR0275678', descricao: 'DIPIRONA 500 MG/ML', unidadeFornecimento: 'AMPOLA' },
+      { codigoBr: 'BR0279012', descricao: 'PARACETAMOL 750 MG', unidadeFornecimento: 'COMPRIMIDO' },
+    ],
+    skipDuplicates: true,
+  })
+
   // Criar uma Ata de Exemplo
   const ataExemplo = await prisma.ata.upsert({
     where: { numero: '2024/001' },
@@ -55,7 +65,8 @@ async function main() {
       vigenciaInicio: new Date('2024-01-01'),
       vigenciaFim: new Date('2025-01-01'),
       valorTeto: 100000.00,
-      fornecedorId: 'f1',
+      fornecedorNome: 'MedSupply SA',
+      fornecedorCnpj: '12.345.678/0001-99',
       status: 'ATIVA',
       medicamentos: {
         create: [

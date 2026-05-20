@@ -7,27 +7,66 @@ export interface Fornecedor {
   email: string;
 }
 
-export type AtaStatus = 'ATIVA' | 'VENCIDA' | 'CANCELADA' | 'EM_REVISAO';
+export type AtaStatus = 'ATIVA' | 'VENCIDA' | 'CANCELADA' | 'EM_REVISAO' | 'ESGOTADA';
 
 export interface Ata {
   id: string;
   numero: string;
-  dataInicio: string; // ISO date string
-  dataFim: string; // ISO date string
+  fornecedorNome: string;
+  fornecedorCnpj?: string;
+  processoLicitatorio?: string;
+  numeroPregao?: string;
+  numeroEdital?: string;
+  vigenciaInicio: string; // ISO date string
+  vigenciaFim: string; // ISO date string
+  dataInicio: string; // ISO date string para compatibilidade retroativa
+  dataFim: string; // ISO date string para compatibilidade retroativa
   valorTeto: number;
-  fornecedorId: string;
+  valorConsumido: number;
   status: AtaStatus;
+  documentoPdfUrl?: string;
+  observacoes?: string;
 }
 
 export interface MedicamentoAta {
   id: string;
   ataId: string;
+  catmatCodigo?: string;
   nome: string;
+  unidadeFornecimento?: string;
+  unidadeAta?: string;
+  marca?: string;
+  modelo?: string;
   precoUnitario: number;
-  quantidadeInicial: number;
+  qtdeInicial: number; // quantidadeInicial no banco
+  quantidadeInicial?: number; // compatibilidade retroativa
   quantidadeUsada: number;
-  precoBPS: number;
-  precoCMED: number;
+  saldoAtual?: number;
+  valorTotalItem?: number;
+  precoBPS?: number;
+  precoCMED?: number;
+  observacoes?: string;
+  consumos?: AtaConsumo[];
+}
+
+export interface AtaConsumo {
+  id: string;
+  ataId: string;
+  ataItemId: string;
+  dataConsumo: string; // ISO date
+  quantidade: number;
+  valorUnitario: number;
+  valorTotal: number;
+  setorSolicitante?: string;
+  observacao?: string;
+  criadoEm: string;
+}
+
+export interface CatmatMedicamento {
+  id: string;
+  codigoBr: string;
+  descricao: string;
+  unidadeFornecimento: string;
 }
 
 export type PedidoCompraStatus = 

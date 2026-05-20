@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import * as dotenv from 'dotenv'
 import helmet from 'helmet'
+import path from 'path'
 import { rateLimit } from 'express-rate-limit'
 import authRoutes from './routes/authRoutes'
 import apiRoutes from './routes/apiRoutes'
@@ -30,6 +31,7 @@ const loginLimiter = rateLimit({
 // Rotas
 app.use('/auth', loginLimiter, authRoutes)
 app.use('/api', apiRoutes)
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')))
 
 // Rota de teste pública
 app.get('/', (req, res) => {
