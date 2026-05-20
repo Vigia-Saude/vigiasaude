@@ -526,7 +526,7 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
                         <div>
                           <label className="block text-xs font-medium text-gray-500 flex items-center gap-1">
                             Preço de Referência BPS
-                            <HelpCircle className="w-3.5 h-3.5 text-gray-400" title="Banco de Preços em Saúde" />
+                            <span title="Banco de Preços em Saúde"><HelpCircle className="w-3.5 h-3.5 text-gray-400" /></span>
                           </label>
                           <input
                             type="number"
@@ -541,7 +541,7 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
                         <div>
                           <label className="block text-xs font-medium text-gray-500 flex items-center gap-1">
                             Preço Teto CMED (Anvisa)
-                            <HelpCircle className="w-3.5 h-3.5 text-gray-400" title="Câmara de Regulação do Mercado de Medicamentos" />
+                            <span title="Câmara de Regulação do Mercado de Medicamentos"><HelpCircle className="w-3.5 h-3.5 text-gray-400" /></span>
                           </label>
                           <input
                             type="number"

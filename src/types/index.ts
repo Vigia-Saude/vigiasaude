@@ -14,6 +14,7 @@ export interface Ata {
   numero: string;
   fornecedorNome: string;
   fornecedorCnpj?: string;
+  fornecedorId?: string; // para compatibilidade retroativa
   processoLicitatorio?: string;
   numeroPregao?: string;
   numeroEdital?: string;
