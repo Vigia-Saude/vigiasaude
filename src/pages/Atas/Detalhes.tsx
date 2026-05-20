@@ -265,8 +265,67 @@ export function AtasDetalhes() {
           </p>
         </div>
         
-        {/* Top actions */}
+        // Top actions
         <div className="flex items-center gap-3">
+          {consumos && consumos.length > 0 && (
+            <button
+              onClick={() => {
+                try {
+                  // Mapeia os consumos relacionando com o nome do medicamento
+                  const csvHeaders = [
+                    'Código CATMAT',
+                    'Medicamento',
+                    'Data do Consumo',
+                    'Setor Solicitante',
+                    'Quantidade',
+                    'Valor Unitário (R$)',
+                    'Valor Total (R$)',
+                    'Observação'
+                  ];
+
+                  const csvRows = consumos.map(c => {
+                    const med = medicamentos.find(m => m.id === c.ataItemId);
+                    return [
+                      med?.catmatCodigo || 'Manual',
+                      `"${(med?.nome || 'Medicamento Desconhecido').replace(/"/g, '""')}"`,
+                      new Date(c.dataConsumo).toLocaleDateString('pt-BR'),
+                      `"${(c.setorSolicitante || '').replace(/"/g, '""')}"`,
+                      c.quantidade,
+                      c.valorUnitario.toFixed(2),
+                      c.valorTotal.toFixed(2),
+                      `"${(c.observacao || '').replace(/"/g, '""')}"`
+                    ];
+                  });
+
+                  const csvContent = [
+                    csvHeaders.join(','),
+                    ...csvRows.map(row => row.join(','))
+                  ].join('\n');
+
+                  // UTF-8 BOM para garantir codificação correta no Excel brasileiro
+                  const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.setAttribute('href', url);
+                  link.setAttribute('download', `Consumos_Ata_${ata.numero}.csv`);
+                  link.style.visibility = 'hidden';
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  toast.success('Relatório de consumos exportado com sucesso!');
+                } catch (err) {
+                  console.error(err);
+                  toast.error('Erro ao exportar consumos.');
+                }
+              }}
+              className="inline-flex items-center gap-1.5 px-4 py-2 border border-blue-200 rounded-md bg-blue-50 text-sm font-medium text-blue-700 shadow-sm hover:bg-blue-100 transition-colors"
+              title="Exportar planilha de todos os consumos"
+            >
+              <Download className="w-4 h-4 text-blue-600" />
+              Exportar Consumos
+            </button>
+          )}
+
           {ata.documentoPdfUrl && (
             <a
               href={`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${ata.documentoPdfUrl}`}
@@ -288,6 +347,7 @@ export function AtasDetalhes() {
           </Link>
         </div>
       </div>
+
 
       {/* Alertas Críticos da ATA */}
       {isVencida && (
