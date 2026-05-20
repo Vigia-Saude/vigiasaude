@@ -381,9 +381,6 @@ export function AtasDetalhes() {
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
           <p className="text-sm font-medium text-gray-500">Valor Teto Licitado</p>
           <p className="text-2xl font-bold text-gray-900 mt-2">{formatCurrency(valorTeto)}</p>
-          <div className="mt-4 pt-2 border-t text-[10px] text-gray-400">
-            Pregão: {ata.numeroPregao || 'N/A'} | Edital: {ata.numeroEdital || 'N/A'}
-          </div>
         </div>
         
         {/* Card 2: Consumido Real */}
