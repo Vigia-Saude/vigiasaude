@@ -91,8 +91,8 @@ export function AtasLista() {
       cell: (row) => {
         const pct = row.valorTeto > 0 ? (Number(row.valorConsumido) / Number(row.valorTeto)) * 100 : 0;
         
-        let colorClass = 'bg-blue-500';
-        let badgeClass = 'text-blue-700 bg-blue-50';
+        let colorClass: string;
+        let badgeClass: string;
         
         if (pct >= 100) {
           colorClass = 'bg-red-500';

@@ -32,7 +32,7 @@ export function DataTable<T>({
 
   // Sorting logic
   const sortedData = React.useMemo(() => {
-    let sortableItems = [...data];
+    const sortableItems = [...data];
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
         const aValue = a[sortConfig.key];

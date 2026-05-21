@@ -89,6 +89,31 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
 
 
 
+  const handleSelectCatmat = (index: number, item: CatmatMedicamento) => {
+    const newMedicamentos = [...medicamentos];
+    newMedicamentos[index] = {
+      ...newMedicamentos[index],
+      catmatCodigo: item.codigoBr,
+      nome: item.descricao,
+      unidadeFornecimento: item.unidadeFornecimento,
+      // Preenche unidadeAta com a unidade do CATMAT (editável pelo usuário)
+      unidadeAta: item.unidadeFornecimento || 'UNIDADE',
+    };
+    setMedicamentos(newMedicamentos);
+
+    // Limpar busca e fechar dropdown
+    setCatmatResults(prev => ({ ...prev, [index]: [] }));
+    // Removemos a query para que o valor exibido no input seja o med.catmatCodigo selecionado
+    setCatmatQueries(prev => {
+      const copy = { ...prev };
+      delete copy[index];
+      return copy;
+    });
+    setCatmatLoading(prev => ({ ...prev, [index]: false }));
+    setActiveSearchIndex(null);
+    toast.success(`Medicamento CATMAT preenchido: ${item.codigoBr}`);
+  };
+
   // Handle CATMAT Search with 300ms debounce
   const handleCatmatSearch = useCallback((index: number, query: string) => {
     setCatmatQueries(prev => ({ ...prev, [index]: query }));
@@ -141,31 +166,6 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
       }
     }, 300);
   }, [medicamentos]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleSelectCatmat = (index: number, item: CatmatMedicamento) => {
-    const newMedicamentos = [...medicamentos];
-    newMedicamentos[index] = {
-      ...newMedicamentos[index],
-      catmatCodigo: item.codigoBr,
-      nome: item.descricao,
-      unidadeFornecimento: item.unidadeFornecimento,
-      // Preenche unidadeAta com a unidade do CATMAT (editável pelo usuário)
-      unidadeAta: item.unidadeFornecimento || 'UNIDADE',
-    };
-    setMedicamentos(newMedicamentos);
-
-    // Limpar busca e fechar dropdown
-    setCatmatResults(prev => ({ ...prev, [index]: [] }));
-    // Removemos a query para que o valor exibido no input seja o med.catmatCodigo selecionado
-    setCatmatQueries(prev => {
-      const copy = { ...prev };
-      delete copy[index];
-      return copy;
-    });
-    setCatmatLoading(prev => ({ ...prev, [index]: false }));
-    setActiveSearchIndex(null);
-    toast.success(`Medicamento CATMAT preenchido: ${item.codigoBr}`);
-  };
 
   const handleAddMedicine = () => {
     setMedicamentos(prev => [...prev, { nome: '', precoUnitario: 0, qtdeInicial: 0, unidadeAta: 'UNIDADE' }]);

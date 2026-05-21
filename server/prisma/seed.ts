@@ -143,7 +143,7 @@ async function main() {
 main()
   .catch((e) => {
     console.error(e)
-    //@ts-ignore
+    // @ts-expect-error - process is global in node
     if (typeof process !== 'undefined') process.exit(1)
   })
   .finally(async () => {
