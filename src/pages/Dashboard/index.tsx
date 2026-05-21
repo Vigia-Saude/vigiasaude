@@ -1,13 +1,33 @@
+import { useAuth } from '../../context/AuthContext';
 import { KPICard } from '../../components/Dashboard/KPICard';
 import { AtasStatusChart } from '../../components/Dashboard/AtasStatusChart';
 import { PedidosVolumeChart } from '../../components/Dashboard/PedidosVolumeChart';
 import { FileText, ShoppingCart, Clock, AlertTriangle } from 'lucide-react';
 
-export default function CompradorDashboard() {
+export default function Dashboard() {
+  const { user } = useAuth();
+
+  if (user?.role === 'FORNECEDOR') {
+    return (
+      <div className="space-y-8 pb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Área do Fornecedor</h1>
+          <p className="mt-1 text-sm text-gray-500">Acompanhe seus Pedidos de Compra e Atas associadas.</p>
+        </div>
+        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+          <h2 className="text-lg font-bold text-gray-900 mb-2">Bem-vindo, {user.nome}!</h2>
+          <p className="text-sm text-gray-600">
+            Utilize o menu lateral para gerenciar os Pedidos de Compra (PdCs) e visualizar as ATAs em que sua empresa está registrada.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 pb-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard do Comprador</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <p className="mt-1 text-sm text-gray-500">Visão geral das contratações e consumo da rede municipal.</p>
       </div>
 
@@ -47,8 +67,6 @@ export default function CompradorDashboard() {
         <AtasStatusChart />
         <PedidosVolumeChart />
       </div>
-
-      {/* Quick Actions or Recent Activity could go here */}
     </div>
   );
 }

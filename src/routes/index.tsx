@@ -1,7 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router';
 import Layout from '../components/Layout/Layout';
 import LoginPage from '../pages/LoginPage';
-import Comprador from '../pages/Comprador';
+import Dashboard from '../pages/Dashboard';
 import Fornecedor from '../pages/Fornecedor';
 import Fallback from '../pages/Fallback';
 import AccessDenied from '../pages/AccessDenied';
@@ -28,20 +28,7 @@ export const router = createBrowserRouter([
     children: [
       {
         path: 'dashboard',
-        element: (
-          <div className="p-6">
-            <h1 className="text-2xl font-bold text-gray-800">Início</h1>
-            <p className="mt-2 text-gray-600">Bem-vindo ao Vigia Saúde.</p>
-          </div>
-        ),
-      },
-      {
-        path: 'comprador',
-        element: (
-          <ProtectedRoute allowedRoles={['COMPRADOR']}>
-            <Comprador />
-          </ProtectedRoute>
-        ),
+        element: <Dashboard />,
       },
       {
         path: 'fornecedor',
@@ -93,20 +80,7 @@ export const router = createBrowserRouter([
           return { Component: CompararOrcamentos };
         },
       },
-      {
-        path: 'solicitar-reequilibrio',
-        lazy: async () => {
-          const { SolicitarReequilibrio } = await import('../pages/Reequilibrio/Solicitar');
-          return { Component: SolicitarReequilibrio };
-        },
-      },
-      {
-        path: 'aprovar-reequilibrio',
-        lazy: async () => {
-          const { AprovarReequilibrio } = await import('../pages/Reequilibrio/Aprovar');
-          return { Component: AprovarReequilibrio };
-        },
-      },
+
       {
         path: 'fornecedores',
         lazy: async () => {
