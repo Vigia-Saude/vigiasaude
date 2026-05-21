@@ -83,21 +83,41 @@ export type PedidoCompraStatus =
   | 'APROVADO' 
   | 'EM_TRANSITO' 
   | 'ENTREGUE' 
-  | 'CANCELADO';
+  | 'CANCELADO'
+  | 'ACEITO'
+  | 'REJEITADO';
 
 export interface PedidoCompraItem {
-  medicamentoId: string;
+  id?: string;
+  pedidoId?: string;
+  medicamentoId?: string | null;
+  medicamentoNome: string;
   quantidade: number;
-  precoUnitario: number; // Preço no momento do pedido
+  precoUnitario: number;
+  valorTotal: number;
+  ataItemId?: string | null;
 }
 
 export interface PedidoCompra {
   id: string;
+  numero: string;
   status: PedidoCompraStatus;
-  ataId: string;
-  itens: PedidoCompraItem[];
+  ataId?: string | null;
+  fornecedorId?: string | null;
   valorTotal: number;
-  dataCriacao: string; // ISO date string
+  dataSolicitacao: string; // ISO date string
+  criadoEm: string; // ISO date string
+  justificativa?: string | null;
+  itens?: PedidoCompraItem[];
+  ata?: {
+    id: string;
+    numero: string;
+  } | null;
+  fornecedor?: {
+    id: string;
+    nomeFantasia: string;
+    razaoSocial: string;
+  } | null;
 }
 
 export type AuditoriaAcao = 'CRIACAO' | 'ATUALIZACAO' | 'EXCLUSAO' | 'APROVACAO' | 'BLOQUEIO';

@@ -5,5 +5,6 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     setupFiles: [], // Clear frontend setup files
+    exclude: ['**/node_modules/**', '**/dist/**', '**/cypress/**', '**/.{idea,git,cache,output,temp}/**'],
   },
 });

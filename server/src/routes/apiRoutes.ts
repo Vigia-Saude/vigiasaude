@@ -33,7 +33,10 @@ router.post('/upload', uploadConfig.single('file'), uploadController.upload);
 
 // Rotas de Pedidos
 router.get('/pedidos', pedidoController.listar);
+router.get('/pedidos/:id', pedidoController.detalhes);
 router.post('/pedidos', pedidoController.criarPedido);
+router.put('/pedidos/:id', pedidoController.atualizarPedido);
+router.patch('/pedidos/:id/status', pedidoController.atualizarStatus);
 router.patch('/pedidos/:id/entrega', pedidoController.confirmarEntrega);
 
 // Rotas de Auditoria (Restrito a COMPRADOR)

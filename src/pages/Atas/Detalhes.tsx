@@ -1,17 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router';
 import { toast } from 'sonner';
 import { getAtaFullDetails } from '../../services/ataService';
 import type { AtaFullDetails } from '../../services/ataService';
 import { DataTable } from '../../components/ui/DataTable';
 import type { ColumnDef } from '../../components/ui/DataTable';
-import { ProgressBar } from '../../components/ui/ProgressBar';
 import { AlertBanner } from '../../components/ui/AlertBanner';
 import { TableSkeleton } from '../../components/ui/TableSkeleton';
-import { ModalNovoConsumo } from '../../components/Atas/ModalNovoConsumo';
-import { Clock, AlertCircle, ArrowLeft, Plus, Download, FileText, Calendar, Building2 } from 'lucide-react';
+
+import { Clock, AlertCircle, ArrowLeft, Download, FileText, Calendar, Building2 } from 'lucide-react';
 import { Link } from 'react-router';
-import type { MedicamentoAta, AtaConsumo } from '../../types';
+import type { MedicamentoAta } from '../../types';
 
 export function AtasDetalhes() {
   const { id } = useParams<{ id: string }>();
@@ -19,11 +18,9 @@ export function AtasDetalhes() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Consumo modal state
-  const [isConsumoModalOpen, setIsConsumoModalOpen] = useState(false);
-  const [selectedMedicamento, setSelectedMedicamento] = useState<MedicamentoAta | null>(null);
 
-  const fetchData = async () => {
+
+  const fetchData = useCallback(async () => {
     if (!id) return;
     try {
       setIsLoading(true);
@@ -41,11 +38,21 @@ export function AtasDetalhes() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
-    fetchData();
-  }, [id]);
+    let active = true;
+    const load = async () => {
+      await Promise.resolve();
+      if (active) {
+        fetchData();
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [fetchData]);
 
   if (isLoading) {
     return (
@@ -112,11 +119,6 @@ export function AtasDetalhes() {
 
   const formatDate = (isoString: string) => {
     return new Date(isoString).toLocaleDateString('pt-BR');
-  };
-
-  const handleOpenConsumoModal = (med: MedicamentoAta) => {
-    setSelectedMedicamento(med);
-    setIsConsumoModalOpen(true);
   };
 
   // Definição das colunas da tabela de medicamentos licitados
@@ -265,7 +267,7 @@ export function AtasDetalhes() {
           </p>
         </div>
         
-        // Top actions
+        {/* Top actions */}
         <div className="flex items-center gap-3">
           {consumos && consumos.length > 0 && (
             <button
@@ -448,36 +450,8 @@ export function AtasDetalhes() {
           data={medicamentos}
           columns={columns}
           renderExpandedRow={renderExpandedRow}
-          rowActions={(row) => (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleOpenConsumoModal(row);
-              }}
-              className="inline-flex items-center justify-center rounded-md border border-blue-200 bg-blue-50 text-xs font-semibold text-blue-600 hover:bg-blue-100 hover:text-blue-700 h-8 px-3 transition-colors gap-1 shadow-sm"
-              title="Registrar consumo deste item"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Consumo
-            </button>
-          )}
         />
       </div>
-
-      {/* Modal para Registrar Novo Consumo */}
-      <ModalNovoConsumo 
-        isOpen={isConsumoModalOpen} 
-        onClose={() => {
-          setIsConsumoModalOpen(false);
-          setSelectedMedicamento(null);
-        }} 
-        onSuccess={() => {
-          fetchData();
-          toast.success('Valores atualizados com sucesso.');
-        }}
-        ataId={data.id}
-        item={selectedMedicamento}
-      />
 
     </div>
   );

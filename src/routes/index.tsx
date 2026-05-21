@@ -73,6 +73,13 @@ export const router = createBrowserRouter([
         },
       },
       {
+        path: 'pedidos/novo',
+        lazy: async () => {
+          const { NovoPedido } = await import('../pages/Pedidos/Novo');
+          return { Component: NovoPedido };
+        },
+      },
+      {
         path: 'confirmar-entrega/:id',
         lazy: async () => {
           const { ConfirmarEntrega } = await import('../pages/Pedidos/ConfirmarEntrega');

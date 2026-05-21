@@ -1,13 +1,19 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { mockPedidosCompra, mockAtas } from '../../lib/mockData';
+import { toast } from 'sonner';
+import { getPedidoById, confirmarEntrega as confirmarEntregaApi } from '../../services/pedidoService';
+import type { PedidoCompra } from '../../types';
 import { FileUpload } from '../../components/ui/FileUpload';
 import { SuccessModal } from '../../components/ui/SuccessModal';
+import { Loader2, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router';
 
 export function ConfirmarEntrega() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
+  const [pedido, setPedido] = useState<PedidoCompra | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // States for form
   const [checkedItems, setCheckedItems] = useState({
@@ -18,11 +24,48 @@ export function ConfirmarEntrega() {
   const [nfNumber, setNfNumber] = useState('');
   const [observations, setObservations] = useState('');
 
-  const pedido = mockPedidosCompra.find(p => p.id === id);
-  const ata = mockAtas.find(a => a.id === pedido?.ataId);
+  useEffect(() => {
+    if (!id) return;
+    const fetchPedido = async () => {
+      try {
+        setIsLoading(true);
+        const data = await getPedidoById(id);
+        setPedido(data);
+      } catch (err) {
+        console.error('Erro ao buscar pedido:', err);
+        toast.error('Erro ao buscar informações do pedido de compra.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchPedido();
+  }, [id]);
 
-  if (!pedido || pedido.status !== 'EM_TRANSITO') {
-    return <div className="p-8 text-center text-gray-500">Pedido não encontrado ou não está em trânsito.</div>;
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 min-h-[50vh]">
+        <Loader2 className="h-8 w-8 text-blue-600 animate-spin mb-4" />
+        <span className="text-gray-500 font-medium">Carregando dados do pedido...</span>
+      </div>
+    );
+  }
+
+  if (!pedido || ['CANCELADO', 'REJEITADO', 'ENTREGUE', 'RASCUNHO'].includes(pedido.status)) {
+    return (
+      <div className="max-w-md mx-auto mt-12 bg-white p-6 rounded-xl border border-gray-200 text-center shadow-sm">
+        <h3 className="text-lg font-bold text-gray-900 mb-2">Pedido Inválido</h3>
+        <p className="text-sm text-gray-500 mb-6">
+          O pedido não foi localizado ou não está em um status que permite confirmação de recebimento (atual: <span className="font-semibold">{pedido?.status || 'N/A'}</span>).
+        </p>
+        <Link 
+          to="/pedidos" 
+          className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-500"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Voltar para Pedidos
+        </Link>
+      </div>
+    );
   }
 
   const formatCurrency = (value: number) => {
@@ -31,12 +74,19 @@ export function ConfirmarEntrega() {
 
   const isFormValid = checkedItems.nf && checkedItems.medicamentos && checkedItems.lote && nfNumber.length > 0;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isFormValid) return;
+    if (!isFormValid || !id) return;
     
-    // Simulate API Call
-    setShowModal(true);
+    try {
+      await confirmarEntregaApi(id);
+      setShowModal(true);
+    } catch (err: unknown) {
+      console.error(err);
+      const axiosError = err as { response?: { data?: { error?: string } } };
+      const errMsg = axiosError.response?.data?.error || 'Erro ao confirmar entrega.';
+      toast.error(errMsg);
+    }
   };
 
   const handleModalClose = () => {
@@ -46,9 +96,18 @@ export function ConfirmarEntrega() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Confirmar Entrega - {pedido.id.toUpperCase()}</h1>
-        <p className="mt-1 text-sm text-gray-500">Preencha o checklist de recebimento para o pedido vinculado à Ata {ata?.numero}.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Confirmar Entrega - {pedido.numero}</h1>
+          <p className="mt-1 text-sm text-gray-500">Preencha o checklist de recebimento para o pedido.</p>
+        </div>
+        <Link 
+          to="/pedidos" 
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 rounded-md bg-white text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Voltar
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -58,12 +117,16 @@ export function ConfirmarEntrega() {
             <h3 className="font-semibold text-gray-900 mb-4">Resumo do Pedido</h3>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-500">Ata:</span>
-                <span className="font-medium text-gray-900">{ata?.numero}</span>
+                <span className="text-gray-500 font-medium">Ata Vinculada:</span>
+                <span className="font-semibold text-gray-900">{pedido.ata?.numero || 'Sem ATA'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Itens:</span>
-                <span className="font-medium text-gray-900">{pedido.itens.length}</span>
+                <span className="text-gray-500 font-medium">Fornecedor:</span>
+                <span className="font-semibold text-gray-900 text-right">{pedido.fornecedor?.nomeFantasia || pedido.fornecedor?.razaoSocial}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500 font-medium">Itens no Pedido:</span>
+                <span className="font-semibold text-gray-900">{(pedido.itens || []).length}</span>
               </div>
               <div className="flex justify-between pt-3 border-t border-gray-200">
                 <span className="text-gray-500 font-medium">Valor Total:</span>
@@ -80,28 +143,28 @@ export function ConfirmarEntrega() {
             <div>
               <h3 className="text-base font-semibold text-gray-900 mb-3">Checklist de Conformidade</h3>
               <div className="space-y-3">
-                <label className="flex items-start gap-3 cursor-pointer">
+                <label className="flex items-start gap-3 cursor-pointer select-none">
                   <input 
                     type="checkbox" 
-                    className="mt-1 w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" 
+                    className="mt-1 w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer" 
                     checked={checkedItems.nf}
                     onChange={(e) => setCheckedItems(prev => ({ ...prev, nf: e.target.checked }))}
                   />
                   <span className="text-sm text-gray-700">A Nota Fiscal está em conformidade com o Pedido de Compra gerado.</span>
                 </label>
-                <label className="flex items-start gap-3 cursor-pointer">
+                <label className="flex items-start gap-3 cursor-pointer select-none">
                   <input 
                     type="checkbox" 
-                    className="mt-1 w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" 
+                    className="mt-1 w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer" 
                     checked={checkedItems.medicamentos}
                     onChange={(e) => setCheckedItems(prev => ({ ...prev, medicamentos: e.target.checked }))}
                   />
                   <span className="text-sm text-gray-700">As quantidades e integridade física dos medicamentos estão corretas.</span>
                 </label>
-                <label className="flex items-start gap-3 cursor-pointer">
+                <label className="flex items-start gap-3 cursor-pointer select-none">
                   <input 
                     type="checkbox" 
-                    className="mt-1 w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" 
+                    className="mt-1 w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer" 
                     checked={checkedItems.lote}
                     onChange={(e) => setCheckedItems(prev => ({ ...prev, lote: e.target.checked }))}
                   />
@@ -152,7 +215,7 @@ export function ConfirmarEntrega() {
               <button
                 type="submit"
                 disabled={!isFormValid}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 Confirmar Entrega
               </button>

@@ -1,17 +1,51 @@
 import apiClient from './apiClient';
-import type { PedidoCompra } from '../types';
+import type { PedidoCompra, PedidoCompraStatus } from '../types';
 
-export interface PedidoWithAta extends PedidoCompra {
-  ataNumero: string;
+export interface GetPedidosFilters {
+  busca?: string;
+  fornecedorId?: string;
+  status?: string;
+  dataInicio?: string;
+  dataFim?: string;
 }
 
-export const getPedidos = async (): Promise<PedidoWithAta[]> => {
-  const response = await apiClient.get<PedidoWithAta[]>('/api/pedidos');
+export const getPedidos = async (filters?: GetPedidosFilters): Promise<PedidoCompra[]> => {
+  const response = await apiClient.get<PedidoCompra[]>('/api/pedidos', { params: filters });
   return response.data;
 };
 
-export const getPedidoById = async (id: string): Promise<PedidoWithAta | null> => {
-  const response = await apiClient.get<PedidoWithAta>(`/api/pedidos/${id}`);
+export const getPedidoById = async (id: string): Promise<PedidoCompra | null> => {
+  const response = await apiClient.get<PedidoCompra>(`/api/pedidos/${id}`);
+  return response.data;
+};
+
+export interface CreatePedidoPayload {
+  ataId?: string | null;
+  fornecedorId?: string | null;
+  status: PedidoCompraStatus;
+  dataSolicitacao?: string;
+  itens: {
+    medicamentoId?: string | null;
+    medicamentoNome: string;
+    quantidade: number;
+    precoUnitario: number;
+    ataItemId?: string | null;
+  }[];
+  justificativa?: string;
+}
+
+export const createPedido = async (payload: CreatePedidoPayload): Promise<PedidoCompra> => {
+  const response = await apiClient.post<PedidoCompra>('/api/pedidos', payload);
+  return response.data;
+};
+
+export const updatePedido = async (id: string, payload: CreatePedidoPayload): Promise<PedidoCompra> => {
+  const response = await apiClient.put<PedidoCompra>(`/api/pedidos/${id}`, payload);
+  return response.data;
+};
+
+export const updatePedidoStatus = async (id: string, status: string, justificativa?: string): Promise<PedidoCompra> => {
+  const response = await apiClient.patch<PedidoCompra>(`/api/pedidos/${id}/status`, { status, justificativa });
   return response.data;
 };
 

@@ -42,3 +42,7 @@ server/update-password.js
 server/src/test-db-connection.ts
 server/src/test-pg-connection.ts
 
+# Uploads
+server/uploads/
+
+
