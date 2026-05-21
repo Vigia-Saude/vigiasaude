@@ -98,6 +98,20 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
       clearTimeout(debounceTimers.current[index]);
     }
 
+    // Se o usuário limpou o campo, removemos a associação com o CATMAT
+    if (query.trim() === '') {
+      const newMedicamentos = [...medicamentos];
+      newMedicamentos[index] = {
+        ...newMedicamentos[index],
+        catmatCodigo: undefined,
+        unidadeFornecimento: undefined,
+      };
+      setMedicamentos(newMedicamentos);
+      setCatmatResults(prev => ({ ...prev, [index]: [] }));
+      setCatmatLoading(prev => ({ ...prev, [index]: false }));
+      return;
+    }
+
     if (query.trim().length < 2) {
       setCatmatResults(prev => ({ ...prev, [index]: [] }));
       setCatmatLoading(prev => ({ ...prev, [index]: false }));
@@ -142,7 +156,12 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
 
     // Limpar busca e fechar dropdown
     setCatmatResults(prev => ({ ...prev, [index]: [] }));
-    setCatmatQueries(prev => ({ ...prev, [index]: '' }));
+    // Removemos a query para que o valor exibido no input seja o med.catmatCodigo selecionado
+    setCatmatQueries(prev => {
+      const copy = { ...prev };
+      delete copy[index];
+      return copy;
+    });
     setCatmatLoading(prev => ({ ...prev, [index]: false }));
     setActiveSearchIndex(null);
     toast.success(`Medicamento CATMAT preenchido: ${item.codigoBr}`);

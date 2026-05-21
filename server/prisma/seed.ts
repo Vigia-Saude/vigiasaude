@@ -2,6 +2,9 @@ import { PrismaClient } from '@prisma/client'
 import { Pool } from 'pg'
 import { PrismaPg } from '@prisma/adapter-pg'
 import * as dotenv from 'dotenv'
+import * as fs from 'fs'
+import * as path from 'path'
+import { parse } from 'csv-parse/sync'
 
 dotenv.config()
 
@@ -46,15 +49,63 @@ async function main() {
 
   console.log({ comprador, fornecedor })
 
-  // Criar CatmatMedicamentos
-  await prisma.catmatMedicamento.createMany({
-    data: [
-      { codigoBr: 'BR0271234', descricao: 'AMOXICILINA 500 MG', unidadeFornecimento: 'CAPSULA' },
-      { codigoBr: 'BR0275678', descricao: 'DIPIRONA 500 MG/ML', unidadeFornecimento: 'AMPOLA' },
-      { codigoBr: 'BR0279012', descricao: 'PARACETAMOL 750 MG', unidadeFornecimento: 'COMPRIMIDO' },
-    ],
-    skipDuplicates: true,
-  })
+  // Carga de dados CATMAT a partir do arquivo CSV
+  const csvPath = path.resolve(__dirname, '..', '..', 'catmat_medicamentos.csv')
+  console.log(`Lendo arquivo CSV em: ${csvPath}`)
+
+  if (!fs.existsSync(csvPath)) {
+    throw new Error(`Arquivo CSV de medicamentos não encontrado em: ${csvPath}`)
+  }
+
+  const csvContent = fs.readFileSync(csvPath, 'utf8')
+  const records = parse(csvContent, {
+    columns: true,
+    skip_empty_lines: true,
+    trim: true,
+  }) as any[]
+
+  console.log(`Linhas lidas do CSV: ${records.length}`)
+
+  // Deduplicar registros por codigoBr no arquivo CSV
+  const map = new Map<string, { codigoBr: string; descricao: string; unidadeFornecimento: string }>()
+
+  for (const record of records) {
+    const codigoBr = record.codigo_br?.trim()
+    const descricao = record.descricao?.trim()
+    const unidadeFornecimento = record.unidade_fornecimento?.trim()
+
+    if (!codigoBr || !descricao) {
+      continue
+    }
+
+    // Mantém o primeiro registro encontrado no CSV
+    if (!map.has(codigoBr)) {
+      map.set(codigoBr, {
+        codigoBr,
+        descricao,
+        unidadeFornecimento: unidadeFornecimento || '',
+      })
+    }
+  }
+
+  const uniqueRecords = Array.from(map.values())
+  console.log(`Registros únicos do CATMAT para inserção: ${uniqueRecords.length}`)
+
+  // Inserir em lotes de 1000 registros
+  const CHUNK_SIZE = 1000
+  let totalInseridos = 0
+
+  for (let i = 0; i < uniqueRecords.length; i += CHUNK_SIZE) {
+    const chunk = uniqueRecords.slice(i, i + CHUNK_SIZE)
+    const res = await prisma.catmatMedicamento.createMany({
+      data: chunk,
+      skipDuplicates: true,
+    })
+    totalInseridos += res.count
+    console.log(`Lote de ${chunk.length} processado. Novos registros inseridos no banco: ${res.count}`)
+  }
+
+  console.log(`Importação concluída. Total de novos registros adicionados: ${totalInseridos}`)
 
   // Criar uma Ata de Exemplo
   const ataExemplo = await prisma.ata.upsert({
