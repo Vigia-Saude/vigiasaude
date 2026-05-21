@@ -5,6 +5,7 @@ import { AtaController } from '../controllers/AtaController';
 import { CatmatController } from '../controllers/CatmatController';
 import { UploadController, uploadConfig } from '../controllers/UploadController';
 import { FornecedorController } from '../controllers/FornecedorController';
+import { DashboardController } from '../controllers/DashboardController';
 import { authMiddleware, roleMiddleware } from '../middlewares/auth';
 
 const router = Router();
@@ -14,9 +15,13 @@ const ataController = new AtaController();
 const catmatController = new CatmatController();
 const uploadController = new UploadController();
 const fornecedorController = new FornecedorController();
+const dashboardController = new DashboardController();
 
 // Todas as rotas da API requerem autenticação
 router.use(authMiddleware);
+
+// Rotas de Dashboard
+router.get('/dashboard/stats', dashboardController.getStats);
 
 // Rotas de Atas
 router.get('/atas', ataController.listar);
