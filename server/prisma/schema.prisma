@@ -41,6 +41,26 @@ model CatmatMedicamento {
   @@map("catmat_medicamentos")
 }
 
+model Fornecedor {
+  id            String   @id @default(uuid())
+  cnpj          String   @unique
+  razaoSocial   String   @map("razao_social")
+  nomeFantasia  String   @map("nome_fantasia")
+  email         String
+  whatsapp      String
+  status        String   @default("ATIVO")
+  taxaAceitacao Decimal  @default(100.00) @db.Decimal(5, 2) @map("taxa_aceitacao")
+  categorias    String[]
+  criadoEm      DateTime @default(now()) @map("criado_em")
+  atualizadoEm  DateTime @default(now()) @updatedAt @map("atualizado_em")
+
+  // Relacionamentos
+  usuarios      User[]
+  atas          Ata[]    @relation("FornecedorAtas")
+
+  @@map("fornecedores")
+}
+
 model User {
   id           String      @id @default(uuid())
   nome         String
@@ -48,6 +68,7 @@ model User {
   senhaHash    String      @map("senha_hash")
   role         Role        @default(COMPRADOR)
   fornecedorId String?     @map("fornecedor_id")
+  fornecedor   Fornecedor? @relation(fields: [fornecedorId], references: [id])
   criadoEm     DateTime    @default(now()) @map("criado_em")
   atualizadoEm DateTime    @updatedAt @map("atualizado_em")
   auditorias   Auditoria[]
@@ -60,6 +81,7 @@ model Ata {
   numero              String           @unique
   fornecedorNome      String           @map("fornecedor_nome") // Campo textual
   fornecedorCnpj      String?          @map("fornecedor_cnpj") // Campo textual
+  fornecedor          Fornecedor?      @relation("FornecedorAtas", fields: [fornecedorCnpj], references: [cnpj])
   processoLicitatorio String?          @map("processo_licitatorio")
   numeroPregao        String?          @map("numero_pregao")
   numeroEdital        String?          @map("numero_edital")
@@ -142,7 +164,6 @@ model PedidoCompra {
   valorTotal   Decimal      @db.Decimal(12, 2) @map("valor_total")
   criadoEm     DateTime     @default(now()) @map("criado_em")
   atualizadoEm DateTime     @updatedAt @map("atualizado_em")
-  
   consumos     AtaConsumo[]
 
   @@index([ataId])

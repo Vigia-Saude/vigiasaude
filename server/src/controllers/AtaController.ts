@@ -7,12 +7,13 @@ export class AtaController {
   listar = async (req: Request, res: Response): Promise<Response> => {
     try {
       const atas = await prisma.ata.findMany({
-        orderBy: { criadoEm: 'desc' },
         include: {
+          fornecedor: true,
           _count: {
             select: { medicamentos: true }
           }
-        }
+        },
+        orderBy: { criadoEm: 'desc' }
       });
       
       const result = atas.map(ata => ({
@@ -21,6 +22,8 @@ export class AtaController {
         dataFim: ata.vigenciaFim.toISOString(),
         valorTeto: Number(ata.valorTeto),
         valorConsumido: Number(ata.valorConsumido),
+        fornecedorId: ata.fornecedor?.id || '',
+        fornecedorNome: ata.fornecedor?.nomeFantasia || ata.fornecedorNome
       }));
 
       return res.json(result);
@@ -51,7 +54,8 @@ export class AtaController {
           },
           consumos: {
             orderBy: { dataConsumo: 'desc' }
-          }
+          },
+          fornecedor: true
         }
       });
 
@@ -63,23 +67,31 @@ export class AtaController {
 
       const formattedMedicamentos = ataData.medicamentos.map((med: any) => ({
         ...med,
+        quantidadeInicial: med.qtdeInicial,
         precoUnitario: Number(med.precoUnitario),
         valorTotalItem: med.valorTotalItem ? Number(med.valorTotalItem) : null,
-        precoBPS: med.precoBPS ? Number(med.precoBPS) : null,
-        precoCMED: med.precoCMED ? Number(med.precoCMED) : null,
+        precoBPS: med.precoBPS ? Number(med.precoBPS) : 0,
+        precoCMED: med.precoCMED ? Number(med.precoCMED) : 0,
         saldoAtual: med.qtdeInicial - med.quantidadeUsada,
-        consumos: med.consumos.map((c: any) => ({
+        consumos: med.consumos ? med.consumos.map((c: any) => ({
           ...c,
           valorUnitario: Number(c.valorUnitario),
           valorTotal: Number(c.valorTotal),
-        }))
+        })) : []
       }));
 
-      const formattedConsumos = ataData.consumos.map((c: any) => ({
+      const formattedConsumos = ataData.consumos ? ataData.consumos.map((c: any) => ({
         ...c,
         valorUnitario: Number(c.valorUnitario),
         valorTotal: Number(c.valorTotal),
-      }));
+      })) : [];
+
+      const formattedPedidos = ataData.pedidos ? ataData.pedidos.map((p: any) => ({
+        ...p,
+        valorTotal: Number(p.valorTotal),
+        dataCriacao: p.criadoEm,
+        itens: []
+      })) : [];
 
       const result = {
         ...ataData,
@@ -87,7 +99,10 @@ export class AtaController {
         dataFim: ata.vigenciaFim.toISOString(),
         valorTeto: Number(ata.valorTeto),
         valorConsumido: Number(ata.valorConsumido),
+        fornecedorId: ata.fornecedor?.id || '',
+        fornecedorNome: ata.fornecedor?.nomeFantasia || ata.fornecedorNome,
         medicamentos: formattedMedicamentos,
+        pedidos: formattedPedidos,
         consumos: formattedConsumos,
       };
 

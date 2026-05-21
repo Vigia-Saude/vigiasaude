@@ -1,10 +1,17 @@
-export type FornecedorStatus = 'ATIVO' | 'PENDENTE' | 'BLOQUEADO';
+export type FornecedorStatus = 'ATIVO' | 'INATIVO';
 
 export interface Fornecedor {
   id: string;
-  nome: string;
-  status: FornecedorStatus;
+  cnpj: string;
+  razaoSocial: string;
+  nomeFantasia: string;
   email: string;
+  whatsapp: string;
+  status: FornecedorStatus;
+  taxaAceitacao: number;
+  categorias: string[];
+  criadoEm: string;
+  atualizadoEm: string;
 }
 
 export type AtaStatus = 'ATIVA' | 'VENCIDA' | 'CANCELADA' | 'EM_REVISAO' | 'ESGOTADA';

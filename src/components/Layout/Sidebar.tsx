@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router';
-import { LayoutDashboard, ShoppingCart, Truck, FileText, ClipboardList, Scale, CheckSquare, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Truck, FileText, ClipboardList, Scale, CheckSquare, ShieldCheck, Building2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export default function Sidebar({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (val: boolean) => void }) {
@@ -10,6 +10,7 @@ export default function Sidebar({ isOpen, setIsOpen }: { isOpen: boolean; setIsO
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['COMPRADOR', 'FORNECEDOR'] },
     { name: 'Comprador', path: '/comprador', icon: ShoppingCart, roles: ['COMPRADOR'] },
     { name: 'Fornecedor', path: '/fornecedor', icon: Truck, roles: ['FORNECEDOR'] },
+    { name: 'Fornecedores', path: '/fornecedores', icon: Building2, roles: ['COMPRADOR'] },
     { name: 'Atas', path: '/atas', icon: FileText, roles: ['COMPRADOR', 'FORNECEDOR'] },
     { name: 'Pedidos', path: '/pedidos', icon: ClipboardList, roles: ['COMPRADOR', 'FORNECEDOR'] },
     { name: 'Solicitar Reequilíbrio', path: '/solicitar-reequilibrio', icon: Scale, roles: ['FORNECEDOR'] },

@@ -4,6 +4,7 @@ import { AuditoriaController } from '../controllers/AuditoriaController';
 import { AtaController } from '../controllers/AtaController';
 import { CatmatController } from '../controllers/CatmatController';
 import { UploadController, uploadConfig } from '../controllers/UploadController';
+import { FornecedorController } from '../controllers/FornecedorController';
 import { authMiddleware, roleMiddleware } from '../middlewares/auth';
 
 const router = Router();
@@ -12,6 +13,7 @@ const auditoriaController = new AuditoriaController();
 const ataController = new AtaController();
 const catmatController = new CatmatController();
 const uploadController = new UploadController();
+const fornecedorController = new FornecedorController();
 
 // Todas as rotas da API requerem autenticação
 router.use(authMiddleware);
@@ -36,5 +38,12 @@ router.patch('/pedidos/:id/entrega', pedidoController.confirmarEntrega);
 
 // Rotas de Auditoria (Restrito a COMPRADOR)
 router.get('/auditoria', roleMiddleware(['COMPRADOR']), auditoriaController.listar);
+
+// Rotas de Fornecedores
+router.get('/fornecedores', fornecedorController.listar);
+router.get('/fornecedores/:id', fornecedorController.detalhes);
+router.post('/fornecedores', roleMiddleware(['COMPRADOR']), fornecedorController.criar);
+router.put('/fornecedores/:id', roleMiddleware(['COMPRADOR']), fornecedorController.atualizar);
+router.patch('/fornecedores/:id/status', roleMiddleware(['COMPRADOR']), fornecedorController.toggleStatus);
 
 export default router;

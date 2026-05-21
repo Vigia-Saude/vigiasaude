@@ -1,10 +1,58 @@
 import type { Ata, Auditoria, Fornecedor, MedicamentoAta, PedidoCompra } from '../types';
 
 export const mockFornecedores: Fornecedor[] = [
-  { id: 'f1', nome: 'MedSupply Nacional LTDA', status: 'ATIVO', email: 'contato@medsupply.com.br' },
-  { id: 'f2', nome: 'FarmaDistribuidora Regional', status: 'ATIVO', email: 'vendas@farmadistribuidora.com.br' },
-  { id: 'f3', nome: 'Global Health Import', status: 'PENDENTE', email: 'cadastro@globalhealth.com' },
-  { id: 'f4', nome: 'BioLogistica Sul', status: 'BLOQUEADO', email: 'legal@biologisticasul.com.br' },
+  { 
+    id: 'f1', 
+    cnpj: '12.345.678/0001-90', 
+    razaoSocial: 'MedSupply Nacional LTDA', 
+    nomeFantasia: 'MedSupply', 
+    status: 'ATIVO', 
+    email: 'contato@medsupply.com.br', 
+    whatsapp: '(11) 99999-9999',
+    taxaAceitacao: 98.5,
+    categorias: ['Medicamentos', 'Material Hospitalar'],
+    criadoEm: '2025-01-10T00:00:00Z',
+    atualizadoEm: '2025-01-10T00:00:00Z'
+  },
+  { 
+    id: 'f2', 
+    cnpj: '98.765.432/0001-10', 
+    razaoSocial: 'FarmaDistribuidora Regional S/A', 
+    nomeFantasia: 'FarmaDistribuidora', 
+    status: 'ATIVO', 
+    email: 'vendas@farmadistribuidora.com.br', 
+    whatsapp: '(21) 98888-8888',
+    taxaAceitacao: 100.0,
+    categorias: ['Medicamentos', 'Genéricos'],
+    criadoEm: '2025-01-11T00:00:00Z',
+    atualizadoEm: '2025-01-11T00:00:00Z'
+  },
+  { 
+    id: 'f3', 
+    cnpj: '45.678.901/0001-23', 
+    razaoSocial: 'Global Health Importadora Ltda', 
+    nomeFantasia: 'Global Health', 
+    status: 'INATIVO', 
+    email: 'cadastro@globalhealth.com', 
+    whatsapp: '(11) 97777-7777',
+    taxaAceitacao: 85.0,
+    categorias: ['Importados', 'Equipamentos'],
+    criadoEm: '2025-01-12T00:00:00Z',
+    atualizadoEm: '2025-01-12T00:00:00Z'
+  },
+  { 
+    id: 'f4', 
+    cnpj: '23.456.789/0001-01', 
+    razaoSocial: 'BioLogistica Sul Distribuidora', 
+    nomeFantasia: 'BioLogistica Sul', 
+    status: 'INATIVO', 
+    email: 'legal@biologisticasul.com.br', 
+    whatsapp: '(51) 96666-6666',
+    taxaAceitacao: 90.0,
+    categorias: ['Material Hospitalar', 'Controlados'],
+    criadoEm: '2025-01-13T00:00:00Z',
+    atualizadoEm: '2025-01-13T00:00:00Z'
+  },
 ];
 
 export const mockAtas: Ata[] = [
