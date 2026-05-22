@@ -267,7 +267,7 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
         ></div>
 
         <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10 sm:pl-16">
-          <div className="pointer-events-auto w-screen max-w-4xl transform transition-transform duration-500 ease-in-out">
+          <div className="pointer-events-auto w-screen max-w-4xl h-full transform transition-transform duration-500 ease-in-out">
             <form onSubmit={handleSubmit} className="flex h-full flex-col bg-white shadow-2xl">
               
               {/* Header */}
