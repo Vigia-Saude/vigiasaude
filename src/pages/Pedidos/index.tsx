@@ -1,9 +1,10 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
-import { 
-  getPedidos, 
-  updatePedidoStatus 
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  getPedidos,
+  updatePedidoStatus
 } from '../../services/pedidoService';
 import { getFornecedores } from '../../services/fornecedorService';
 import type { PedidoCompra, Fornecedor } from '../../types';
@@ -27,10 +28,7 @@ import {
 } from 'lucide-react';
 
 export function PedidosLista() {
-  const [pedidos, setPedidos] = useState<PedidoCompra[]>([]);
-  const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   // Filters State
   const [busca, setBusca] = useState('');
@@ -39,6 +37,7 @@ export function PedidosLista() {
   const [fornecedorFilter, setFornecedorFilter] = useState('');
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
+  const [page, setPage] = useState(1);
 
   // Cancel Modal State
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
@@ -58,62 +57,35 @@ export function PedidosLista() {
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedBusca(busca);
+      setPage(1);
     }, 450);
     return () => clearTimeout(handler);
   }, [busca]);
 
-  // Load suppliers once
-  useEffect(() => {
-    const loadSuppliers = async () => {
-      try {
-        const data = await getFornecedores();
-        setFornecedores(data);
-      } catch (err) {
-        console.error('Erro ao carregar fornecedores:', err);
-      }
-    };
-    loadSuppliers();
-  }, []);
+  const filters = useMemo(() => ({
+    busca: debouncedBusca || undefined,
+    status: statusFilter || undefined,
+    fornecedorId: fornecedorFilter || undefined,
+    dataInicio: dataInicio || undefined,
+    dataFim: dataFim || undefined,
+    page,
+    limit: 50
+  }), [debouncedBusca, statusFilter, fornecedorFilter, dataInicio, dataFim, page]);
 
-  // Fetch pedidos when filters change
-  const fetchPedidosData = useCallback(async () => {
-    await Promise.resolve();
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      const filters = {
-        busca: debouncedBusca || undefined,
-        status: statusFilter || undefined,
-        fornecedorId: fornecedorFilter || undefined,
-        dataInicio: dataInicio || undefined,
-        dataFim: dataFim || undefined
-      };
+  const { data: response, isLoading, isError } = useQuery({
+    queryKey: ['pedidos', filters],
+    queryFn: () => getPedidos(filters),
+  });
 
-      const result = await getPedidos(filters);
-      setPedidos(result);
-    } catch (err) {
-      console.error('Erro ao buscar pedidos:', err);
-      setError('Ocorreu um erro ao carregar a lista de Pedidos de Compra.');
-      toast.error('Erro ao carregar pedidos');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [debouncedBusca, statusFilter, fornecedorFilter, dataInicio, dataFim]);
+  const { data: fornecedoresResponse } = useQuery({
+    queryKey: ['fornecedores-list'],
+    queryFn: () => getFornecedores(),
+    staleTime: 1000 * 60 * 5,
+  });
 
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      await Promise.resolve();
-      if (active) {
-        fetchPedidosData();
-      }
-    };
-    load();
-    return () => {
-      active = false;
-    };
-  }, [fetchPedidosData]);
+  const pedidos: PedidoCompra[] = response?.data ?? [];
+  const pagination = response?.pagination;
+  const fornecedores: Fornecedor[] = fornecedoresResponse ?? [];
 
   // Trigger Cancel Dialog
   const handleCancelClick = (id: string, numero: string) => {
@@ -131,7 +103,7 @@ export function PedidosLista() {
       toast.success(`Pedido ${pedidoToCancel.numero} cancelado com sucesso!`);
       setCancelModalOpen(false);
       setPedidoToCancel(null);
-      fetchPedidosData();
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
     } catch (err: unknown) {
       console.error(err);
       const axiosError = err as { response?: { data?: { error?: string } } };
@@ -405,13 +377,13 @@ export function PedidosLista() {
       {/* Main Data Table */}
       {isLoading ? (
         <TableSkeleton columns={7} rows={6} />
-      ) : error ? (
+      ) : isError ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center">
           <AlertCircle className="mx-auto h-12 w-12 text-red-400" />
           <h3 className="mt-2 text-sm font-semibold text-red-900">Erro no carregamento</h3>
-          <p className="mt-1 text-sm text-red-500">{error}</p>
-          <button 
-            onClick={fetchPedidosData}
+          <p className="mt-1 text-sm text-red-500">Ocorreu um erro ao carregar a lista de Pedidos de Compra.</p>
+          <button
+            onClick={() => queryClient.invalidateQueries({ queryKey: ['pedidos'] })}
             className="mt-4 text-sm font-semibold text-red-600 hover:text-red-500 cursor-pointer"
           >
             Tentar novamente
@@ -507,6 +479,28 @@ export function PedidosLista() {
         }}
         pedidoId={selectedPedidoId}
       />
+
+      {pagination && pagination.totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-200 disabled:opacity-40 hover:bg-gray-50"
+          >
+            Anterior
+          </button>
+          <span className="text-sm text-gray-500">
+            Página {page} de {pagination.totalPages} ({pagination.total} pedidos)
+          </span>
+          <button
+            onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+            disabled={page === pagination.totalPages}
+            className="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-200 disabled:opacity-40 hover:bg-gray-50"
+          >
+            Próxima
+          </button>
+        </div>
+      )}
     </div>
   );
 }

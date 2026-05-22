@@ -7,23 +7,31 @@ export class AtaController {
   // GET /api/atas
   listar = async (req: AuthRequest, res: Response): Promise<Response> => {
     try {
-      const atas = await prisma.ata.findMany({
-        include: {
-          fornecedor: true,
-          medicamentos: true,
-          pedidos: {
-            include: {
-              itens: true
+      const page = Math.max(1, Number(req.query.page) || 1);
+      const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+      const skip = (page - 1) * limit;
+
+      const whereAta: Prisma.AtaWhereInput = { deletedAt: null };
+      if (req.user?.role === 'FORNECEDOR' && req.user.fornecedorId) {
+        whereAta.fornecedor = { id: req.user.fornecedorId };
+      }
+
+      const [total, atas] = await Promise.all([
+        prisma.ata.count({ where: whereAta }),
+        prisma.ata.findMany({
+          where: whereAta,
+          include: {
+            fornecedor: true,
+            medicamentos: true,
+            pedidos: {
+              include: { itens: true }
             }
-          }
-        },
-        orderBy: { criadoEm: 'desc' }
-      });
-      
-      const fornecedores = await prisma.fornecedor.findMany();
-      const cleanCnpjMap = new Map(
-        fornecedores.map(f => [f.cnpj.replace(/\D/g, ''), f])
-      );
+          },
+          orderBy: { criadoEm: 'desc' },
+          skip,
+          take: limit
+        })
+      ]);
       
       const hoje = new Date();
 
@@ -90,10 +98,7 @@ export class AtaController {
           };
         });
 
-        let resolvedFornecedor = ata.fornecedor;
-        if (!resolvedFornecedor && ata.fornecedorCnpj) {
-          resolvedFornecedor = cleanCnpjMap.get(ata.fornecedorCnpj.replace(/\D/g, '')) || null;
-        }
+        const resolvedFornecedor = ata.fornecedor;
 
         return {
           ...ata,
@@ -111,7 +116,10 @@ export class AtaController {
         };
       });
 
-      return res.json(result);
+      return res.json({
+        data: result,
+        pagination: { total, page, limit, totalPages: Math.ceil(total / limit) }
+      });
     } catch (err) {
       console.error('Erro ao listar atas:', err);
       return res.status(500).json({ error: 'Erro interno ao listar atas' });
@@ -177,7 +185,7 @@ export class AtaController {
         porcentagemVigenciaDecorrente = pct < 0 ? 0 : (pct > 100 ? 100 : Math.round(pct));
       }
 
-      const formattedMedicamentos = ata.medicamentos.map((med: any) => {
+      const formattedMedicamentos = ata.medicamentos.map((med) => {
         let qtdeConsumida = 0;
         let qtdeComprometida = 0;
 
@@ -210,7 +218,7 @@ export class AtaController {
           saldoRestante,
           porcentagemConsumida,
           saldoAtual: saldoRestante,
-          consumos: med.consumos ? med.consumos.map((c: any) => ({
+          consumos: med.consumos ? med.consumos.map((c) => ({
             ...c,
             valorUnitario: Number(c.valorUnitario),
             valorTotal: Number(c.valorTotal),
@@ -218,17 +226,17 @@ export class AtaController {
         };
       });
 
-      const formattedConsumos = ata.consumos ? ata.consumos.map((c: any) => ({
+      const formattedConsumos = ata.consumos ? ata.consumos.map((c) => ({
         ...c,
         valorUnitario: Number(c.valorUnitario),
         valorTotal: Number(c.valorTotal),
       })) : [];
 
-      const formattedPedidos = ata.pedidos ? ata.pedidos.map((p: any) => ({
+      const formattedPedidos = ata.pedidos ? ata.pedidos.map((p) => ({
         ...p,
         valorTotal: Number(p.valorTotal),
         dataCriacao: p.criadoEm,
-        itens: p.itens.map((it: any) => ({
+        itens: p.itens.map((it) => ({
           ...it,
           precoUnitario: Number(it.precoUnitario),
           valorTotal: Number(it.valorTotal)
@@ -239,8 +247,9 @@ export class AtaController {
       if (!resolvedFornecedor && ata.fornecedorCnpj) {
         const cleanCnpj = ata.fornecedorCnpj.replace(/\D/g, '');
         if (cleanCnpj) {
-          const fornecedores = await prisma.fornecedor.findMany();
-          resolvedFornecedor = fornecedores.find(f => f.cnpj.replace(/\D/g, '') === cleanCnpj) || null;
+          resolvedFornecedor = await prisma.fornecedor.findFirst({
+            where: { cnpj: { contains: cleanCnpj } }
+          });
         }
       }
 
@@ -296,35 +305,24 @@ export class AtaController {
 
       let resolvedCnpj = (fornecedorCnpj && fornecedorCnpj.trim() !== '') ? fornecedorCnpj.trim() : null;
 
-      const novaAta = await prisma.$transaction(async (tx) => {
-        if (resolvedCnpj) {
-          const cleanCnpj = resolvedCnpj.replace(/\D/g, '');
-          const fornecedorExistente = await tx.fornecedor.findFirst({
-            where: {
-              OR: [
-                { cnpj: resolvedCnpj },
-                { cnpj: cleanCnpj }
-              ]
-            }
+      // Validar fornecedor antes de abrir a transação
+      if (resolvedCnpj) {
+        const cleanCnpj = resolvedCnpj.replace(/\D/g, '');
+        const fornecedorExistente = await prisma.fornecedor.findFirst({
+          where: { cnpj: { contains: cleanCnpj } },
+          select: { cnpj: true }
+        });
+        if (fornecedorExistente) {
+          resolvedCnpj = fornecedorExistente.cnpj;
+        } else {
+          return res.status(400).json({
+            error: `Fornecedor com CNPJ ${resolvedCnpj} não está cadastrado no sistema. Cadastre o fornecedor antes de criar a ATA.`
           });
-
-          if (fornecedorExistente) {
-            resolvedCnpj = fornecedorExistente.cnpj;
-          } else {
-            await tx.fornecedor.create({
-              data: {
-                cnpj: resolvedCnpj,
-                razaoSocial: fornecedorNome,
-                nomeFantasia: fornecedorNome,
-                email: 'contato@fornecedor.com.br',
-                whatsapp: '00000000000',
-                status: 'ATIVO',
-                taxaAceitacao: new Prisma.Decimal(100.00),
-                categorias: []
-              }
-            });
-          }
         }
+      }
+
+      const novaAta = await prisma.$transaction(async (tx) => {
+        // (fornecedor já validado acima)
 
         const ataCriada = await tx.ata.create({
           data: {

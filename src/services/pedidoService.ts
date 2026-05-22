@@ -1,5 +1,6 @@
 import apiClient from './apiClient';
 import type { PedidoCompra, PedidoCompraStatus } from '../types';
+import type { PaginatedResponse } from './ataService';
 
 export interface GetPedidosFilters {
   busca?: string;
@@ -7,10 +8,12 @@ export interface GetPedidosFilters {
   status?: string;
   dataInicio?: string;
   dataFim?: string;
+  page?: number;
+  limit?: number;
 }
 
-export const getPedidos = async (filters?: GetPedidosFilters): Promise<PedidoCompra[]> => {
-  const response = await apiClient.get<PedidoCompra[]>('/api/pedidos', { params: filters });
+export const getPedidos = async (filters?: GetPedidosFilters): Promise<PaginatedResponse<PedidoCompra>> => {
+  const response = await apiClient.get<PaginatedResponse<PedidoCompra>>('/api/pedidos', { params: filters });
   return response.data;
 };
 

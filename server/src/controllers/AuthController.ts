@@ -32,7 +32,7 @@ export class AuthController {
 
       // 3. Gerar Token
       const token = jwt.sign(
-        { id: user.id, role: user.role },
+        { id: user.id, role: user.role, fornecedorId: user.fornecedorId ?? null },
         JWT_SECRET,
         { expiresIn: '1d' }
       );
@@ -44,6 +44,7 @@ export class AuthController {
           nome: user.nome,
           email: user.email,
           role: user.role,
+          fornecedorId: user.fornecedorId ?? null,
         },
         token,
       });

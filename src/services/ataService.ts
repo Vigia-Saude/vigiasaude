@@ -39,8 +39,15 @@ export interface CreateAtaPayload {
   }>;
 }
 
-export const getAtas = async (): Promise<AtaWithFornecedor[]> => {
-  const response = await apiClient.get<AtaWithFornecedor[]>('/api/atas');
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: { total: number; page: number; limit: number; totalPages: number };
+}
+
+export const getAtas = async (page = 1, limit = 50): Promise<PaginatedResponse<AtaWithFornecedor>> => {
+  const response = await apiClient.get<PaginatedResponse<AtaWithFornecedor>>('/api/atas', {
+    params: { page, limit }
+  });
   return response.data;
 };
 

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getAtas } from '../../services/ataService';
 import type { AtaWithFornecedor } from '../../services/ataService';
 import { TableSkeleton } from '../../components/ui/TableSkeleton';
@@ -16,29 +17,18 @@ import {
 } from 'lucide-react';
 
 export function AtasLista() {
-  const [data, setData] = useState<AtaWithFornecedor[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [openAtaIds, setOpenAtaIds] = useState<Record<string, boolean>>({});
+  const [page, setPage] = useState(1);
+  const queryClient = useQueryClient();
 
-  const fetchData = async () => {
-    try {
-      setIsLoading(true);
-      const result = await getAtas();
-      setData(result);
-    } catch (err) {
-      console.error('Erro ao carregar atas:', err);
-      setError('Ocorreu um erro ao carregar os dados das Atas.');
-      toast.error('Erro ao carregar atas');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { data: response, isLoading, isError, refetch } = useQuery({
+    queryKey: ['atas', page],
+    queryFn: () => getAtas(page, 50),
+  });
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const data: AtaWithFornecedor[] = response?.data ?? [];
+  const pagination = response?.pagination;
 
   const toggleAta = (id: string) => {
     setOpenAtaIds(prev => ({
@@ -83,13 +73,13 @@ export function AtasLista() {
         <div className="space-y-4">
           <TableSkeleton columns={6} rows={3} />
         </div>
-      ) : error ? (
+      ) : isError ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center shadow-sm">
           <AlertCircle className="mx-auto h-12 w-12 text-red-400" />
           <h3 className="mt-2 text-sm font-semibold text-red-900">Erro no carregamento</h3>
-          <p className="mt-1 text-sm text-red-500">{error}</p>
-          <button 
-            onClick={() => fetchData()}
+          <p className="mt-1 text-sm text-red-500">Ocorreu um erro ao carregar os dados das Atas.</p>
+          <button
+            onClick={() => refetch()}
             className="mt-4 text-sm font-medium text-red-600 hover:text-red-500 underline"
           >
             Tentar novamente
@@ -286,14 +276,36 @@ export function AtasLista() {
       )}
 
       {/* Modal Slide-Over de Nova Ata */}
-      <ModalNovaAta 
-        isOpen={showModal} 
-        onClose={() => setShowModal(false)} 
+      <ModalNovaAta
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
         onSuccess={() => {
-          fetchData();
+          queryClient.invalidateQueries({ queryKey: ['atas'] });
           toast.success('Listagem de Atas atualizada.');
-        }} 
+        }}
       />
+
+      {pagination && pagination.totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-200 disabled:opacity-40 hover:bg-gray-50"
+          >
+            Anterior
+          </button>
+          <span className="text-sm text-gray-500">
+            Página {page} de {pagination.totalPages}
+          </span>
+          <button
+            onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+            disabled={page === pagination.totalPages}
+            className="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-200 disabled:opacity-40 hover:bg-gray-50"
+          >
+            Próxima
+          </button>
+        </div>
+      )}
     </div>
   );
 }

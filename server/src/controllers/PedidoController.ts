@@ -3,6 +3,15 @@ import prisma from '../config/prisma';
 import { AuthRequest } from '../middlewares/auth';
 import { Prisma } from '@prisma/client';
 
+interface ItemPedido {
+  medicamentoId: string | null;
+  medicamentoNome: string;
+  quantidade: number;
+  precoUnitario: Prisma.Decimal;
+  valorTotal: Prisma.Decimal;
+  ataItemId: string | null;
+}
+
 async function resolveFornecedorFromAta(ataId: string): Promise<string | null> {
   const tempAta = await prisma.ata.findUnique({
     where: { id: ataId },
@@ -14,8 +23,10 @@ async function resolveFornecedorFromAta(ataId: string): Promise<string | null> {
   if (tempAta?.fornecedorCnpj) {
     const cleanCnpj = tempAta.fornecedorCnpj.replace(/\D/g, '');
     if (cleanCnpj) {
-      const fornecedores = await prisma.fornecedor.findMany();
-      const match = fornecedores.find(f => f.cnpj.replace(/\D/g, '') === cleanCnpj);
+      const match = await prisma.fornecedor.findFirst({
+        where: { cnpj: { contains: cleanCnpj } },
+        select: { id: true }
+      });
       if (match) {
         return match.id;
       }
@@ -28,12 +39,18 @@ export class PedidoController {
   // GET /api/pedidos
   listar = async (req: AuthRequest, res: Response) => {
     const { busca, fornecedorId, status, dataInicio, dataFim } = req.query;
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+    const skip = (page - 1) * limit;
 
     try {
       // Construir o objeto where do Prisma
-      const where: Prisma.PedidoCompraWhereInput = {};
+      const where: Prisma.PedidoCompraWhereInput = { deletedAt: null };
 
-      if (fornecedorId) {
+      // Fornecedor só enxerga seus próprios pedidos
+      if (req.user?.role === 'FORNECEDOR' && req.user.fornecedorId) {
+        where.fornecedorId = req.user.fornecedorId;
+      } else if (fornecedorId) {
         where.fornecedorId = String(fornecedorId);
       }
 
@@ -80,19 +97,20 @@ export class PedidoController {
         ];
       }
 
-      const pedidos = await prisma.pedidoCompra.findMany({
-        where,
-        include: {
-          ata: {
-            select: { id: true, numero: true }
+      const [total, pedidos] = await Promise.all([
+        prisma.pedidoCompra.count({ where }),
+        prisma.pedidoCompra.findMany({
+          where,
+          include: {
+            ata: { select: { id: true, numero: true } },
+            fornecedor: { select: { id: true, nomeFantasia: true, razaoSocial: true } },
+            itens: true
           },
-          fornecedor: {
-            select: { id: true, nomeFantasia: true, razaoSocial: true }
-          },
-          itens: true
-        },
-        orderBy: { criadoEm: 'desc' }
-      });
+          orderBy: { criadoEm: 'desc' },
+          skip,
+          take: limit
+        })
+      ]);
 
       // Formatar retorno decimal para Number para facilidade do front
       const result = pedidos.map(p => ({
@@ -108,7 +126,10 @@ export class PedidoController {
         }))
       }));
 
-      return res.json(result);
+      return res.json({
+        data: result,
+        pagination: { total, page, limit, totalPages: Math.ceil(total / limit) }
+      });
     } catch (err) {
       console.error('Erro ao listar pedidos:', err);
       return res.status(500).json({ error: 'Erro interno ao listar pedidos' });
@@ -166,7 +187,7 @@ export class PedidoController {
     try {
       // 1. Validar e Calcular Itens preliminarmente
       let totalCalculado = new Prisma.Decimal(0);
-      const itensCompletos: any[] = [];
+      const itensCompletos: ItemPedido[] = [];
 
       for (const item of itens) {
         const qtd = Number(item.quantidade);
@@ -191,22 +212,8 @@ export class PedidoController {
         });
       }
 
-      // 2. Gerar Número Automático do PdC (PdC-YYYY-XXXX)
+      // 2. Determinar ano atual para compor o número do PdC
       const anoAtual = new Date().getFullYear();
-      const inicioAno = new Date(anoAtual, 0, 1);
-      const fimAno = new Date(anoAtual, 11, 31, 23, 59, 59, 999);
-
-      const totalNoAno = await prisma.pedidoCompra.count({
-        where: {
-          criadoEm: {
-            gte: inicioAno,
-            lte: fimAno
-          }
-        }
-      });
-
-      const sequencial = String(totalNoAno + 1).padStart(4, '0');
-      const numeroGerado = `PdC-${anoAtual}-${sequencial}`;
 
       // 3. Determinar Fornecedor e validar se houver vínculo com ATA
       let resolvedFornecedorId = (fornecedorId && fornecedorId.trim() !== '') ? fornecedorId : null;
@@ -222,6 +229,11 @@ export class PedidoController {
 
       // 4. Executar Criação em Transação (com validações internas)
       const novoPedido = await prisma.$transaction(async (tx) => {
+        // Gerar número sequencial atômico via sequence do PostgreSQL (sem race condition)
+        const seqResult = await tx.$queryRaw<[{ nextval: bigint }]>`SELECT nextval('pedido_numero_seq')`;
+        const sequencial = String(Number(seqResult[0].nextval)).padStart(4, '0');
+        const numeroGerado = `PdC-${anoAtual}-${sequencial}`;
+
         // Validação contra a ATA (se houver vínculo com ATA)
         if (ataId) {
           const ataEntity = await tx.ata.findUnique({
@@ -463,8 +475,18 @@ export class PedidoController {
             throw new Error('ATA_NOT_ACTIVE');
           }
 
-          // Validar valor teto
-          const saldoAtaDisponivel = Number(ata.valorTeto) - Number(ata.valorConsumido);
+          // Validar valor teto usando aggregate ao vivo (mesma lógica de criarPedido,
+          // resiliente a drift do campo valorConsumido)
+          const totalPedidosAtivos = await tx.pedidoCompra.aggregate({
+            where: {
+              ataId: pedido.ataId,
+              status: { notIn: ['CANCELADO', 'REJEITADO', 'RASCUNHO'] },
+              id: { not: pedido.id }
+            },
+            _sum: { valorTotal: true }
+          });
+          const valorSomaAtivos = totalPedidosAtivos._sum.valorTotal || new Prisma.Decimal(0);
+          const saldoAtaDisponivel = Number(ata.valorTeto) - Number(valorSomaAtivos);
           if (Number(pedido.valorTotal) > saldoAtaDisponivel) {
             throw new Error('EXCEDES_ATA_TETO');
           }
@@ -643,7 +665,7 @@ export class PedidoController {
 
       // 2. Validar formato dos itens preliminarmente
       let totalCalculado = new Prisma.Decimal(0);
-      const itensCompletos: any[] = [];
+      const itensCompletos: ItemPedido[] = [];
 
       for (const item of itens) {
         const qtd = Number(item.quantidade);
@@ -728,8 +750,18 @@ export class PedidoController {
             throw new Error('ATA_NOT_ACTIVE');
           }
 
-          // Validar valor teto
-          const saldoAtaDisponivel = Number(ataEntity.valorTeto) - Number(ataEntity.valorConsumido);
+          // Validar valor teto usando aggregate ao vivo (o pedido atual já teve seus
+          // consumos revertidos no Passo A, então não precisa ser excluído da soma)
+          const totalPedidosAtivosUpd = await tx.pedidoCompra.aggregate({
+            where: {
+              ataId,
+              status: { notIn: ['CANCELADO', 'REJEITADO', 'RASCUNHO'] },
+              id: { not: id }
+            },
+            _sum: { valorTotal: true }
+          });
+          const valorSomaAtivosUpd = totalPedidosAtivosUpd._sum.valorTotal || new Prisma.Decimal(0);
+          const saldoAtaDisponivel = Number(ataEntity.valorTeto) - Number(valorSomaAtivosUpd);
           if (Number(totalCalculado) > saldoAtaDisponivel) {
             throw new Error('EXCEDES_ATA_TETO');
           }

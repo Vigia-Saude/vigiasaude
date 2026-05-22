@@ -18,7 +18,12 @@ app.set('trust proxy', 1)
 
 // Middlewares de Segurança
 app.use(helmet())
-app.use(cors())
+app.use(cors({
+  origin: process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
+    : ['http://localhost:5173', 'http://localhost:3000'],
+  credentials: true
+}))
 app.use(express.json())
 
 // Rate Limit para o Login (Prevenir Brute Force)

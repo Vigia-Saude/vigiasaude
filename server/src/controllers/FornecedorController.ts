@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import prisma from '../config/prisma';
 import { AuthRequest } from '../middlewares/auth';
+import { Prisma } from '@prisma/client';
 
 export class FornecedorController {
   // GET /api/fornecedores
@@ -8,7 +9,7 @@ export class FornecedorController {
     const { query, status, categoria } = req.query;
 
     try {
-      const whereClause: any = {};
+      const whereClause: Prisma.FornecedorWhereInput = { deletedAt: null };
 
       if (status) {
         whereClause.status = String(status);
@@ -44,6 +45,11 @@ export class FornecedorController {
   // GET /api/fornecedores/:id
   async detalhes(req: AuthRequest, res: Response) {
     const id = req.params.id as string;
+
+    // Fornecedor só pode ver a si mesmo
+    if (req.user?.role === 'FORNECEDOR' && req.user.fornecedorId && req.user.fornecedorId !== id) {
+      return res.status(403).json({ error: 'Acesso negado.' });
+    }
 
     try {
       const fornecedor = await prisma.fornecedor.findUnique({
