@@ -9,22 +9,96 @@ export class AtaController {
       const atas = await prisma.ata.findMany({
         include: {
           fornecedor: true,
-          _count: {
-            select: { medicamentos: true }
+          medicamentos: true,
+          pedidos: {
+            include: {
+              itens: true
+            }
           }
         },
         orderBy: { criadoEm: 'desc' }
       });
       
-      const result = atas.map(ata => ({
-        ...ata,
-        dataInicio: ata.vigenciaInicio.toISOString(),
-        dataFim: ata.vigenciaFim.toISOString(),
-        valorTeto: Number(ata.valorTeto),
-        valorConsumido: Number(ata.valorConsumido),
-        fornecedorId: ata.fornecedor?.id || '',
-        fornecedorNome: ata.fornecedor?.nomeFantasia || ata.fornecedorNome
-      }));
+      const hoje = new Date();
+
+      const result = atas.map(ata => {
+        let valorConsumido = 0;
+        let valorComprometido = 0;
+
+        ata.pedidos.forEach(pedido => {
+          const val = Number(pedido.valorTotal);
+          if (pedido.status === 'PENDENTE') {
+            valorComprometido += val;
+          } else if (['APROVADO', 'EM_TRANSITO', 'ENTREGUE', 'ACEITO'].includes(pedido.status)) {
+            valorConsumido += val;
+          }
+        });
+
+        const valorTeto = Number(ata.valorTeto);
+        const valorDisponivel = Math.max(0, valorTeto - valorConsumido - valorComprometido);
+        
+        const diffTime = ata.vigenciaFim.getTime() - hoje.getTime();
+        const diasRestantes = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const diasRestantesVal = diasRestantes < 0 ? 0 : diasRestantes;
+
+        const totalVigencia = ata.vigenciaFim.getTime() - ata.vigenciaInicio.getTime();
+        let porcentagemVigenciaDecorrente = 100;
+        if (totalVigencia > 0) {
+          const decorrido = hoje.getTime() - ata.vigenciaInicio.getTime();
+          const pct = (decorrido / totalVigencia) * 100;
+          porcentagemVigenciaDecorrente = pct < 0 ? 0 : (pct > 100 ? 100 : Math.round(pct));
+        }
+
+        const medicamentosFormatados = ata.medicamentos.map(med => {
+          let qtdeConsumida = 0;
+          let qtdeComprometida = 0;
+
+          ata.pedidos.forEach(pedido => {
+            pedido.itens.forEach(item => {
+              if (item.ataItemId === med.id) {
+                const qty = Number(item.quantidade);
+                if (pedido.status === 'PENDENTE') {
+                  qtdeComprometida += qty;
+                } else if (['APROVADO', 'EM_TRANSITO', 'ENTREGUE', 'ACEITO'].includes(pedido.status)) {
+                  qtdeConsumida += qty;
+                }
+              }
+            });
+          });
+
+          const qtdeInicial = med.qtdeInicial;
+          const saldoRestante = Math.max(0, qtdeInicial - qtdeConsumida - qtdeComprometida);
+          const porcentagemConsumida = qtdeInicial > 0 ? Number(((qtdeConsumida / qtdeInicial) * 100).toFixed(1)) : 0;
+
+          return {
+            ...med,
+            precoUnitario: Number(med.precoUnitario),
+            precoBPS: med.precoBPS ? Number(med.precoBPS) : 0,
+            precoCMED: med.precoCMED ? Number(med.precoCMED) : 0,
+            valorTotalItem: med.valorTotalItem ? Number(med.valorTotalItem) : null,
+            quantidadeInicial: qtdeInicial,
+            qtdeConsumida,
+            qtdeComprometida,
+            saldoRestante,
+            porcentagemConsumida
+          };
+        });
+
+        return {
+          ...ata,
+          dataInicio: ata.vigenciaInicio.toISOString(),
+          dataFim: ata.vigenciaFim.toISOString(),
+          valorTeto,
+          valorConsumido,
+          valorComprometido,
+          valorDisponivel,
+          diasRestantes: diasRestantesVal,
+          porcentagemVigenciaDecorrente,
+          fornecedorId: ata.fornecedor?.id || '',
+          fornecedorNome: ata.fornecedor?.nomeFantasia || ata.fornecedorNome,
+          medicamentos: medicamentosFormatados
+        };
+      });
 
       return res.json(result);
     } catch (err) {
@@ -49,6 +123,7 @@ export class AtaController {
           },
           pedidos: {
             include: {
+              itens: true,
               consumos: true
             }
           },
@@ -63,42 +138,102 @@ export class AtaController {
         return res.status(404).json({ error: 'Ata não encontrada' });
       }
 
-      const ataData = ata as any;
+      const hoje = new Date();
+      let valorConsumido = 0;
+      let valorComprometido = 0;
 
-      const formattedMedicamentos = ataData.medicamentos.map((med: any) => ({
-        ...med,
-        quantidadeInicial: med.qtdeInicial,
-        precoUnitario: Number(med.precoUnitario),
-        valorTotalItem: med.valorTotalItem ? Number(med.valorTotalItem) : null,
-        precoBPS: med.precoBPS ? Number(med.precoBPS) : 0,
-        precoCMED: med.precoCMED ? Number(med.precoCMED) : 0,
-        saldoAtual: med.qtdeInicial - med.quantidadeUsada,
-        consumos: med.consumos ? med.consumos.map((c: any) => ({
-          ...c,
-          valorUnitario: Number(c.valorUnitario),
-          valorTotal: Number(c.valorTotal),
-        })) : []
-      }));
+      ata.pedidos.forEach(pedido => {
+        const val = Number(pedido.valorTotal);
+        if (pedido.status === 'PENDENTE') {
+          valorComprometido += val;
+        } else if (['APROVADO', 'EM_TRANSITO', 'ENTREGUE', 'ACEITO'].includes(pedido.status)) {
+          valorConsumido += val;
+        }
+      });
 
-      const formattedConsumos = ataData.consumos ? ataData.consumos.map((c: any) => ({
+      const valorTeto = Number(ata.valorTeto);
+      const valorDisponivel = Math.max(0, valorTeto - valorConsumido - valorComprometido);
+
+      const diffTime = ata.vigenciaFim.getTime() - hoje.getTime();
+      const diasRestantes = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const diasRestantesVal = diasRestantes < 0 ? 0 : diasRestantes;
+
+      const totalVigencia = ata.vigenciaFim.getTime() - ata.vigenciaInicio.getTime();
+      let porcentagemVigenciaDecorrente = 100;
+      if (totalVigencia > 0) {
+        const decorrido = hoje.getTime() - ata.vigenciaInicio.getTime();
+        const pct = (decorrido / totalVigencia) * 100;
+        porcentagemVigenciaDecorrente = pct < 0 ? 0 : (pct > 100 ? 100 : Math.round(pct));
+      }
+
+      const formattedMedicamentos = ata.medicamentos.map((med: any) => {
+        let qtdeConsumida = 0;
+        let qtdeComprometida = 0;
+
+        ata.pedidos.forEach(pedido => {
+          pedido.itens.forEach(item => {
+            if (item.ataItemId === med.id) {
+              const qty = Number(item.quantidade);
+              if (pedido.status === 'PENDENTE') {
+                qtdeComprometida += qty;
+              } else if (['APROVADO', 'EM_TRANSITO', 'ENTREGUE', 'ACEITO'].includes(pedido.status)) {
+                qtdeConsumida += qty;
+              }
+            }
+          });
+        });
+
+        const qtdeInicial = med.qtdeInicial;
+        const saldoRestante = Math.max(0, qtdeInicial - qtdeConsumida - qtdeComprometida);
+        const porcentagemConsumida = qtdeInicial > 0 ? Number(((qtdeConsumida / qtdeInicial) * 100).toFixed(1)) : 0;
+
+        return {
+          ...med,
+          precoUnitario: Number(med.precoUnitario),
+          valorTotalItem: med.valorTotalItem ? Number(med.valorTotalItem) : null,
+          precoBPS: med.precoBPS ? Number(med.precoBPS) : 0,
+          precoCMED: med.precoCMED ? Number(med.precoCMED) : 0,
+          quantidadeInicial: qtdeInicial,
+          qtdeConsumida,
+          qtdeComprometida,
+          saldoRestante,
+          porcentagemConsumida,
+          saldoAtual: saldoRestante,
+          consumos: med.consumos ? med.consumos.map((c: any) => ({
+            ...c,
+            valorUnitario: Number(c.valorUnitario),
+            valorTotal: Number(c.valorTotal),
+          })) : []
+        };
+      });
+
+      const formattedConsumos = ata.consumos ? ata.consumos.map((c: any) => ({
         ...c,
         valorUnitario: Number(c.valorUnitario),
         valorTotal: Number(c.valorTotal),
       })) : [];
 
-      const formattedPedidos = ataData.pedidos ? ataData.pedidos.map((p: any) => ({
+      const formattedPedidos = ata.pedidos ? ata.pedidos.map((p: any) => ({
         ...p,
         valorTotal: Number(p.valorTotal),
         dataCriacao: p.criadoEm,
-        itens: []
+        itens: p.itens.map((it: any) => ({
+          ...it,
+          precoUnitario: Number(it.precoUnitario),
+          valorTotal: Number(it.valorTotal)
+        }))
       })) : [];
 
       const result = {
-        ...ataData,
+        ...ata,
         dataInicio: ata.vigenciaInicio.toISOString(),
         dataFim: ata.vigenciaFim.toISOString(),
-        valorTeto: Number(ata.valorTeto),
-        valorConsumido: Number(ata.valorConsumido),
+        valorTeto,
+        valorConsumido,
+        valorComprometido,
+        valorDisponivel,
+        diasRestantes: diasRestantesVal,
+        porcentagemVigenciaDecorrente,
         fornecedorId: ata.fornecedor?.id || '',
         fornecedorNome: ata.fornecedor?.nomeFantasia || ata.fornecedorNome,
         medicamentos: formattedMedicamentos,
@@ -140,6 +275,33 @@ export class AtaController {
       }
 
       const novaAta = await prisma.$transaction(async (tx) => {
+        if (fornecedorCnpj) {
+          const cleanCnpj = fornecedorCnpj.replace(/\D/g, '');
+          const fornecedorExistente = await tx.fornecedor.findFirst({
+            where: {
+              OR: [
+                { cnpj: fornecedorCnpj },
+                { cnpj: cleanCnpj }
+              ]
+            }
+          });
+
+          if (!fornecedorExistente) {
+            await tx.fornecedor.create({
+              data: {
+                cnpj: fornecedorCnpj,
+                razaoSocial: fornecedorNome,
+                nomeFantasia: fornecedorNome,
+                email: 'contato@fornecedor.com.br',
+                whatsapp: '00000000000',
+                status: 'ATIVO',
+                taxaAceitacao: new Prisma.Decimal(100.00),
+                categorias: []
+              }
+            });
+          }
+        }
+
         const ataCriada = await tx.ata.create({
           data: {
             numero,

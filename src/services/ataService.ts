@@ -3,6 +3,7 @@ import type { Ata, MedicamentoAta, PedidoCompra, AtaConsumo, CatmatMedicamento }
 
 export interface AtaWithFornecedor extends Ata {
   fornecedorNome: string;
+  medicamentos?: MedicamentoAta[];
 }
 
 export interface AtaFullDetails extends Ata {

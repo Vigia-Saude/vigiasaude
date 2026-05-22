@@ -31,6 +31,10 @@ export interface Ata {
   dataFim: string; // ISO date string para compatibilidade retroativa
   valorTeto: number;
   valorConsumido: number;
+  valorComprometido?: number;
+  valorDisponivel?: number;
+  diasRestantes?: number;
+  porcentagemVigenciaDecorrente?: number;
   status: AtaStatus;
   documentoPdfUrl?: string;
   observacoes?: string;
@@ -55,6 +59,10 @@ export interface MedicamentoAta {
   precoCMED?: number;
   observacoes?: string;
   consumos?: AtaConsumo[];
+  qtdeConsumida?: number;
+  qtdeComprometida?: number;
+  saldoRestante?: number;
+  porcentagemConsumida?: number;
 }
 
 export interface AtaConsumo {

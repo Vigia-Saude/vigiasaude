@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'react-router';
+import { useParams, Link } from 'react-router';
 import { toast } from 'sonner';
 import { getAtaFullDetails } from '../../services/ataService';
 import type { AtaFullDetails } from '../../services/ataService';
@@ -7,9 +7,19 @@ import { DataTable } from '../../components/ui/DataTable';
 import type { ColumnDef } from '../../components/ui/DataTable';
 import { AlertBanner } from '../../components/ui/AlertBanner';
 import { TableSkeleton } from '../../components/ui/TableSkeleton';
-
-import { Clock, AlertCircle, ArrowLeft, Download, FileText, Calendar, Building2 } from 'lucide-react';
-import { Link } from 'react-router';
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import { 
+  Clock, 
+  AlertCircle, 
+  ArrowLeft, 
+  Download, 
+  FileText, 
+  Calendar, 
+  Building2, 
+  DollarSign, 
+  TrendingUp, 
+  Box 
+} from 'lucide-react';
 import type { MedicamentoAta } from '../../types';
 
 export function AtasDetalhes() {
@@ -17,8 +27,6 @@ export function AtasDetalhes() {
   const [data, setData] = useState<AtaFullDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-
 
   const fetchData = useCallback(async () => {
     if (!id) return;
@@ -41,29 +49,19 @@ export function AtasDetalhes() {
   }, [id]);
 
   useEffect(() => {
-    let active = true;
-    const load = async () => {
-      await Promise.resolve();
-      if (active) {
-        fetchData();
-      }
-    };
-    load();
-    return () => {
-      active = false;
-    };
+    fetchData();
   }, [fetchData]);
 
   if (isLoading) {
     return (
-      <div className="space-y-6 animate-pulse">
+      <div className="space-y-6 animate-pulse pb-8">
         <div className="h-8 w-64 bg-gray-200 rounded-md"></div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-24 bg-gray-100 rounded-xl border border-gray-200"></div>
+            <div key={i} className="h-24 bg-gray-150 rounded-xl border border-gray-200"></div>
           ))}
         </div>
-        <TableSkeleton rows={3} columns={6} />
+        <TableSkeleton rows={3} columns={4} />
       </div>
     );
   }
@@ -76,7 +74,7 @@ export function AtasDetalhes() {
         <p className="mt-1 text-sm text-red-500">{error || 'Ata não encontrada'}</p>
         <Link 
           to="/atas"
-          className="mt-4 inline-flex items-center text-sm font-medium text-red-600 hover:text-red-500"
+          className="mt-4 inline-flex items-center text-sm font-semibold text-red-600 hover:text-red-500"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Voltar para listagem
@@ -87,16 +85,10 @@ export function AtasDetalhes() {
 
   const { medicamentos, pedidos, consumos, ...ata } = data;
 
-  // Lógica de valores e saldos gerais
   const valorTeto = ata.valorTeto;
-  const valorConsumido = ata.valorConsumido || 0;
-  
-  // Comprometido = pedidos ativos que ainda não foram entregues ou cancelados
-  const comprometido = pedidos
-    .filter(p => p.status === 'APROVADO' || p.status === 'EM_TRANSITO' || p.status === 'PENDENTE')
-    .reduce((acc, curr) => acc + curr.valorTotal, 0);
-
-  const saldoDisponivel = valorTeto - valorConsumido;
+  const valorConsumido = ata.valorConsumido ?? 0;
+  const valorComprometido = ata.valorComprometido ?? 0;
+  const valorDisponivel = ata.valorDisponivel ?? 0;
 
   // Lógica de alertas de vigência da Ata
   const hoje = new Date();
@@ -121,64 +113,71 @@ export function AtasDetalhes() {
     return new Date(isoString).toLocaleDateString('pt-BR');
   };
 
+  const chartData = [
+    { name: 'Disponível', value: valorDisponivel, color: '#22c55e' },
+    { name: 'Comprometido', value: valorComprometido, color: '#eab308' },
+    { name: 'Consumido', value: valorConsumido, color: '#ef4444' },
+  ];
+  const totalBudget = valorDisponivel + valorComprometido + valorConsumido;
+  const dataForChart = totalBudget > 0 ? chartData : [{ name: 'Vazio', value: 1, color: '#e5e7eb' }];
+
   // Definição das colunas da tabela de medicamentos licitados
   const columns: ColumnDef<MedicamentoAta>[] = [
     { 
       header: 'Medicamento', 
       cell: (row) => (
-        <div>
-          <span className="font-semibold text-gray-900 block">{row.nome}</span>
-          <span className="text-[10px] text-gray-500 block">CATMAT: {row.catmatCodigo || 'Manual'}</span>
-        </div>
+        <span className="font-semibold text-gray-900">{row.nome}</span>
       ),
       sortable: true 
     },
-    { header: 'P. Unitário', cell: (row) => formatCurrency(row.precoUnitario) },
-    { header: 'Preço BPS', cell: (row) => row.precoBPS ? formatCurrency(row.precoBPS) : '-' },
-    { header: 'Preço CMED', cell: (row) => row.precoCMED ? formatCurrency(row.precoCMED) : '-' },
-    { header: 'Qtd Inicial', cell: (row) => `${row.qtdeInicial.toLocaleString('pt-BR')} ${row.unidadeAta || 'UN'}` },
-    { header: 'Qtd Usada', cell: (row) => `${row.quantidadeUsada.toLocaleString('pt-BR')} ${row.unidadeAta || 'UN'}` },
     { 
-      header: 'Saldo Restante', 
-      cell: (row) => {
-        const saldo = row.qtdeInicial - row.quantidadeUsada;
-        const isNegativo = saldo < 0;
-        return (
-          <span className={`font-bold ${isNegativo ? 'text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100' : 'text-gray-800'}`}>
-            {saldo.toLocaleString('pt-BR')} {row.unidadeAta || 'UN'}
-          </span>
-        );
-      } 
+      header: 'Cód CATMAT', 
+      cell: (row) => (
+        <span className="text-gray-500 font-semibold">{row.catmatCodigo || 'Manual'}</span>
+      ),
+      sortable: true 
+    },
+    { 
+      header: 'Preço Unitário', 
+      cell: (row) => (
+        <span className="font-bold text-gray-900">{formatCurrency(row.precoUnitario)}</span>
+      ) 
     },
     {
-      header: 'Progresso Consumo',
+      header: 'Controle de Quantidade',
       cell: (row) => {
-        const percent = (row.quantidadeUsada / row.qtdeInicial) * 100;
-        const displayPercent = Math.round(percent);
-        
-        let barColor = 'bg-blue-600';
-        let textColor = 'text-blue-700 bg-blue-50';
-        
-        if (percent >= 100) {
-          barColor = 'bg-red-600';
-          textColor = 'text-red-700 bg-red-50';
-        } else if (percent >= 80) {
-          barColor = 'bg-yellow-500';
-          textColor = 'text-yellow-700 bg-yellow-50';
+        const qInit = row.quantidadeInicial ?? row.qtdeInicial ?? 0;
+        const qUsed = row.qtdeConsumida ?? row.quantidadeUsada ?? 0;
+        const qSaldo = row.saldoRestante ?? Math.max(0, qInit - qUsed);
+        const pct = row.porcentagemConsumida ?? (qInit > 0 ? (qUsed / qInit) * 100 : 0);
+
+        let progressColor = 'bg-emerald-500';
+        if (pct >= 80) {
+          progressColor = 'bg-red-500';
+        } else if (pct >= 50) {
+          progressColor = 'bg-amber-500';
         }
 
         return (
-          <div className="w-36 space-y-1">
-            <div className="flex justify-between items-center text-[10px]">
-              <span className={`px-1.5 py-0.5 rounded-full font-bold ${textColor}`}>
-                {displayPercent}%
-              </span>
+          <div className="flex flex-col gap-1 w-full max-w-[320px]">
+            {/* Labels superiores */}
+            <div className="flex justify-between items-center text-[10px] text-gray-500 font-bold px-0.5 select-none">
+              <span>Inicial: {qInit.toLocaleString('pt-BR')}</span>
+              <span>Usado: {qUsed.toLocaleString('pt-BR')}</span>
+              <span>Saldo: {qSaldo.toLocaleString('pt-BR')}</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+            
+            {/* Barra de Progresso */}
+            <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
               <div 
-                className={`h-2 rounded-full transition-all duration-500 ${barColor}`} 
-                style={{ width: `${Math.min(percent, 100)}%` }}
+                className={`h-1.5 rounded-full transition-all duration-500 ${progressColor}`}
+                style={{ width: `${Math.min(pct, 100)}%` }}
               ></div>
+            </div>
+            
+            {/* Label inferior */}
+            <div className="text-[10px] text-gray-400 font-bold select-none mt-0.5">
+              {pct.toFixed(1)}% consumido
             </div>
           </div>
         );
@@ -201,57 +200,58 @@ export function AtasDetalhes() {
     return (
       <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-inner">
         <div className="flex justify-between items-center mb-3">
-          <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+          <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5 select-none">
             <Clock className="w-4 h-4 text-gray-500" />
             Histórico de Consumo do Item
           </h4>
-          <span className="text-[10px] text-gray-400">{consumosDoItem.length} lançamento(s)</span>
+          <span className="text-[10px] text-gray-400 select-none">{consumosDoItem.length} lançamento(s)</span>
         </div>
-        <table className="w-full text-xs text-left border-collapse">
-          <thead>
-            <tr className="bg-gray-100 text-gray-600 border-b border-gray-200">
-              <th className="px-3 py-2">Data do Lançamento</th>
-              <th className="px-3 py-2">Setor Solicitante</th>
-              <th className="px-3 py-2 text-right">Qtd Consumida</th>
-              <th className="px-3 py-2 text-right">Valor Unitário</th>
-              <th className="px-3 py-2 text-right">Valor Total</th>
-              <th className="px-3 py-2">Observações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {consumosDoItem.map((c) => (
-              <tr key={c.id} className="border-b border-gray-100 hover:bg-gray-50 last:border-0">
-                <td className="px-3 py-2 font-medium text-gray-700 flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                  {formatDate(c.dataConsumo)}
-                </td>
-                <td className="px-3 py-2 text-gray-600">
-                  {c.setorSolicitante ? (
-                    <span className="inline-flex items-center gap-1">
-                      <Building2 className="w-3 h-3 text-gray-400" />
-                      {c.setorSolicitante}
-                    </span>
-                  ) : (
-                    <span className="italic text-gray-400">Não informado</span>
-                  )}
-                </td>
-                <td className="px-3 py-2 text-right font-semibold text-gray-800">{c.quantidade.toLocaleString('pt-BR')}</td>
-                <td className="px-3 py-2 text-right text-gray-600">{formatCurrency(c.valorUnitario)}</td>
-                <td className="px-3 py-2 text-right font-bold text-blue-600">{formatCurrency(c.valorTotal)}</td>
-                <td className="px-3 py-2 text-gray-500 max-w-xs truncate" title={c.observacao || ''}>
-                  {c.observacao || '-'}
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs text-left border-collapse">
+            <thead>
+              <tr className="bg-gray-100 text-gray-600 border-b border-gray-200 select-none">
+                <th className="px-3 py-2">Data do Lançamento</th>
+                <th className="px-3 py-2">Setor Solicitante</th>
+                <th className="px-3 py-2 text-right">Qtd Consumida</th>
+                <th className="px-3 py-2 text-right">Valor Unitário</th>
+                <th className="px-3 py-2 text-right">Valor Total</th>
+                <th className="px-3 py-2">Observações</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {consumosDoItem.map((c) => (
+                <tr key={c.id} className="border-b border-gray-100 hover:bg-gray-50 last:border-0 font-medium">
+                  <td className="px-3 py-2 text-gray-700 flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                    {formatDate(c.dataConsumo)}
+                  </td>
+                  <td className="px-3 py-2 text-gray-600">
+                    {c.setorSolicitante ? (
+                      <span className="inline-flex items-center gap-1">
+                        <Building2 className="w-3 h-3 text-gray-400" />
+                        {c.setorSolicitante}
+                      </span>
+                    ) : (
+                      <span className="italic text-gray-450">Não informado</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-right text-gray-800">{c.quantidade.toLocaleString('pt-BR')}</td>
+                  <td className="px-3 py-2 text-right text-gray-600">{formatCurrency(c.valorUnitario)}</td>
+                  <td className="px-3 py-2 text-right text-blue-600 font-bold">{formatCurrency(c.valorTotal)}</td>
+                  <td className="px-3 py-2 text-gray-500 max-w-xs truncate" title={c.observacao || ''}>
+                    {c.observacao || '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     );
   };
 
   return (
-    <div className="space-y-6">
-      
+    <div className="space-y-6 pb-8 animate-in fade-in duration-300">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -260,7 +260,14 @@ export function AtasDetalhes() {
             <span>/</span>
             <span className="text-gray-900 font-medium">{ata.numero}</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Ata {ata.numero}</h1>
+          <Link
+            to="/atas"
+            className="inline-flex items-center gap-1 text-sm font-semibold text-gray-500 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Voltar para Gestão de ATAs</span>
+          </Link>
+          <h1 className="text-2xl font-bold text-gray-900 mt-2">{ata.numero}</h1>
           <p className="mt-1 text-sm text-gray-500">
             Fornecedor: <span className="font-semibold text-gray-900">{ata.fornecedorNome}</span>
             {ata.fornecedorCnpj && <span className="ml-2 text-xs text-gray-400">CNPJ: {ata.fornecedorCnpj}</span>}
@@ -268,12 +275,23 @@ export function AtasDetalhes() {
         </div>
         
         {/* Top actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
+          {ata.documentoPdfUrl && (
+            <a
+              href={`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${ata.documentoPdfUrl}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 rounded-md bg-white text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"
+            >
+              <FileText className="w-4 h-4 text-red-500" />
+              <span>Ver Documento Original (PDF)</span>
+            </a>
+          )}
+          
           {consumos && consumos.length > 0 && (
             <button
               onClick={() => {
                 try {
-                  // Mapeia os consumos relacionando com o nome do medicamento
                   const csvHeaders = [
                     'Código CATMAT',
                     'Medicamento',
@@ -304,7 +322,6 @@ export function AtasDetalhes() {
                     ...csvRows.map(row => row.join(','))
                   ].join('\n');
 
-                  // UTF-8 BOM para garantir codificação correta no Excel brasileiro
                   const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
                   const url = URL.createObjectURL(blob);
                   const link = document.createElement('a');
@@ -320,36 +337,15 @@ export function AtasDetalhes() {
                   toast.error('Erro ao exportar consumos.');
                 }
               }}
-              className="inline-flex items-center gap-1.5 px-4 py-2 border border-blue-200 rounded-md bg-blue-50 text-sm font-medium text-blue-700 shadow-sm hover:bg-blue-100 transition-colors"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-blue-600 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors"
               title="Exportar planilha de todos os consumos"
             >
-              <Download className="w-4 h-4 text-blue-600" />
-              Exportar Consumos
+              <Download className="w-4 h-4 text-white" />
+              <span>Exportar Relatório</span>
             </button>
           )}
-
-          {ata.documentoPdfUrl && (
-            <a
-              href={`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${ata.documentoPdfUrl}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 rounded-md bg-white text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"
-            >
-              <FileText className="w-4 h-4 text-red-500" />
-              Visualizar PDF
-            </a>
-          )}
-          
-          <Link
-            to="/atas"
-            className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 rounded-md bg-white text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Voltar
-          </Link>
         </div>
       </div>
-
 
       {/* Alertas Críticos da ATA */}
       {isVencida && (
@@ -378,72 +374,85 @@ export function AtasDetalhes() {
 
       {/* 4 Cards de Resumo */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        
-        {/* Card 1: Valor Teto */}
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
-          <p className="text-sm font-medium text-gray-500">Valor Teto Licitado</p>
-          <p className="text-2xl font-bold text-gray-900 mt-2">{formatCurrency(valorTeto)}</p>
+        {/* Card 1: Vigência */}
+        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
+          <div className="h-10 w-10 shrink-0 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
+            <Calendar className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Vigência da ATA</p>
+            <p className="text-base font-extrabold text-gray-900 mt-1 select-all">
+              {formatDate(ata.vigenciaInicio)} - {formatDate(ata.vigenciaFim)}
+            </p>
+          </div>
         </div>
         
-        {/* Card 2: Consumido Real */}
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
-          <p className="text-sm font-medium text-gray-500">Consumido Real (Lançamentos)</p>
-          <p className="text-2xl font-bold text-green-600 mt-2">{formatCurrency(valorConsumido)}</p>
-          <div className="mt-3">
-            <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-              <div 
-                className="h-2 rounded-full bg-green-500 transition-all" 
-                style={{ width: `${Math.min((valorConsumido / valorTeto) * 100, 100)}%` }}
-              ></div>
-            </div>
-            <p className="text-[10px] mt-1 text-gray-400 text-right">
-              {Math.round((valorConsumido / valorTeto) * 100)}% consumido
+        {/* Card 2: Valor Total */}
+        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
+          <div className="h-10 w-10 shrink-0 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
+            <DollarSign className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Valor Total</p>
+            <p className="text-base font-extrabold text-gray-900 mt-1 select-all">
+              {formatCurrency(valorTeto)}
             </p>
           </div>
         </div>
 
-        {/* Card 3: Comprometido */}
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
-          <p className="text-sm font-medium text-gray-500">Comprometido em Pedidos</p>
-          <p className="text-2xl font-bold text-yellow-600 mt-2">{formatCurrency(comprometido)}</p>
-          <div className="mt-3">
-            <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-              <div 
-                className="h-2 rounded-full bg-yellow-500 transition-all" 
-                style={{ width: `${Math.min((comprometido / valorTeto) * 100, 100)}%` }}
-              ></div>
-            </div>
-            <p className="text-[10px] mt-1 text-gray-400 text-right">
-              {Math.round((comprometido / valorTeto) * 100)}% do teto
+        {/* Card 3: Valor Consumido */}
+        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
+          <div className="h-10 w-10 shrink-0 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center border border-orange-100">
+            <TrendingUp className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Valor Consumido</p>
+            <p className="text-base font-extrabold text-gray-900 mt-1 select-all">
+              {formatCurrency(valorConsumido)}
+            </p>
+            <p className="text-[10px] text-gray-400 font-bold mt-0.5 select-none">
+              {valorTeto > 0 ? ((valorConsumido / valorTeto) * 100).toFixed(1) : 0}% do total
             </p>
           </div>
         </div>
 
-        {/* Card 4: Saldo Disponível */}
-        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
-          <p className="text-sm font-medium text-gray-500">Saldo Disponível Licitado</p>
-          <p className={`text-2xl font-bold mt-2 ${saldoDisponivel < 0 ? 'text-red-600' : 'text-blue-600'}`}>
-            {formatCurrency(saldoDisponivel)}
-          </p>
-          <div className="mt-3">
-            <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-              <div 
-                className={`h-2 rounded-full transition-all ${saldoDisponivel < 0 ? 'bg-red-500' : 'bg-blue-500'}`} 
-                style={{ width: `${Math.max(Math.min((saldoDisponivel / valorTeto) * 100, 100), 0)}%` }}
-              ></div>
+        {/* Card 4: Distribuição */}
+        <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow min-h-[96px]">
+          <div className="flex items-center gap-4">
+            <div className="h-10 w-10 shrink-0 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-100">
+              <Box className="w-5 h-5" />
             </div>
-            <p className="text-[10px] mt-1 text-gray-400 text-right">
-              {Math.max(Math.round((saldoDisponivel / valorTeto) * 100), 0)}% restante
-            </p>
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Distribuição</p>
+            </div>
+          </div>
+          <div className="w-[60px] h-[60px] relative flex items-center justify-center">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={dataForChart}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={15}
+                  outerRadius={24}
+                  paddingAngle={totalBudget > 0 ? 3 : 0}
+                  dataKey="value"
+                >
+                  {dataForChart.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>
 
       {/* Itens da Ata Licitados */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Medicamentos e Itens da Ata</h3>
-          <p className="text-xs text-gray-400">Clique na linha do item para visualizar o histórico de consumos específico.</p>
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-lg font-bold text-gray-900">Itens e Histórico de Pedidos</h3>
+          <p className="text-xs text-gray-400 select-none">Clique na linha do item para visualizar o histórico de consumos específico.</p>
         </div>
         
         <DataTable 
@@ -452,7 +461,6 @@ export function AtasDetalhes() {
           renderExpandedRow={renderExpandedRow}
         />
       </div>
-
     </div>
   );
 }

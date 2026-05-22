@@ -20,6 +20,10 @@ vi.mock('../config/prisma', () => {
     ataConsumo: {
       create: vi.fn(),
     },
+    fornecedor: {
+      findFirst: vi.fn(),
+      create: vi.fn(),
+    },
     $transaction: vi.fn(),
   };
   mock.$transaction.mockImplementation((callback) => callback(mock));
@@ -150,6 +154,56 @@ describe('AtaController - Testes Unitários de Regras de Negócio e Segurança',
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({ error: 'Uma ATA com este número já existe.' });
+    });
+
+    it('deve auto-criar o fornecedor se ele não existir no banco de dados', async () => {
+      const req: any = {
+        body: {
+          numero: '2026/002',
+          fornecedorNome: 'Novo Fornecedor Ltda',
+          fornecedorCnpj: '98765432000100',
+          processoLicitatorio: '124/2026',
+          numeroPregao: '46/2026',
+          numeroEdital: '02/2026',
+          vigenciaInicio: '2026-01-01',
+          vigenciaFim: '2026-12-31',
+          valorTeto: 20000.0,
+          documentoPdfUrl: 'http://link.pdf',
+          observacoes: 'Ata teste fornecedor novo',
+          medicamentos: [
+            {
+              nome: 'Ibuprofeno 400mg',
+              precoUnitario: 5.0,
+              qtdeInicial: 200,
+              catmatCodigo: 'BR654321',
+              unidadeFornecimento: 'COMPRIMIDO'
+            }
+          ]
+        }
+      };
+      const res = mockResponse();
+
+      vi.mocked((prisma as any).fornecedor.findFirst).mockResolvedValue(null);
+      vi.mocked((prisma as any).fornecedor.create).mockResolvedValue({ id: 'new-supplier-id' } as any);
+
+      vi.mocked(prisma.ata.create).mockResolvedValue({
+        id: 'ata-124',
+        numero: '2026/002'
+      } as any);
+
+      vi.mocked(prisma.medicamentoAta.create).mockResolvedValue({} as any);
+
+      await controller.criar(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(201);
+      expect((prisma as any).fornecedor.findFirst).toHaveBeenCalled();
+      expect((prisma as any).fornecedor.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          cnpj: '98765432000100',
+          razaoSocial: 'Novo Fornecedor Ltda',
+        })
+      });
+      expect(prisma.ata.create).toHaveBeenCalled();
     });
   });
 
