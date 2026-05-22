@@ -3,7 +3,8 @@ import { X, Plus, Trash2, HelpCircle, Loader2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { FileUpload } from '../ui/FileUpload';
 import { criarAta, buscarCatmat, buscarCatmatPorCodigo, uploadFile } from '../../services/ataService';
-import type { CatmatMedicamento } from '../../types';
+import { getFornecedores } from '../../services/fornecedorService';
+import type { CatmatMedicamento, Fornecedor } from '../../types';
 
 interface ModalNovaAtaProps {
   isOpen: boolean;
@@ -32,7 +33,9 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
   const [numero, setNumero] = useState('');
   const [fornecedorNome, setFornecedorNome] = useState('');
   const [fornecedorCnpj, setFornecedorCnpj] = useState('');
-  const [isSearchingCnpj, setIsSearchingCnpj] = useState(false);
+  const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
+  const [isLoadingFornecedores, setIsLoadingFornecedores] = useState(false);
+  const [selectedFornecedorId, setSelectedFornecedorId] = useState('');
   
 
   const [vigenciaInicio, setVigenciaInicio] = useState('');
@@ -56,30 +59,47 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
   // Debounce timers ref
   const debounceTimers = useRef<{ [key: number]: ReturnType<typeof setTimeout> }>({});
 
-  // CNPJ autocomplete via BrasilAPI
+  // Fetch suppliers and reset modal fields when open
   useEffect(() => {
-    const cleanCnpj = fornecedorCnpj.replace(/\D/g, '');
-    if (cleanCnpj.length === 14) {
-      const fetchCnpj = async () => {
+    if (isOpen) {
+      setNumero('');
+      setFornecedorNome('');
+      setFornecedorCnpj('');
+      setSelectedFornecedorId('');
+      setVigenciaInicio('');
+      setVigenciaFim('');
+      setObservacoes('');
+      setPdfFile(null);
+      setMedicamentos([{ nome: '', precoUnitario: 0, qtdeInicial: 0, unidadeAta: 'UNIDADE' }]);
+      
+      const fetchFornecedores = async () => {
         try {
-          setIsSearchingCnpj(true);
-          const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.razao_social) {
-              setFornecedorNome(data.razao_social);
-              toast.success('Fornecedor localizado com sucesso via BrasilAPI!');
-            }
-          }
+          setIsLoadingFornecedores(true);
+          const data = await getFornecedores();
+          setFornecedores(data.filter(f => f.status === 'ATIVO'));
         } catch (err) {
-          console.error('Erro ao buscar CNPJ:', err);
+          console.error('Erro ao buscar fornecedores:', err);
+          toast.error('Erro ao carregar fornecedores.');
         } finally {
-          setIsSearchingCnpj(false);
+          setIsLoadingFornecedores(false);
         }
       };
-      fetchCnpj();
+      fetchFornecedores();
     }
-  }, [fornecedorCnpj]);
+  }, [isOpen]);
+
+  const handleFornecedorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const id = e.target.value;
+    setSelectedFornecedorId(id);
+    const selected = fornecedores.find(f => f.id === id);
+    if (selected) {
+      setFornecedorNome(selected.razaoSocial);
+      setFornecedorCnpj(selected.cnpj);
+    } else {
+      setFornecedorNome('');
+      setFornecedorCnpj('');
+    }
+  };
 
   // Auto-calculate Total Value (Valor Teto) as the sum of all medicines total values
   useEffect(() => {
@@ -304,34 +324,37 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
                         className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
                       />
                     </div>
-                    
+
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">CNPJ do Fornecedor</label>
-                      <div className="relative mt-1">
-                        <input
-                          type="text"
-                          placeholder="Ex: 12345678000199 (Apenas números)"
-                          value={fornecedorCnpj}
-                          onChange={(e) => setFornecedorCnpj(e.target.value)}
-                          className="block w-full rounded-md border border-gray-300 px-3 py-2 pr-10 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
-                        />
-                        {isSearchingCnpj && (
-                          <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                            <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
-                          </div>
-                        )}
-                      </div>
+                      <label className="block text-sm font-medium text-gray-700 flex items-center gap-1">
+                        Razão Social / Nome Fornecedor *
+                        {isLoadingFornecedores && <Loader2 className="h-3 w-3 text-blue-500 animate-spin" />}
+                      </label>
+                      <select
+                        required
+                        value={selectedFornecedorId}
+                        onChange={handleFornecedorChange}
+                        disabled={isLoadingFornecedores}
+                        className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+                      >
+                        <option value="">Selecione um fornecedor...</option>
+                        {fornecedores.map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {f.razaoSocial} {f.nomeFantasia && f.nomeFantasia !== f.razaoSocial ? `(${f.nomeFantasia})` : ''}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Razão Social / Nome Fornecedor *</label>
+                      <label className="block text-sm font-medium text-gray-700">CNPJ do Fornecedor</label>
                       <input
                         type="text"
-                        required
-                        placeholder="Nome ou Razão Social"
-                        value={fornecedorNome}
-                        onChange={(e) => setFornecedorNome(e.target.value)}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+                        readOnly
+                        disabled
+                        placeholder="Selecione o fornecedor acima"
+                        value={fornecedorCnpj}
+                        className="mt-1 block w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 shadow-sm text-sm text-gray-500 cursor-not-allowed focus:outline-none"
                       />
                     </div>
                   </div>

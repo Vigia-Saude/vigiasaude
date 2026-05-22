@@ -20,6 +20,11 @@ export class AtaController {
         orderBy: { criadoEm: 'desc' }
       });
       
+      const fornecedores = await prisma.fornecedor.findMany();
+      const cleanCnpjMap = new Map(
+        fornecedores.map(f => [f.cnpj.replace(/\D/g, ''), f])
+      );
+      
       const hoje = new Date();
 
       const result = atas.map(ata => {
@@ -85,6 +90,11 @@ export class AtaController {
           };
         });
 
+        let resolvedFornecedor = ata.fornecedor;
+        if (!resolvedFornecedor && ata.fornecedorCnpj) {
+          resolvedFornecedor = cleanCnpjMap.get(ata.fornecedorCnpj.replace(/\D/g, '')) || null;
+        }
+
         return {
           ...ata,
           dataInicio: ata.vigenciaInicio.toISOString(),
@@ -95,8 +105,8 @@ export class AtaController {
           valorDisponivel,
           diasRestantes: diasRestantesVal,
           porcentagemVigenciaDecorrente,
-          fornecedorId: ata.fornecedor?.id || '',
-          fornecedorNome: ata.fornecedor?.nomeFantasia || ata.fornecedorNome,
+          fornecedorId: resolvedFornecedor?.id || '',
+          fornecedorNome: resolvedFornecedor?.nomeFantasia || ata.fornecedorNome,
           medicamentos: medicamentosFormatados
         };
       });
@@ -225,6 +235,15 @@ export class AtaController {
         }))
       })) : [];
 
+      let resolvedFornecedor = ata.fornecedor;
+      if (!resolvedFornecedor && ata.fornecedorCnpj) {
+        const cleanCnpj = ata.fornecedorCnpj.replace(/\D/g, '');
+        if (cleanCnpj) {
+          const fornecedores = await prisma.fornecedor.findMany();
+          resolvedFornecedor = fornecedores.find(f => f.cnpj.replace(/\D/g, '') === cleanCnpj) || null;
+        }
+      }
+
       const result = {
         ...ata,
         dataInicio: ata.vigenciaInicio.toISOString(),
@@ -235,8 +254,8 @@ export class AtaController {
         valorDisponivel,
         diasRestantes: diasRestantesVal,
         porcentagemVigenciaDecorrente,
-        fornecedorId: ata.fornecedor?.id || '',
-        fornecedorNome: ata.fornecedor?.nomeFantasia || ata.fornecedorNome,
+        fornecedorId: resolvedFornecedor?.id || '',
+        fornecedorNome: resolvedFornecedor?.nomeFantasia || ata.fornecedorNome,
         medicamentos: formattedMedicamentos,
         pedidos: formattedPedidos,
         consumos: formattedConsumos,

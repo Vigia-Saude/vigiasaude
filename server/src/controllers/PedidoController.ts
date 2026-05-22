@@ -3,6 +3,27 @@ import prisma from '../config/prisma';
 import { AuthRequest } from '../middlewares/auth';
 import { Prisma } from '@prisma/client';
 
+async function resolveFornecedorFromAta(ataId: string): Promise<string | null> {
+  const tempAta = await prisma.ata.findUnique({
+    where: { id: ataId },
+    include: { fornecedor: true }
+  });
+  if (tempAta?.fornecedor?.id) {
+    return tempAta.fornecedor.id;
+  }
+  if (tempAta?.fornecedorCnpj) {
+    const cleanCnpj = tempAta.fornecedorCnpj.replace(/\D/g, '');
+    if (cleanCnpj) {
+      const fornecedores = await prisma.fornecedor.findMany();
+      const match = fornecedores.find(f => f.cnpj.replace(/\D/g, '') === cleanCnpj);
+      if (match) {
+        return match.id;
+      }
+    }
+  }
+  return null;
+}
+
 export class PedidoController {
   // GET /api/pedidos
   listar = async (req: AuthRequest, res: Response) => {
@@ -188,13 +209,9 @@ export class PedidoController {
       const numeroGerado = `PdC-${anoAtual}-${sequencial}`;
 
       // 3. Determinar Fornecedor e validar se houver vínculo com ATA
-      let resolvedFornecedorId = fornecedorId;
+      let resolvedFornecedorId = (fornecedorId && fornecedorId.trim() !== '') ? fornecedorId : null;
       if (ataId && !resolvedFornecedorId) {
-        const tempAta = await prisma.ata.findUnique({
-          where: { id: ataId },
-          include: { fornecedor: true }
-        });
-        resolvedFornecedorId = tempAta?.fornecedor?.id;
+        resolvedFornecedorId = await resolveFornecedorFromAta(ataId);
       }
 
       if (!resolvedFornecedorId) {
@@ -652,13 +669,9 @@ export class PedidoController {
       }
 
       // 3. Determinar Fornecedor
-      let resolvedFornecedorId = fornecedorId;
+      let resolvedFornecedorId = (fornecedorId && fornecedorId.trim() !== '') ? fornecedorId : null;
       if (ataId && !resolvedFornecedorId) {
-        const tempAta = await prisma.ata.findUnique({
-          where: { id: ataId },
-          include: { fornecedor: true }
-        });
-        resolvedFornecedorId = tempAta?.fornecedor?.id;
+        resolvedFornecedorId = await resolveFornecedorFromAta(ataId);
       }
 
       if (!resolvedFornecedorId) {
