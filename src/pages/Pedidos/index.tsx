@@ -12,6 +12,7 @@ import type { ColumnDef } from '../../components/ui/DataTable';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { TableSkeleton } from '../../components/ui/TableSkeleton';
 import { ConfirmModal } from '../../components/ui/ConfirmModal';
+import { ModalDetalhesPedido } from './ModalDetalhesPedido';
 import { 
   FileSpreadsheet, 
   Plus, 
@@ -21,7 +22,8 @@ import {
   XCircle, 
   AlertCircle, 
   Calendar,
-  DollarSign
+  DollarSign,
+  Eye
 } from 'lucide-react';
 
 export function PedidosLista() {
@@ -42,6 +44,15 @@ export function PedidosLista() {
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [pedidoToCancel, setPedidoToCancel] = useState<{ id: string; numero: string } | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+
+  // Details Modal State
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [selectedPedidoId, setSelectedPedidoId] = useState<string | null>(null);
+
+  const handleViewDetails = (id: string) => {
+    setSelectedPedidoId(id);
+    setDetailsModalOpen(true);
+  };
 
   // Debounce search query
   useEffect(() => {
@@ -415,10 +426,18 @@ export function PedidosLista() {
               const isDraft = row.status === 'RASCUNHO';
               const isPendingOrAccepted = ['PENDENTE', 'ACEITO'].includes(row.status);
               
-              if (!isDraft && !isPendingOrAccepted) return null;
-
               return (
                 <div className="flex items-center justify-end gap-2">
+                  {/* Visualizar Detalhes */}
+                  <button
+                    onClick={() => handleViewDetails(row.id)}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-md transition-colors cursor-pointer"
+                    title="Visualizar Detalhes"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    <span>Detalhes</span>
+                  </button>
+
                   {/* Edit Draft */}
                   {isDraft && (
                     <Link 
@@ -477,6 +496,16 @@ export function PedidosLista() {
         cancelText="Voltar"
         isDanger={true}
         isLoading={isCancelling}
+      />
+
+      {/* Detail Modal */}
+      <ModalDetalhesPedido
+        isOpen={detailsModalOpen}
+        onClose={() => {
+          setDetailsModalOpen(false);
+          setSelectedPedidoId(null);
+        }}
+        pedidoId={selectedPedidoId}
       />
     </div>
   );
