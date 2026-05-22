@@ -1,30 +1,72 @@
-import { useState, useMemo } from 'react';
-import { mockAuditoria } from '../../lib/mockData';
+import { useState, useMemo, useEffect } from 'react';
+import { getAuditoriaLogs, BackendAuditoriaLog } from '../../services/auditoriaService';
 import { DataTable } from '../../components/ui/DataTable';
 import type { ColumnDef } from '../../components/ui/DataTable';
 import { StatusBadge } from '../../components/ui/StatusBadge';
+import { TableSkeleton } from '../../components/ui/TableSkeleton';
 import { Filter, Download, Terminal, Search, User } from 'lucide-react';
 
 export function AuditoriaLista() {
+  const [logs, setLogs] = useState<BackendAuditoriaLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [periodo, setPeriodo] = useState('90');
   const [tipoAcao, setTipoAcao] = useState('TODOS');
   const [filtroUsuario, setFiltroUsuario] = useState('');
 
-  // Ordenar por data (mais recente primeiro)
-  const dataSorted = useMemo(() => {
-    return [...mockAuditoria].sort((a, b) => 
-      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    );
+  const fetchLogs = async () => {
+    try {
+      setIsLoading(true);
+      const data = await getAuditoriaLogs();
+      setLogs(data);
+    } catch (err) {
+      console.error('Erro ao carregar logs de auditoria:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLogs();
   }, []);
 
-  // Filtragem (Simulada para UI)
+  // Mapear logs do backend para a estrutura esperada pela DataTable
+  const mappedLogs = useMemo(() => {
+    return logs.map(log => ({
+      id: log.id,
+      timestamp: log.dataHora,
+      usuarioId: log.usuario?.nome || log.usuarioId,
+      acao: log.acao,
+      entidadeId: log.entidadeId,
+      detalhes: log.justificativa || `Ação executada no recurso ${log.entidadeId}`,
+      estadoAnterior: log.dadosAntes,
+      estadoNovo: log.dadosDepois,
+      ip: '0.0.0.0',
+      justificativa: log.justificativa
+    }));
+  }, [logs]);
+
+  // Ordenar por data (mais recente primeiro)
+  const dataSorted = useMemo(() => {
+    return [...mappedLogs].sort((a, b) => 
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+  }, [mappedLogs]);
+
+  // Filtragem
   const filteredData = useMemo(() => {
     return dataSorted.filter(log => {
-      const matchAcao = tipoAcao === 'TODOS' || log.acao === tipoAcao;
+      const matchAcao = tipoAcao === 'TODOS' || log.acao.includes(tipoAcao);
       const matchUser = filtroUsuario === '' || log.usuarioId.toLowerCase().includes(filtroUsuario.toLowerCase());
-      return matchAcao && matchUser;
+      
+      // Filtrar período de dias
+      const logDate = new Date(log.timestamp);
+      const diffTime = Math.abs(new Date().getTime() - logDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const matchPeriodo = diffDays <= Number(periodo);
+
+      return matchAcao && matchUser && matchPeriodo;
     });
-  }, [dataSorted, tipoAcao, filtroUsuario]);
+  }, [dataSorted, tipoAcao, filtroUsuario, periodo]);
 
   const columns: ColumnDef<typeof filteredData[0]>[] = [
     {
@@ -55,20 +97,22 @@ export function AuditoriaLista() {
       accessorKey: 'acao',
       sortable: true,
       cell: (row) => {
-        const variants: Record<string, any> = {
-          'CRIACAO': 'green',
-          'ATUALIZACAO': 'blue',
-          'APROVACAO': 'blue',
-          'BLOQUEIO': 'red',
-          'EXCLUSAO': 'red'
-        };
-        return <StatusBadge status={row.acao} variant={variants[row.acao] || 'gray'} />;
+        let variant: 'green' | 'blue' | 'red' | 'gray' = 'gray';
+        const acao = row.acao.toUpperCase();
+        if (acao.includes('CRIACAO') || acao.includes('ATIVACAO')) {
+          variant = 'green';
+        } else if (acao.includes('ATUALIZACAO') || acao.includes('APROVACAO') || acao.includes('CONSUMO') || acao.includes('ENTREGA')) {
+          variant = 'blue';
+        } else if (acao.includes('DESATIVACAO') || acao.includes('BLOQUEIO') || acao.includes('EXCLUSAO') || acao.includes('REJEICAO')) {
+          variant = 'red';
+        }
+        return <StatusBadge status={row.acao.replace(/_/g, ' ')} variant={variant} />;
       }
     },
     {
       header: 'Recurso',
       accessorKey: 'entidadeId',
-      cell: (row) => <span className="uppercase text-xs font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">{row.entidadeId}</span>
+      cell: (row) => <span className="uppercase text-xs font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">{row.entidadeId.substring(0, 8)}...</span>
     },
     {
       header: 'Resumo',
@@ -99,9 +143,13 @@ export function AuditoriaLista() {
             </div>
             <div className="bg-white p-3 rounded-lg border border-gray-200">
               <p className="text-[10px] font-bold text-blue-400 uppercase mb-2">Estado Novo</p>
-              <pre className="text-[11px] text-gray-800 font-mono overflow-auto max-h-40">
-                {JSON.stringify(log.estadoNovo, null, 2)}
-              </pre>
+              {log.estadoNovo ? (
+                <pre className="text-[11px] text-gray-800 font-mono overflow-auto max-h-40">
+                  {JSON.stringify(log.estadoNovo, null, 2)}
+                </pre>
+              ) : (
+                <p className="text-xs text-gray-400 italic">Nulo (Exclusão)</p>
+              )}
             </div>
           </div>
         </div>
@@ -155,6 +203,7 @@ export function AuditoriaLista() {
               <option value="7">Últimos 7 dias</option>
               <option value="30">Últimos 30 dias</option>
               <option value="90">Últimos 90 dias</option>
+              <option value="365">Último ano</option>
             </select>
             <Filter className="w-4 h-4 text-gray-400 absolute right-2.5 top-3 pointer-events-none" />
           </div>
@@ -192,11 +241,15 @@ export function AuditoriaLista() {
 
       {/* Tabela de Auditoria */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <DataTable 
-          data={filteredData} 
-          columns={columns}
-          renderExpandedRow={renderExpandedRow}
-        />
+        {isLoading ? (
+          <TableSkeleton />
+        ) : (
+          <DataTable 
+            data={filteredData} 
+            columns={columns}
+            renderExpandedRow={renderExpandedRow}
+          />
+        )}
       </div>
     </div>
   );

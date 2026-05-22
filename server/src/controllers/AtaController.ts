@@ -1,10 +1,11 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthRequest } from '../middlewares/auth';
 import prisma from '../config/prisma';
 import { Prisma } from '@prisma/client';
 
 export class AtaController {
   // GET /api/atas
-  listar = async (req: Request, res: Response): Promise<Response> => {
+  listar = async (req: AuthRequest, res: Response): Promise<Response> => {
     try {
       const atas = await prisma.ata.findMany({
         include: {
@@ -108,7 +109,7 @@ export class AtaController {
   };
 
   // GET /api/atas/:id
-  detalhes = async (req: Request, res: Response): Promise<Response> => {
+  detalhes = async (req: AuthRequest, res: Response): Promise<Response> => {
     const id = req.params.id as string;
     try {
       const ata = await prisma.ata.findUnique({
@@ -249,7 +250,7 @@ export class AtaController {
   };
 
   // POST /api/atas
-  criar = async (req: Request, res: Response): Promise<Response> => {
+  criar = async (req: AuthRequest, res: Response): Promise<Response> => {
     try {
       const {
         numero,
@@ -274,6 +275,8 @@ export class AtaController {
         return res.status(400).json({ error: 'A ata deve conter pelo menos um medicamento.' });
       }
 
+      let resolvedCnpj = fornecedorCnpj;
+
       const novaAta = await prisma.$transaction(async (tx) => {
         if (fornecedorCnpj) {
           const cleanCnpj = fornecedorCnpj.replace(/\D/g, '');
@@ -286,7 +289,9 @@ export class AtaController {
             }
           });
 
-          if (!fornecedorExistente) {
+          if (fornecedorExistente) {
+            resolvedCnpj = fornecedorExistente.cnpj;
+          } else {
             await tx.fornecedor.create({
               data: {
                 cnpj: fornecedorCnpj,
@@ -299,6 +304,7 @@ export class AtaController {
                 categorias: []
               }
             });
+            resolvedCnpj = fornecedorCnpj;
           }
         }
 
@@ -306,7 +312,7 @@ export class AtaController {
           data: {
             numero,
             fornecedorNome,
-            fornecedorCnpj,
+            fornecedorCnpj: resolvedCnpj,
             processoLicitatorio,
             numeroPregao,
             numeroEdital,
@@ -344,6 +350,18 @@ export class AtaController {
           });
         }
 
+        if (req.user?.id) {
+          await tx.auditoria.create({
+            data: {
+              usuarioId: req.user.id,
+              acao: 'CRIACAO_ATA',
+              entidadeId: ataCriada.id,
+              dadosDepois: JSON.parse(JSON.stringify(ataCriada)),
+              justificativa: `Criação da ATA ${numero} no sistema.`
+            }
+          });
+        }
+
         return ataCriada;
       });
 
@@ -358,7 +376,7 @@ export class AtaController {
   };
 
   // POST /api/atas/:ataId/consumos
-  registrarConsumo = async (req: Request, res: Response): Promise<Response> => {
+  registrarConsumo = async (req: AuthRequest, res: Response): Promise<Response> => {
     const ataId = req.params.ataId as string;
     const {
       ataItemId,
@@ -446,6 +464,18 @@ export class AtaController {
             valorConsumido: novoValorConsumidoAta
           }
         });
+
+        if (req.user?.id) {
+          await tx.auditoria.create({
+            data: {
+              usuarioId: req.user.id,
+              acao: 'REGISTRO_CONSUMO_ATA',
+              entidadeId: ataId,
+              dadosDepois: JSON.parse(JSON.stringify(novoConsumo)),
+              justificativa: observacao || `Registro de consumo de ${quantidade} unidades do item ${item.nome}.`
+            }
+          });
+        }
 
         return novoConsumo;
       });

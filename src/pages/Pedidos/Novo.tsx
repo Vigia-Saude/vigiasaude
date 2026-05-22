@@ -289,7 +289,7 @@ export function NovoPedido() {
         medicamentoNome: med.nome,
         quantidade: itemQuantity,
         precoUnitario: med.precoUnitario,
-        valorTotal: itemQuantity * med.precoUnitario,
+        valorTotal: Math.round(itemQuantity * med.precoUnitario * 100) / 100,
         ataItemId: med.id,
         ataSaldo: saldo
       };
@@ -321,7 +321,7 @@ export function NovoPedido() {
         medicamentoNome: selectedCatmatMed.descricao,
         quantidade: itemQuantity,
         precoUnitario: itemPrice,
-        valorTotal: itemQuantity * itemPrice,
+        valorTotal: Math.round(itemQuantity * itemPrice * 100) / 100,
         ataItemId: null,
         ataSaldo: null
       };
