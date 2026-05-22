@@ -275,15 +275,15 @@ export class AtaController {
         return res.status(400).json({ error: 'A ata deve conter pelo menos um medicamento.' });
       }
 
-      let resolvedCnpj = fornecedorCnpj;
+      let resolvedCnpj = (fornecedorCnpj && fornecedorCnpj.trim() !== '') ? fornecedorCnpj.trim() : null;
 
       const novaAta = await prisma.$transaction(async (tx) => {
-        if (fornecedorCnpj) {
-          const cleanCnpj = fornecedorCnpj.replace(/\D/g, '');
+        if (resolvedCnpj) {
+          const cleanCnpj = resolvedCnpj.replace(/\D/g, '');
           const fornecedorExistente = await tx.fornecedor.findFirst({
             where: {
               OR: [
-                { cnpj: fornecedorCnpj },
+                { cnpj: resolvedCnpj },
                 { cnpj: cleanCnpj }
               ]
             }
@@ -294,7 +294,7 @@ export class AtaController {
           } else {
             await tx.fornecedor.create({
               data: {
-                cnpj: fornecedorCnpj,
+                cnpj: resolvedCnpj,
                 razaoSocial: fornecedorNome,
                 nomeFantasia: fornecedorNome,
                 email: 'contato@fornecedor.com.br',
@@ -304,7 +304,6 @@ export class AtaController {
                 categorias: []
               }
             });
-            resolvedCnpj = fornecedorCnpj;
           }
         }
 
