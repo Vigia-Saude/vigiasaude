@@ -7,6 +7,9 @@ export interface AuthRequest extends Request {
   user?: {
     id: string;
     role: string;
+    perfil?: string | null;
+    tenantSchema?: string | null;
+    unidadeId?: string | null;
     fornecedorId?: string | null;
   };
 }
@@ -21,7 +24,7 @@ export const authMiddleware = (req: AuthRequest, res: Response, next: NextFuncti
   const [, token] = authHeader.split(' ');
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: string; role: string; fornecedorId?: string | null };
+    const decoded = jwt.verify(token, JWT_SECRET) as AuthRequest['user'];
     req.user = decoded;
     return next();
   } catch (err) {
@@ -35,7 +38,8 @@ export const roleMiddleware = (allowedRoles: string[]) => {
       return res.status(401).json({ error: 'Usuário não autenticado' });
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
+    const userRoles = [req.user.role, req.user.perfil].filter(Boolean) as string[];
+    if (!allowedRoles.some(r => userRoles.includes(r))) {
       return res.status(403).json({ error: 'Acesso negado: você não possui o perfil necessário' });
     }
 

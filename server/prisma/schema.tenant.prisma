@@ -1,0 +1,117 @@
+// Schema das tabelas presentes em cada tenant_farmacia_x.
+// Usado apenas como referência de tipos — o PrismaClientFactory
+// aponta o search_path dinamicamente via DATABASE_URL_DIRECT.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/tenant-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL_DIRECT")
+}
+
+model Medicamento {
+  id                String   @id @default(cuid())
+  catmatCodigo      String?
+  nome              String
+  principioAtivo    String?
+  formaFarmaceutica String?
+  concentracao      String?
+  unidadeMedida     String   @default("UNIDADE")
+  estoqueMinimo     Int      @default(0)
+  criadoEm         DateTime @default(now())
+  atualizadoEm     DateTime @updatedAt
+  deletedAt        DateTime?
+
+  lotes            Lote[]
+  dispensacaoItens DispensacaoItem[]
+
+  @@map("medicamentos")
+}
+
+model Lote {
+  id              String      @id @default(cuid())
+  medicamentoId   String
+  medicamento     Medicamento @relation(fields: [medicamentoId], references: [id])
+  numeroLote      String
+  quantidade      Int
+  quantidadeAtual Int
+  validade        DateTime    @db.Date
+  fornecedor      String?
+  notaFiscal      String?
+  criadoEm        DateTime    @default(now())
+  deletedAt       DateTime?
+
+  dispensacaoItens DispensacaoItem[]
+
+  @@map("lotes")
+}
+
+model Paciente {
+  id           String    @id @default(cuid())
+  nome         String
+  cpf          String?   @unique
+  cartaoSus    String?   @unique
+  dataNasc     DateTime? @db.Date
+  telefone     String?
+  endereco     String?
+  criadoEm     DateTime  @default(now())
+  atualizadoEm DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  prescricoes  Prescricao[]
+  dispensacoes Dispensacao[]
+
+  @@map("pacientes")
+}
+
+model Prescricao {
+  id            String    @id @default(cuid())
+  pacienteId    String
+  paciente      Paciente  @relation(fields: [pacienteId], references: [id])
+  medicoNome    String?
+  crm           String?
+  dataEmissao   DateTime  @db.Date
+  dataValidade  DateTime? @db.Date
+  numeroReceita String?
+  arquivoUrl    String?
+  observacoes   String?
+  criadoEm      DateTime  @default(now())
+  deletedAt     DateTime?
+
+  dispensacoes  Dispensacao[]
+
+  @@map("prescricoes")
+}
+
+model Dispensacao {
+  id               String      @id @default(cuid())
+  pacienteId       String
+  paciente         Paciente    @relation(fields: [pacienteId], references: [id])
+  prescricaoId     String?
+  prescricao       Prescricao? @relation(fields: [prescricaoId], references: [id])
+  usuarioId        String
+  dataDispensacao  DateTime    @default(now())
+  observacoes      String?
+  criadoEm         DateTime    @default(now())
+
+  itens            DispensacaoItem[]
+
+  @@map("dispensacoes")
+}
+
+model DispensacaoItem {
+  id            String      @id @default(cuid())
+  dispensacaoId String
+  dispensacao   Dispensacao @relation(fields: [dispensacaoId], references: [id])
+  medicamentoId String
+  medicamento   Medicamento @relation(fields: [medicamentoId], references: [id])
+  loteId        String?
+  lote          Lote?       @relation(fields: [loteId], references: [id])
+  quantidade    Int
+  criadoEm      DateTime    @default(now())
+
+  @@map("dispensacao_itens")
+}

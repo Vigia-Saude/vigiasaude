@@ -57,6 +57,18 @@ app.get('/comprador-only', authMiddleware, roleMiddleware(['COMPRADOR']), (req, 
   res.send('Acesso exclusivo para compradores.')
 })
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando em http://localhost:${PORT}`)
 })
+
+async function gracefulShutdown(signal: string) {
+  console.log(`\n${signal} recebido — encerrando servidor...`)
+  server.close(async () => {
+    const { disposeAllPrismaClients } = await import('./lib/prismaFactory.js')
+    await disposeAllPrismaClients()
+    process.exit(0)
+  })
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
+process.on('SIGINT',  () => gracefulShutdown('SIGINT'))

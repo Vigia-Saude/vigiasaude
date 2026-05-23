@@ -14,6 +14,21 @@ enum Role {
   FORNECEDOR
 }
 
+enum Perfil {
+  SECRETARIO_SAUDE
+  GESTOR_ESTOQUE
+  FARMACIA
+  MEDICO
+  ENTREGADOR
+}
+
+enum UsuarioStatus {
+  PENDENTE
+  ATIVO
+  RECUSADO
+  DESATIVADO
+}
+
 enum PedidoStatus {
   RASCUNHO
   PENDENTE
@@ -68,18 +83,30 @@ model Fornecedor {
 
 
 model User {
-  id           String      @id @default(uuid())
-  nome         String
-  email        String      @unique
-  senhaHash    String      @map("senha_hash")
-  role         Role        @default(COMPRADOR)
-  fornecedorId String?     @map("fornecedor_id")
-  fornecedor   Fornecedor? @relation(fields: [fornecedorId], references: [id])
-  criadoEm     DateTime    @default(now()) @map("criado_em")
-  atualizadoEm DateTime    @updatedAt @map("atualizado_em")
-  auditorias   Auditoria[]
+  id               String        @id @default(uuid())
+  nome             String
+  cpf              String?       @unique
+  email            String?       @unique
+  senhaHash        String        @map("senha_hash")
+  role             Role          @default(COMPRADOR)
+  perfil           Perfil?
+  status           UsuarioStatus @default(PENDENTE)
+  unidadeId        String?       @map("unidade_id")
+  tenantSchema     String?       @map("tenant_schema")
+  permissoesExtras Json?         @map("permissoes_extras")
+  justificativa    String?
+  motivoRecusa     String?       @map("motivo_recusa")
+  aprovadoPor      String?       @map("aprovado_por")
+  aprovadoEm       DateTime?     @map("aprovado_em")
+  fornecedorId     String?       @map("fornecedor_id")
+  fornecedor       Fornecedor?   @relation(fields: [fornecedorId], references: [id])
+  criadoEm         DateTime      @default(now()) @map("criado_em")
+  atualizadoEm     DateTime      @updatedAt @map("atualizado_em")
+  deletedAt        DateTime?     @map("deleted_at")
+  auditorias       Auditoria[]
 
   @@index([fornecedorId])
+  @@index([status])
   @@map("usuarios")
 }
 
