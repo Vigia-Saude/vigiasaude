@@ -97,7 +97,7 @@ export function NovoPedido() {
           getAtas(),
           getFornecedores({ status: 'ATIVO' })
         ]);
-        setAtas(atasData.filter(a => a.status === 'ATIVA'));
+        setAtas(atasData.data.filter((a: any) => a.status === 'ATIVA'));
         setFornecedores(suppliersData);
 
         // If in Edit Mode, fetch details

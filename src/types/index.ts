@@ -145,9 +145,13 @@ export interface Auditoria {
 
 export type UserRole = 'COMPRADOR' | 'FORNECEDOR';
 
-export type User = {
+export interface User {
   id: string;
   nome: string;
   role: UserRole;
-  email: string;
-};
+  email?: string;
+  cpf?: string;
+  perfil?: 'SECRETARIO_SAUDE' | 'GESTOR_ESTOQUE' | 'FARMACIA' | 'MEDICO' | 'ENTREGADOR' | null;
+  tenantSchema?: string | null;
+  unidadeId?: string | null;
+}

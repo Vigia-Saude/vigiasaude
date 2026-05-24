@@ -8,6 +8,7 @@ const authController = new AuthController();
 // Públicas
 router.post('/login', authController.login.bind(authController));
 router.post('/solicitar-acesso', authController.solicitarAcesso.bind(authController));
+router.get('/fornecedores', authController.listarFornecedoresPublico.bind(authController));
 
 // Protegidas — apenas Secretário
 router.get(

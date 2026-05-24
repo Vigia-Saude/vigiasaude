@@ -45,4 +45,5 @@ server/src/test-pg-connection.ts
 # Uploads
 server/uploads/
 
-
+# IDE/Assistant directories
+.claude/

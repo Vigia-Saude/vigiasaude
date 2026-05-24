@@ -33,8 +33,11 @@ async function main() {
     create: {
       nome: 'João Comprador',
       email: 'comprador@vigiasaude.com.br',
+      cpf: '12345678900',
       senhaHash: '$2b$10$BOy0TlhfA4uYyvDEN0bCHeK8eRwAjqumO60t72AEyxJ3TGEgR/fgS', // Senha: 123456
       role: 'COMPRADOR',
+      perfil: 'SECRETARIO_SAUDE',
+      status: 'ATIVO',
     },
   })
 
@@ -59,8 +62,10 @@ async function main() {
     create: {
       nome: 'Maria Fornecedora',
       email: 'fornecedor@medsupply.com.br',
+      cpf: '98765432100',
       senhaHash: '$2b$10$BOy0TlhfA4uYyvDEN0bCHeK8eRwAjqumO60t72AEyxJ3TGEgR/fgS', // Senha: 123456
       role: 'FORNECEDOR',
+      status: 'ATIVO',
       fornecedorId: fornecedor.id,
     },
   })

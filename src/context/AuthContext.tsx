@@ -4,7 +4,7 @@ import apiClient from '../services/apiClient';
 
 interface AuthContextType {
   user: User | null;
-  login: (credentials: { email: string; password?: string }) => Promise<void>;
+  login: (credentials: { cpf: string; password?: string }) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -18,7 +18,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
   const [isLoading, setIsLoading] = useState(false);
 
-  const login = async (credentials: { email: string; password?: string }) => {
+  const login = async (credentials: { cpf: string; password?: string }) => {
     setIsLoading(true);
     try {
       const response = await apiClient.post<{ user: User; token: string }>('/auth/login', credentials);

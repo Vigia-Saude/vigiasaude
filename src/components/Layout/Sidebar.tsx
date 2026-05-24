@@ -20,10 +20,12 @@ export default function Sidebar({ isOpen, setIsOpen }: { isOpen: boolean; setIsO
     { name: 'ATAs', path: '/atas', icon: FileCheck, roles: ['COMPRADOR', 'FORNECEDOR'] },
     { name: 'Auditoria', path: '/auditoria', icon: Search, roles: ['COMPRADOR'] },
     { name: 'Fornecedores', path: '/fornecedores', icon: Users, roles: ['COMPRADOR'] },
+    { name: 'Solicitações', path: '/solicitacoes', icon: Users, roles: ['COMPRADOR'], perfil: 'SECRETARIO_SAUDE' },
   ];
 
   const filteredLinks = allLinks.filter(link => 
-    !link.roles || (user && link.roles.includes(user.role))
+    (!link.roles || (user && link.roles.includes(user.role))) &&
+    (!link.perfil || (user && user.perfil === link.perfil))
   );
 
   return (

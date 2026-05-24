@@ -20,6 +20,18 @@ const dashboardController = new DashboardController();
 // Todas as rotas da API requerem autenticação
 router.use(authMiddleware);
 
+// Rota de Unidades (Secretaria / Unidades)
+router.get('/unidades', async (req, res) => {
+  try {
+    const { listarUnidades } = await import('../services/tenantService');
+    const unidades = await listarUnidades();
+    return res.json(unidades);
+  } catch (err) {
+    console.error('Erro ao listar unidades:', err);
+    return res.status(500).json({ error: 'Erro ao listar unidades' });
+  }
+});
+
 // Rotas de Dashboard
 router.get('/dashboard/stats', dashboardController.getStats);
 

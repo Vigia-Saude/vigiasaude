@@ -107,6 +107,19 @@ export const router = createBrowserRouter([
           };
         },
       },
+      {
+        path: 'solicitacoes',
+        lazy: async () => {
+          const { SolicitacoesMembro } = await import('../pages/Solicitacoes');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedRoles={['COMPRADOR']}>
+                <SolicitacoesMembro />
+              </ProtectedRoute>
+            )
+          };
+        },
+      },
     ],
   },
   {

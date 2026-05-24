@@ -24,14 +24,27 @@ const perfilEnum = z.enum([
 const solicitarAcessoSchema = z.object({
   nome: z.string().min(2),
   cpf: z.string().length(11),
-  email: z.string().email().optional(),
-  perfil: perfilEnum,
-  justificativa: z.string().min(10),
+  email: z.string().email().optional().or(z.literal('')),
+  role: z.enum(['COMPRADOR', 'FORNECEDOR']).default('COMPRADOR'),
+  perfil: perfilEnum.optional(),
+  justificativa: z.string().optional(),
+  fornecedorId: z.string().uuid().optional(),
   password: z.string().min(8),
+}).refine(data => {
+  if (data.role === 'COMPRADOR') {
+    return !!data.perfil && !!data.justificativa && data.justificativa.length >= 10;
+  }
+  if (data.role === 'FORNECEDOR') {
+    return !!data.fornecedorId;
+  }
+  return true;
+}, {
+  message: 'Campos obrigatórios ausentes para o tipo de acesso selecionado.',
+  path: ['perfil'],
 });
 
 const aprovarSchema = z.object({
-  perfil: perfilEnum,
+  perfil: perfilEnum.optional(),
   unidadeId: z.string().optional(),
   tenantSchema: z.string().optional(),
   permissoesExtras: z.record(z.string(), z.boolean()).optional(),
@@ -109,7 +122,7 @@ export class AuthController {
       return res.status(400).json({ error: firstIssue(parsed.error) });
     }
 
-    const { nome, cpf, email, perfil, justificativa, password } = parsed.data;
+    const { nome, cpf, email, role, perfil, justificativa, fornecedorId, password } = parsed.data;
 
     try {
       const existing = await prisma.user.findUnique({ where: { cpf } });
@@ -122,7 +135,17 @@ export class AuthController {
       const senhaHash = await bcrypt.hash(password, 12);
 
       const user = await prisma.user.create({
-        data: { nome, cpf, email, senhaHash, perfil, justificativa, status: 'PENDENTE' },
+        data: {
+          nome,
+          cpf,
+          email: email || null,
+          senhaHash,
+          role,
+          perfil: role === 'COMPRADOR' ? perfil : null,
+          justificativa: role === 'COMPRADOR' ? justificativa : null,
+          fornecedorId: role === 'FORNECEDOR' ? fornecedorId : null,
+          status: 'PENDENTE',
+        },
       });
 
       return res.status(201).json({
@@ -144,8 +167,15 @@ export class AuthController {
           nome: true,
           cpf: true,
           email: true,
+          role: true,
           perfil: true,
           justificativa: true,
+          fornecedorId: true,
+          fornecedor: {
+            select: {
+              nomeFantasia: true,
+            }
+          },
           criadoEm: true,
         },
         orderBy: { criadoEm: 'asc' },
@@ -176,9 +206,9 @@ export class AuthController {
         where: { id },
         data: {
           status: 'ATIVO',
-          perfil,
-          unidadeId: unidadeId ?? null,
-          tenantSchema: tenantSchema ?? null,
+          perfil: usuario.role === 'COMPRADOR' ? (perfil ?? usuario.perfil) : null,
+          unidadeId: usuario.role === 'COMPRADOR' ? (unidadeId ?? null) : null,
+          tenantSchema: usuario.role === 'COMPRADOR' ? (tenantSchema ?? null) : null,
           permissoesExtras: permissoesExtras as Prisma.InputJsonValue ?? Prisma.JsonNull,
           aprovadoPor: req.user?.id,
           aprovadoEm: new Date(),
@@ -221,6 +251,25 @@ export class AuthController {
     } catch (err) {
       console.error('Erro ao recusar usuário:', err);
       return res.status(500).json({ error: 'Erro interno no servidor' });
+    }
+  }
+
+  async listarFornecedoresPublico(req: Request, res: Response) {
+    try {
+      const fornecedores = await prisma.fornecedor.findMany({
+        where: { status: 'ATIVO', deletedAt: null },
+        select: {
+          id: true,
+          nomeFantasia: true,
+          razaoSocial: true,
+          cnpj: true,
+        },
+        orderBy: { nomeFantasia: 'asc' },
+      });
+      return res.json(fornecedores);
+    } catch (err) {
+      console.error('Erro ao listar fornecedores público:', err);
+      return res.status(500).json({ error: 'Erro interno ao listar fornecedores' });
     }
   }
 }
