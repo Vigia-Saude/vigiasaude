@@ -264,13 +264,16 @@ export class AuthController {
         return res.status(404).json({ error: 'Solicitação não encontrada ou já processada.' });
       }
 
+      const resolvedPerfil = usuario.role === 'COMPRADOR' ? (perfil ?? usuario.perfil) : null;
+      const isGlobalPerfil = resolvedPerfil === 'SECRETARIO_SAUDE' || resolvedPerfil === 'GESTOR_ESTOQUE';
+
       const atualizado = await prisma.user.update({
         where: { id },
         data: {
           status: 'ATIVO',
-          perfil: usuario.role === 'COMPRADOR' ? (perfil ?? usuario.perfil) : null,
-          unidadeId: usuario.role === 'COMPRADOR' ? (unidadeId ?? null) : null,
-          tenantSchema: usuario.role === 'COMPRADOR' ? (tenantSchema ?? null) : null,
+          perfil: resolvedPerfil,
+          unidadeId: (usuario.role === 'COMPRADOR' && !isGlobalPerfil) ? (unidadeId ?? null) : null,
+          tenantSchema: (usuario.role === 'COMPRADOR' && !isGlobalPerfil) ? (tenantSchema ?? null) : null,
           permissoesExtras: permissoesExtras as Prisma.InputJsonValue ?? Prisma.JsonNull,
           aprovadoPor: req.user?.id,
           aprovadoEm: new Date(),
