@@ -29,5 +29,11 @@ router.post(
   roleMiddleware(['SECRETARIO_SAUDE']),
   authController.recusarUsuario.bind(authController)
 );
+router.get(
+  '/usuarios',
+  authMiddleware,
+  roleMiddleware(['SECRETARIO_SAUDE']),
+  authController.listarUsuarios.bind(authController)
+);
 
 export default router;

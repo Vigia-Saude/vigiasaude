@@ -258,6 +258,41 @@ export class AuthController {
     }
   }
 
+  async listarUsuarios(req: AuthRequest, res: Response) {
+    const statusParam = req.query['status'];
+    const statusValidos = ['ATIVO', 'DESATIVADO'] as const;
+
+    if (!statusParam || !statusValidos.includes(statusParam as any)) {
+      return res.status(400).json({ error: 'Parâmetro status deve ser ATIVO ou DESATIVADO' });
+    }
+
+    const status = statusParam as 'ATIVO' | 'DESATIVADO';
+
+    try {
+      const usuarios = await prisma.user.findMany({
+        where: { status, deletedAt: null },
+        select: {
+          id: true,
+          nome: true,
+          cpf: true,
+          email: true,
+          role: true,
+          perfil: true,
+          unidadeId: true,
+          tenantSchema: true,
+          permissoesExtras: true,
+          criadoEm: true,
+          aprovadoEm: true,
+        },
+        orderBy: { nome: 'asc' },
+      });
+      return res.json(usuarios);
+    } catch (err) {
+      console.error('Erro ao listar usuários:', err);
+      return res.status(500).json({ error: 'Erro interno no servidor' });
+    }
+  }
+
   async listarFornecedoresPublico(req: Request, res: Response) {
     try {
       const fornecedores = await prisma.fornecedor.findMany({
