@@ -191,6 +191,64 @@ export class AuthController {
     }
   }
 
+  async listarAtivos(req: AuthRequest, res: Response) {
+    try {
+      const usuarios = await prisma.user.findMany({
+        where: { status: 'ATIVO', deletedAt: null },
+        select: {
+          id: true,
+          nome: true,
+          cpf: true,
+          email: true,
+          role: true,
+          perfil: true,
+          justificativa: true,
+          fornecedorId: true,
+          unidadeId: true,
+          tenantSchema: true,
+          criadoEm: true,
+          aprovadoEm: true,
+          status: true,
+        },
+        orderBy: { nome: 'asc' },
+      });
+
+      return res.json(usuarios);
+    } catch (err) {
+      console.error('Erro ao listar ativos:', err);
+      return res.status(500).json({ error: 'Erro interno no servidor' });
+    }
+  }
+
+  async listarDesativados(req: AuthRequest, res: Response) {
+    try {
+      const usuarios = await prisma.user.findMany({
+        where: { status: 'DESATIVADO', deletedAt: null },
+        select: {
+          id: true,
+          nome: true,
+          cpf: true,
+          email: true,
+          role: true,
+          perfil: true,
+          justificativa: true,
+          fornecedorId: true,
+          unidadeId: true,
+          tenantSchema: true,
+          criadoEm: true,
+          atualizadoEm: true,
+          status: true,
+        },
+        orderBy: { atualizadoEm: 'desc' },
+      });
+
+      return res.json(usuarios);
+    } catch (err) {
+      console.error('Erro ao listar desativados:', err);
+      return res.status(500).json({ error: 'Erro interno no servidor' });
+    }
+  }
+
   async aprovarUsuario(req: AuthRequest, res: Response) {
     const id = String(req.params['id']);
     const parsed = aprovarSchema.safeParse(req.body);
