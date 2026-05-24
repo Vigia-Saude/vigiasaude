@@ -1,13 +1,21 @@
 import { Router } from 'express';
+import { rateLimit } from 'express-rate-limit';
 import { AuthController } from '../controllers/AuthController';
 import { authMiddleware, roleMiddleware } from '../middlewares/auth';
 
 const router = Router();
 const authController = new AuthController();
 
+// Limite específico para login e solicitação de acesso para prevenir brute force
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 15, // Máximo 15 tentativas
+  message: { error: 'Muitas tentativas de login. Tente novamente em 15 minutos.' }
+});
+
 // Públicas
-router.post('/login', authController.login.bind(authController));
-router.post('/solicitar-acesso', authController.solicitarAcesso.bind(authController));
+router.post('/login', loginLimiter, authController.login.bind(authController));
+router.post('/solicitar-acesso', loginLimiter, authController.solicitarAcesso.bind(authController));
 router.get('/fornecedores', authController.listarFornecedoresPublico.bind(authController));
 
 // Protegidas — apenas Secretário
@@ -16,6 +24,18 @@ router.get(
   authMiddleware,
   roleMiddleware(['SECRETARIO_SAUDE']),
   authController.listarPendentes.bind(authController)
+);
+router.get(
+  '/ativos',
+  authMiddleware,
+  roleMiddleware(['SECRETARIO_SAUDE']),
+  authController.listarAtivos.bind(authController)
+);
+router.get(
+  '/desativados',
+  authMiddleware,
+  roleMiddleware(['SECRETARIO_SAUDE']),
+  authController.listarDesativados.bind(authController)
 );
 router.post(
   '/aprovar/:id',

@@ -7,6 +7,7 @@ import { UploadController, uploadConfig } from '../controllers/UploadController'
 import { FornecedorController } from '../controllers/FornecedorController';
 import { DashboardController } from '../controllers/DashboardController';
 import { authMiddleware, roleMiddleware } from '../middlewares/auth';
+import { listarUnidades } from '../services/tenantService';
 
 const router = Router();
 const pedidoController = new PedidoController();
@@ -23,7 +24,6 @@ router.use(authMiddleware);
 // Rota de Unidades (Secretaria / Unidades)
 router.get('/unidades', async (req, res) => {
   try {
-    const { listarUnidades } = await import('../services/tenantService.js');
     const unidades = await listarUnidades();
     return res.json(unidades);
   } catch (err) {
