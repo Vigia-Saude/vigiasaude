@@ -18,10 +18,34 @@ app.set('trust proxy', 1)
 
 // Middlewares de Segurança
 app.use(helmet())
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+]
+if (process.env.CORS_ORIGIN) {
+  process.env.CORS_ORIGIN.split(',').forEach(o => allowedOrigins.push(o.trim()))
+}
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN
-    ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
-    : ['http://localhost:5173', 'http://localhost:3000'],
+  origin: (origin, callback) => {
+    // Permitir requisições sem origin (como curl, mobile apps)
+    if (!origin) return callback(null, true)
+    
+    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+      return callback(null, true)
+    }
+    
+    try {
+      const url = new URL(origin)
+      if (url.hostname === 'vercel.app' || url.hostname.endsWith('.vercel.app') || url.hostname.endsWith('.railway.app')) {
+        return callback(null, true)
+      }
+    } catch {
+      // Ignorar erros de parsing
+    }
+    
+    callback(new Error('Não permitido pelo CORS'))
+  },
   credentials: true
 }))
 app.use(express.json())
