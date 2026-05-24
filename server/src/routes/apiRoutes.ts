@@ -23,7 +23,7 @@ router.use(authMiddleware);
 // Rota de Unidades (Secretaria / Unidades)
 router.get('/unidades', async (req, res) => {
   try {
-    const { listarUnidades } = await import('../services/tenantService');
+    const { listarUnidades } = await import('../services/tenantService.js');
     const unidades = await listarUnidades();
     return res.json(unidades);
   } catch (err) {

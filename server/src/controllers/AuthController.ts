@@ -60,6 +60,10 @@ function firstIssue(err: z.ZodError): string {
 
 export class AuthController {
   async login(req: Request, res: Response) {
+    if (!req.body.cpf || !req.body.password) {
+      return res.status(400).json({ error: 'CPF e senha são obrigatórios' });
+    }
+
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: firstIssue(parsed.error) });
