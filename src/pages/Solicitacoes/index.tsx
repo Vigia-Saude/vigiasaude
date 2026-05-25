@@ -230,7 +230,12 @@ function ModalAprovacao({ usuario, unidades, onClose, onFinished, onAuthError }:
   };
 
   const handleAprovar = async () => {
-    if (!unidadeSelecionada) {
+    const isGlobalOrSupplier =
+      usuario.role === 'FORNECEDOR' ||
+      perfil === 'SECRETARIO_SAUDE' ||
+      perfil === 'GESTOR_ESTOQUE';
+
+    if (!isGlobalOrSupplier && !unidadeSelecionada) {
       setErrorMsg('Selecione uma unidade para aprovar o cadastro.');
       return;
     }
@@ -245,8 +250,8 @@ function ModalAprovacao({ usuario, unidades, onClose, onFinished, onAuthError }:
 
       const response = await request(`/auth/aprovar/${usuario.id}`, {
         perfil,
-        unidadeId,
-        tenantSchema: unidadeSelecionada.tenant_schema,
+        unidadeId: isGlobalOrSupplier ? undefined : unidadeId,
+        tenantSchema: isGlobalOrSupplier ? undefined : unidadeSelecionada?.tenant_schema,
         permissoesExtras: Object.keys(extrasSelecionadas).length > 0 ? extrasSelecionadas : undefined,
       });
 
@@ -442,32 +447,43 @@ function ModalAprovacao({ usuario, unidades, onClose, onFinished, onAuthError }:
                 </div>
               </div>
 
-              <div>
-                <label htmlFor="unidade" className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
-                  Unidade de Saúde
-                </label>
-                <div className="relative">
-                  <select
-                    id="unidade"
-                    value={unidadeId}
-                    onChange={(event) => setUnidadeId(event.target.value)}
-                    className="block w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 pr-10 text-sm font-semibold text-gray-900 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all cursor-pointer appearance-none"
-                  >
-                    {unidades.length === 0 ? (
-                      <option value="">Nenhuma unidade disponível</option>
-                    ) : (
-                      unidades.map((unidade) => (
-                        <option key={unidade.id} value={unidade.id}>
-                          {unidade.nome}{unidade.cnes ? ` - CNES ${unidade.cnes}` : ''}
-                        </option>
-                      ))
-                    )}
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-500">
-                    <ChevronDown className="h-4 w-4" />
+              {!(usuario.role === 'FORNECEDOR' || perfil === 'SECRETARIO_SAUDE' || perfil === 'GESTOR_ESTOQUE') ? (
+                <div>
+                  <label htmlFor="unidade" className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+                    Unidade de Saúde
+                  </label>
+                  <div className="relative">
+                    <select
+                      id="unidade"
+                      value={unidadeId}
+                      onChange={(event) => setUnidadeId(event.target.value)}
+                      className="block w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 pr-10 text-sm font-semibold text-gray-900 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all cursor-pointer appearance-none"
+                    >
+                      {unidades.length === 0 ? (
+                        <option value="">Nenhuma unidade disponível</option>
+                      ) : (
+                        unidades.map((unidade) => (
+                          <option key={unidade.id} value={unidade.id}>
+                            {unidade.nome}{unidade.cnes ? ` - CNES ${unidade.cnes}` : ''}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-500">
+                      <ChevronDown className="h-4 w-4" />
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wide select-none">
+                    Unidade de Saúde
+                  </label>
+                  <div className="block w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm font-semibold text-gray-400 select-none cursor-not-allowed">
+                    Unidade não aplicável para este perfil
+                  </div>
+                </div>
+              )}
 
               <div>
                 <span className="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">
