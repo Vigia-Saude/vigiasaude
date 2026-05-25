@@ -54,6 +54,20 @@ const recusarSchema = z.object({
   motivoRecusa: z.string().min(5),
 });
 
+const editarSchema = z.object({
+  nome: z.string().min(2, 'Nome muito curto'),
+  email: z.string().email('E-mail inválido').optional().or(z.literal('')),
+  perfil: perfilEnum.optional(),
+  unidadeId: z.string().optional().nullable(),
+  tenantSchema: z.string().optional().nullable(),
+  permissoesExtras: z.record(z.string(), z.boolean()).optional().nullable(),
+  status: z.enum(['ATIVO', 'DESATIVADO']).optional(),
+});
+
+const desativarSchema = z.object({
+  motivoDesativacao: z.string().min(5, 'Informe um motivo de no mínimo 5 caracteres.'),
+});
+
 function firstIssue(err: z.ZodError): string {
   return err.issues[0]?.message ?? 'Dados inválidos';
 }
@@ -238,6 +252,7 @@ export class AuthController {
           criadoEm: true,
           atualizadoEm: true,
           status: true,
+          motivoRecusa: true,
         },
         orderBy: { atualizadoEm: 'desc' },
       });
@@ -315,6 +330,88 @@ export class AuthController {
       return res.json({ message: 'Solicitação recusada.', usuario: atualizado });
     } catch (err) {
       console.error('Erro ao recusar usuário:', err);
+      return res.status(500).json({ error: 'Erro interno no servidor' });
+    }
+  }
+
+  async editarUsuario(req: AuthRequest, res: Response) {
+    const id = String(req.params['id']);
+    const parsed = editarSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: firstIssue(parsed.error) });
+    }
+
+    const { nome, email, perfil, unidadeId, tenantSchema, permissoesExtras, status } = parsed.data;
+
+    try {
+      const usuario = await prisma.user.findUnique({ where: { id } });
+      if (!usuario) {
+        return res.status(404).json({ error: 'Usuário não encontrado.' });
+      }
+
+      const resolvedPerfil = usuario.role === 'COMPRADOR' ? (perfil ?? usuario.perfil) : null;
+      const isGlobalPerfil = resolvedPerfil === 'SECRETARIO_SAUDE' || resolvedPerfil === 'GESTOR_ESTOQUE';
+
+      const dataToUpdate: Prisma.UserUpdateInput = {
+        nome,
+        email: email || null,
+        perfil: resolvedPerfil,
+        unidadeId: (usuario.role === 'COMPRADOR' && !isGlobalPerfil) ? (unidadeId ?? null) : null,
+        tenantSchema: (usuario.role === 'COMPRADOR' && !isGlobalPerfil) ? (tenantSchema ?? null) : null,
+        permissoesExtras: permissoesExtras as Prisma.InputJsonValue ?? Prisma.JsonNull,
+      };
+
+      if (status) {
+        dataToUpdate.status = status;
+      }
+
+      const atualizado = await prisma.user.update({
+        where: { id },
+        data: dataToUpdate,
+        select: {
+          id: true,
+          nome: true,
+          email: true,
+          perfil: true,
+          status: true,
+          unidadeId: true,
+          tenantSchema: true,
+          permissoesExtras: true,
+        },
+      });
+
+      return res.json({ message: 'Usuário atualizado com sucesso.', usuario: atualizado });
+    } catch (err) {
+      console.error('Erro ao editar usuário:', err);
+      return res.status(500).json({ error: 'Erro interno no servidor' });
+    }
+  }
+
+  async desativarUsuario(req: AuthRequest, res: Response) {
+    const id = String(req.params['id']);
+    const parsed = desativarSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: firstIssue(parsed.error) });
+    }
+
+    try {
+      const usuario = await prisma.user.findUnique({ where: { id } });
+      if (!usuario) {
+        return res.status(404).json({ error: 'Usuário não encontrado.' });
+      }
+
+      const atualizado = await prisma.user.update({
+        where: { id },
+        data: {
+          status: 'DESATIVADO',
+          motivoRecusa: parsed.data.motivoDesativacao,
+        },
+        select: { id: true, nome: true, status: true },
+      });
+
+      return res.json({ message: 'Usuário desativado com sucesso.', usuario: atualizado });
+    } catch (err) {
+      console.error('Erro ao desativar usuário:', err);
       return res.status(500).json({ error: 'Erro interno no servidor' });
     }
   }

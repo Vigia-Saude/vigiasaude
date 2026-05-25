@@ -49,6 +49,18 @@ router.post(
   roleMiddleware(['SECRETARIO_SAUDE']),
   authController.recusarUsuario.bind(authController)
 );
+router.put(
+  '/usuarios/:id',
+  authMiddleware,
+  roleMiddleware(['SECRETARIO_SAUDE']),
+  authController.editarUsuario.bind(authController)
+);
+router.post(
+  '/desativar/:id',
+  authMiddleware,
+  roleMiddleware(['SECRETARIO_SAUDE']),
+  authController.desativarUsuario.bind(authController)
+);
 router.get(
   '/usuarios',
   authMiddleware,

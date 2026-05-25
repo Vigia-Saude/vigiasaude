@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { 
   Users, 
@@ -15,7 +15,9 @@ import {
   UserX,
   ChevronDown,
   Filter,
-  CheckCircle2
+  CheckCircle2,
+  Edit,
+  Power
 } from 'lucide-react';
 
 type Perfil = 'SECRETARIO_SAUDE' | 'GESTOR_ESTOQUE' | 'FARMACIA' | 'MEDICO' | 'ENTREGADOR';
@@ -40,6 +42,8 @@ interface PendingUser {
   unidadeId?: string | null;
   tenantSchema?: string | null;
   status?: string;
+  permissoesExtras?: any;
+  motivoRecusa?: string | null;
 }
 
 interface Unidade {
@@ -301,7 +305,7 @@ function ModalAprovacao({ usuario, unidades, onClose, onFinished, onAuthError }:
         {/* Modal Header */}
         <div className="px-8 py-6 border-b border-gray-150 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className={`h-12 w-12 rounded-2xl flex items-center justify-center text-base font-extrabold shadow-sm ${getAvatarColor(usuario.nome)}`}>
+            <div className={`h-12 w-12 rounded-2xl flex items-center justify-center text-base font-extrabold shadow-sm shrink-0 ${getAvatarColor(usuario.nome)}`}>
               {getInitials(usuario.nome)}
             </div>
             <div>
@@ -563,6 +567,411 @@ function ModalAprovacao({ usuario, unidades, onClose, onFinished, onAuthError }:
   );
 }
 
+interface ModalEdicaoUsuarioProps {
+  usuario: PendingUser;
+  unidades: Unidade[];
+  onClose: () => void;
+  onFinished: (message: string) => void;
+  onAuthError: () => void;
+}
+
+function ModalEdicaoUsuario({ usuario, unidades, onClose, onFinished, onAuthError }: ModalEdicaoUsuarioProps) {
+  const [nome, setNome] = useState(usuario.nome || '');
+  const [email, setEmail] = useState(usuario.email || '');
+  const [perfil, setPerfil] = useState<Perfil>(usuario.perfil || 'GESTOR_ESTOQUE');
+  const [unidadeId, setUnidadeId] = useState(usuario.unidadeId || unidades[0]?.id || '');
+  const [permissoesExtras, setPermissoesExtras] = useState<Record<string, boolean>>(() => {
+    try {
+      return (usuario.permissoesExtras as Record<string, boolean>) || {};
+    } catch {
+      return {};
+    }
+  });
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const unidadeSelecionada = unidades.find((unidade) => unidade.id === unidadeId);
+
+  const handleTogglePermissao = (key: string, checked: boolean) => {
+    setPermissoesExtras((current) => ({ ...current, [key]: checked }));
+  };
+
+  const handleSalvar = async () => {
+    if (!nome.trim()) {
+      setErrorMsg('Nome é obrigatório.');
+      return;
+    }
+
+    const isGlobalOrSupplier =
+      usuario.role === 'FORNECEDOR' ||
+      perfil === 'SECRETARIO_SAUDE' ||
+      perfil === 'GESTOR_ESTOQUE';
+
+    if (!isGlobalOrSupplier && !unidadeSelecionada && unidades.length > 0) {
+      setErrorMsg('Selecione uma unidade de saúde.');
+      return;
+    }
+
+    setLoading(true);
+    setErrorMsg(null);
+
+    const token = getAuthToken();
+    if (!token) {
+      onAuthError();
+      return;
+    }
+
+    try {
+      const extrasSelecionadas = Object.fromEntries(
+        Object.entries(permissoesExtras).filter(([, checked]) => checked)
+      );
+
+      const response = await fetch(`${API_BASE_URL}/auth/usuarios/${usuario.id}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          nome: nome.trim(),
+          email: email.trim(),
+          perfil,
+          unidadeId: isGlobalOrSupplier ? null : unidadeId,
+          tenantSchema: isGlobalOrSupplier ? null : unidadeSelecionada?.tenant_schema,
+          permissoesExtras: extrasSelecionadas,
+          status: 'ATIVO', // Força ativação ao editar/salvar
+        }),
+      });
+
+      if (response.status === 401 || response.status === 403) {
+        onAuthError();
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response));
+      }
+
+      onFinished(`Usuário ${nome} atualizado com sucesso.`);
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : 'Erro ao atualizar usuário.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-fade-in">
+      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto bg-white rounded-3xl shadow-2xl border border-gray-100 flex flex-col transform transition-all animate-scale-up">
+        
+        {/* Modal Header */}
+        <div className="px-8 py-6 border-b border-gray-150 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className={`h-12 w-12 rounded-2xl flex items-center justify-center text-base font-extrabold shadow-sm shrink-0 ${getAvatarColor(usuario.nome)}`}>
+              {getInitials(usuario.nome)}
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">Editar Perfil de Usuário</h2>
+              <p className="text-xs font-semibold text-gray-500 mt-0.5">CPF: {formatCPF(usuario.cpf)}</p>
+            </div>
+          </div>
+          <button 
+            type="button" 
+            onClick={onClose} 
+            disabled={loading}
+            className="p-2 rounded-xl text-gray-400 hover:text-gray-650 hover:bg-gray-100 transition-all cursor-pointer"
+            aria-label="Fechar modal"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Error Alert */}
+        {errorMsg && (
+          <div className="mx-8 mt-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-xl flex items-center gap-3">
+            <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
+            <p className="text-sm font-semibold text-red-700">{errorMsg}</p>
+          </div>
+        )}
+
+        {/* Modal Body */}
+        <div className="p-8 space-y-5 flex-1">
+          {/* Nome */}
+          <div>
+            <label htmlFor="edit-nome" className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+              Nome Completo *
+            </label>
+            <input
+              id="edit-nome"
+              type="text"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              className="block w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-950 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all"
+              placeholder="Digite o nome completo"
+            />
+          </div>
+
+          {/* Email */}
+          <div>
+            <label htmlFor="edit-email" className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+              E-mail
+            </label>
+            <input
+              id="edit-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="block w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-950 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all"
+              placeholder="Digite o e-mail"
+            />
+          </div>
+
+          {/* Perfil & Unidade */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="edit-perfil" className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+                Perfil Base
+              </label>
+              <div className="relative">
+                <select
+                  id="edit-perfil"
+                  value={perfil}
+                  onChange={(e) => setPerfil(e.target.value as Perfil)}
+                  className="block w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 pr-10 text-sm font-semibold text-gray-900 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all cursor-pointer appearance-none"
+                >
+                  {PERFIS.map((item) => (
+                    <option key={item.value} value={item.value}>{item.label}</option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-500">
+                  <ChevronDown className="h-4 w-4" />
+                </div>
+              </div>
+            </div>
+
+            {!(usuario.role === 'FORNECEDOR' || perfil === 'SECRETARIO_SAUDE' || perfil === 'GESTOR_ESTOQUE') ? (
+              <div>
+                <label htmlFor="edit-unidade" className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+                  Unidade de Saúde
+                </label>
+                <div className="relative">
+                  <select
+                    id="edit-unidade"
+                    value={unidadeId}
+                    onChange={(e) => setUnidadeId(e.target.value)}
+                    className="block w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 pr-10 text-sm font-semibold text-gray-900 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all cursor-pointer appearance-none"
+                  >
+                    {unidades.length === 0 ? (
+                      <option value="">Nenhuma unidade disponível</option>
+                    ) : (
+                      unidades.map((unidade) => (
+                        <option key={unidade.id} value={unidade.id}>
+                          {unidade.nome}{unidade.cnes ? ` - CNES ${unidade.cnes}` : ''}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-500">
+                    <ChevronDown className="h-4 w-4" />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wide select-none">
+                  Unidade de Saúde
+                </label>
+                <div className="block w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm font-semibold text-gray-400 select-none cursor-not-allowed">
+                  Unidade não aplicável para este perfil
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Permissões Complementares */}
+          <div>
+            <span className="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">
+              Permissões Complementares
+            </span>
+            <div className="border border-gray-250 rounded-2xl p-4 bg-gray-50/70 max-h-[160px] overflow-y-auto space-y-2">
+              {PERMISSOES_EXTRAS.map((permissao) => (
+                <label 
+                  key={permissao.key} 
+                  className="flex items-center justify-between p-2 rounded-xl bg-white hover:bg-blue-50/30 border border-gray-200 transition-all cursor-pointer text-xs font-semibold text-gray-700"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(permissoesExtras[permissao.key])}
+                      onChange={(e) => handleTogglePermissao(permissao.key, e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 transition-all cursor-pointer"
+                    />
+                    <span>{permissao.label}</span>
+                  </div>
+                  {permissao.badge && (
+                    <span className="px-1.5 py-0.5 text-[8px] font-extrabold bg-orange-500 text-white rounded uppercase tracking-wider">
+                      {permissao.badge}
+                    </span>
+                  )}
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Modal Footer */}
+        <div className="px-8 py-5 bg-gray-50 border-t border-gray-150 flex items-center justify-end gap-3 rounded-b-3xl">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="px-5 py-3 rounded-xl border border-gray-200 text-gray-650 hover:bg-gray-100 text-xs font-bold transition-all cursor-pointer"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleSalvar}
+            disabled={loading || !nome.trim()}
+            className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/10 transition-all cursor-pointer flex items-center gap-1.5"
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            Salvar Alterações
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface ModalDesativarUsuarioProps {
+  usuario: PendingUser;
+  onClose: () => void;
+  onFinished: (message: string) => void;
+  onAuthError: () => void;
+}
+
+function ModalDesativarUsuario({ usuario, onClose, onFinished, onAuthError }: ModalDesativarUsuarioProps) {
+  const [motivo, setMotivo] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const handleDesativar = async () => {
+    if (motivo.trim().length < 5) {
+      setErrorMsg('Informe um motivo de desativação com pelo menos 5 caracteres.');
+      return;
+    }
+
+    setLoading(true);
+    setErrorMsg(null);
+
+    const token = getAuthToken();
+    if (!token) {
+      onAuthError();
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/desativar/${usuario.id}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          motivoDesativacao: motivo.trim(),
+        }),
+      });
+
+      if (response.status === 401 || response.status === 403) {
+        onAuthError();
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response));
+      }
+
+      onFinished(`Usuário ${usuario.nome} desativado com sucesso.`);
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : 'Erro ao desativar usuário.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-fade-in">
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-gray-100 flex flex-col transform transition-all animate-scale-up">
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-gray-150 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-red-500" />
+            Desativar Usuário
+          </h2>
+          <button 
+            type="button" 
+            onClick={onClose} 
+            disabled={loading}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-650 hover:bg-gray-100 transition-all cursor-pointer"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Error Alert */}
+        {errorMsg && (
+          <div className="mx-6 mt-4 p-3 bg-red-50 border-l-4 border-red-500 rounded-r-xl flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
+            <p className="text-xs font-semibold text-red-700">{errorMsg}</p>
+          </div>
+        )}
+
+        {/* Body */}
+        <div className="p-6 space-y-4">
+          <p className="text-sm text-gray-600 leading-relaxed">
+            Tem certeza de que deseja desativar o acesso de <strong className="text-gray-900">{usuario.nome}</strong>? Ele não conseguirá mais efetuar login no sistema.
+          </p>
+
+          <div>
+            <label htmlFor="motivo-desativacao" className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+              Motivo da Desativação *
+            </label>
+            <textarea
+              id="motivo-desativacao"
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+              placeholder="Descreva detalhadamente o motivo da desativação..."
+              className="block w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-xs text-gray-900 focus:border-red-500 focus:ring-4 focus:ring-red-500/10 transition-all"
+              rows={3}
+            />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-150 flex items-center justify-end gap-3 rounded-b-3xl">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="px-4 py-2 text-xs font-bold text-gray-650 hover:bg-gray-100 rounded-xl transition-all cursor-pointer"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleDesativar}
+            disabled={loading || motivo.trim().length < 5}
+            className="px-4 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 rounded-xl transition-all cursor-pointer shadow-md shadow-red-500/10"
+          >
+            Confirmar Desativação
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface HubDashboardProps {
   pendentes: PendingUser[];
   ativos: PendingUser[];
@@ -570,9 +979,20 @@ interface HubDashboardProps {
   abaAtiva: Aba;
   onChangeAba: (aba: Aba) => void;
   onOpenDetalhes: (usuario: PendingUser) => void;
+  onOpenEdit: (usuario: PendingUser) => void;
+  onOpenDeactivate: (usuario: PendingUser) => void;
 }
 
-function HubDashboard({ pendentes, ativos, desativados, abaAtiva, onChangeAba, onOpenDetalhes }: HubDashboardProps) {
+function HubDashboard({ 
+  pendentes, 
+  ativos, 
+  desativados, 
+  abaAtiva, 
+  onChangeAba, 
+  onOpenDetalhes,
+  onOpenEdit,
+  onOpenDeactivate
+}: HubDashboardProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [previewPerfil, setPreviewPerfil] = useState<Perfil | null>(null);
 
@@ -599,12 +1019,13 @@ function HubDashboard({ pendentes, ativos, desativados, abaAtiva, onChangeAba, o
                 <th scope="col" className="px-6 py-4 text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider">Perfil</th>
                 <th scope="col" className="px-6 py-4 text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider">Status</th>
                 <th scope="col" className="px-6 py-4 text-left text-[11px] font-bold text-gray-400 uppercase tracking-wider">Data</th>
+                <th scope="col" className="px-6 py-4 text-center text-[11px] font-bold text-gray-400 uppercase tracking-wider">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-400 font-semibold italic">
+                  <td colSpan={7} className="px-6 py-10 text-center text-sm text-gray-400 font-semibold italic">
                     {emptyMessage}
                   </td>
                 </tr>
@@ -617,10 +1038,24 @@ function HubDashboard({ pendentes, ativos, desativados, abaAtiva, onChangeAba, o
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
-                        <div className={`h-9 w-9 rounded-xl flex items-center justify-center text-xs font-extrabold shadow-sm ${getAvatarColor(usuario.nome)}`}>
+                        <div className={`h-9 w-9 rounded-xl flex items-center justify-center text-xs font-extrabold shadow-sm shrink-0 ${getAvatarColor(usuario.nome)}`}>
                           {getInitials(usuario.nome)}
                         </div>
-                        <span className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">{usuario.nome}</span>
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors flex items-center gap-1.5">
+                            {usuario.status === 'ATIVO' ? (
+                              <UserCheck className="h-4 w-4 text-emerald-500 shrink-0" />
+                            ) : (
+                              <UserX className="h-4 w-4 text-red-500 shrink-0" />
+                            )}
+                            {usuario.nome}
+                          </span>
+                          {usuario.status === 'DESATIVADO' && usuario.motivoRecusa && (
+                            <span className="text-[11px] text-red-650 mt-0.5 font-medium whitespace-normal max-w-xs">
+                              Motivo: {usuario.motivoRecusa}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-xs font-semibold text-gray-600">{formatCPF(usuario.cpf)}</td>
@@ -651,6 +1086,28 @@ function HubDashboard({ pendentes, ativos, desativados, abaAtiva, onChangeAba, o
                     <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
                       {formatDate(usuario.aprovadoEm || usuario.atualizadoEm || usuario.criadoEm)}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        onClick={() => onOpenEdit(usuario)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-yellow-750 bg-yellow-50 hover:bg-yellow-100 rounded-xl transition-all cursor-pointer border border-yellow-200"
+                        title="Editar usuário"
+                      >
+                        <Edit className="h-3.5 w-3.5" />
+                        Editar
+                      </button>
+                      {usuario.status === 'ATIVO' && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenDeactivate(usuario)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 rounded-xl transition-all cursor-pointer border border-red-200"
+                          title="Desativar usuário"
+                        >
+                          <Power className="h-3.5 w-3.5" />
+                          Desativar
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}
@@ -666,60 +1123,63 @@ function HubDashboard({ pendentes, ativos, desativados, abaAtiva, onChangeAba, o
       {/* 3 Summary Cards */}
       <div className="grid gap-6 md:grid-cols-3">
         {/* Card 1: Active Users */}
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-xs flex items-center justify-between">
-          <div className="space-y-2">
-            <span className="text-sm font-semibold text-gray-500">Usuários Ativos</span>
-            <div className="flex items-center gap-3">
-              <span className="text-3xl font-extrabold text-emerald-600">{ativos.length}</span>
-              <button 
-                onClick={() => onChangeAba('ativos')} 
-                className="p-1.5 rounded-lg bg-gray-50 border border-gray-100 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
-                title="Filtrar ativos"
-              >
-                <Filter className="h-4 w-4" />
-              </button>
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-xs flex flex-col justify-between hover:shadow-md transition-all">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <UserCheck className="h-5 w-5 text-emerald-600" />
+              <span className="text-sm font-bold text-gray-500 uppercase tracking-wide">Usuários Ativos</span>
             </div>
-            <button 
-              onClick={() => onChangeAba('ativos')} 
-              className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:underline flex items-center gap-1 cursor-pointer bg-transparent border-0 p-0"
-            >
-              Ver todos aprovados
-            </button>
+            <div className="flex items-center justify-between">
+              <span className="text-3xl font-extrabold text-emerald-600">{ativos.length}</span>
+              <span className="text-xs font-semibold text-emerald-500 bg-emerald-50 px-2 py-1 rounded-md">Ativos</span>
+            </div>
           </div>
-          <div className="p-3.5 rounded-2xl bg-emerald-50 text-emerald-600">
-            <Users className="h-6 w-6" />
-          </div>
+          <button 
+            onClick={() => onChangeAba('ativos')} 
+            className="mt-4 text-left text-xs font-bold text-emerald-600 hover:text-emerald-700 hover:underline flex items-center gap-1 cursor-pointer bg-transparent border-0 p-0"
+          >
+            Ver todos ativos →
+          </button>
         </div>
 
-        {/* Card 2: Configured Profiles */}
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-xs flex items-center justify-between">
-          <div className="space-y-2 flex-1">
-            <span className="text-sm font-semibold text-gray-500">Perfis Configurados</span>
-            <span className="block text-3xl font-extrabold text-gray-900">{PERFIS.length}</span>
-            <span className="block text-xs text-gray-400 truncate max-w-[220px]">
-              Médico, Fornecedor, Entregador...
-            </span>
+        {/* Card 2: Pending Approvals */}
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-xs flex flex-col justify-between hover:shadow-md transition-all">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-orange-600" />
+              <span className="text-sm font-bold text-gray-500 uppercase tracking-wide">Usuários Aguardando</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-3xl font-extrabold text-orange-600">{pendentes.length}</span>
+              <span className="text-xs font-semibold text-orange-500 bg-orange-50 px-2 py-1 rounded-md animate-pulse">Pendente</span>
+            </div>
           </div>
-          <div className="p-3.5 rounded-2xl bg-blue-50 text-blue-600 flex-shrink-0">
-            <Shield className="h-6 w-6" />
-          </div>
+          <button 
+            onClick={() => onChangeAba('pendentes')} 
+            className="mt-4 text-left text-xs font-bold text-orange-600 hover:text-orange-700 hover:underline flex items-center gap-1 cursor-pointer bg-transparent border-0 p-0"
+          >
+            Revisar solicitações →
+          </button>
         </div>
 
-        {/* Card 3: Pending Approvals */}
-        <div className="bg-orange-50/40 border border-orange-200 p-6 rounded-2xl shadow-xs flex items-center justify-between">
-          <div className="space-y-2">
-            <span className="text-sm font-bold text-orange-800 tracking-wide uppercase">Usuários Aguardando</span>
-            <span className="block text-3xl font-extrabold text-orange-600">{pendentes.length}</span>
-            <button 
-              onClick={() => onChangeAba('pendentes')} 
-              className="text-xs font-semibold text-orange-700 hover:text-orange-800 hover:underline flex items-center gap-1 cursor-pointer bg-transparent border-0 p-0"
-            >
-              ⚡ Clique para revisar agora
-            </button>
+        {/* Card 3: Deactivated Users */}
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-xs flex flex-col justify-between hover:shadow-md transition-all">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <UserX className="h-5 w-5 text-red-600" />
+              <span className="text-sm font-bold text-gray-500 uppercase tracking-wide">Usuários Desativados</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-3xl font-extrabold text-red-600">{desativados.length}</span>
+              <span className="text-xs font-semibold text-red-500 bg-red-50 px-2 py-1 rounded-md">Suspenso</span>
+            </div>
           </div>
-          <div className="p-3.5 rounded-2xl bg-orange-500 text-white shadow-md shadow-orange-500/20">
-            <Users className="h-6 w-6" />
-          </div>
+          <button 
+            onClick={() => onChangeAba('desativados')} 
+            className="mt-4 text-left text-xs font-bold text-red-600 hover:text-red-700 hover:underline flex items-center gap-1 cursor-pointer bg-transparent border-0 p-0"
+          >
+            Ver desativados →
+          </button>
         </div>
       </div>
 
@@ -839,10 +1299,13 @@ function HubDashboard({ pendentes, ativos, desativados, abaAtiva, onChangeAba, o
                           >
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center gap-3">
-                                <div className={`h-9 w-9 rounded-xl flex items-center justify-center text-xs font-extrabold shadow-sm ${getAvatarColor(usuario.nome)}`}>
+                                <div className={`h-9 w-9 rounded-xl flex items-center justify-center text-xs font-extrabold shadow-sm shrink-0 ${getAvatarColor(usuario.nome)}`}>
                                   {getInitials(usuario.nome)}
                                 </div>
-                                <span className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">{usuario.nome}</span>
+                                <span className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors flex items-center gap-1.5">
+                                  <Clock className="h-4 w-4 text-orange-500 shrink-0" />
+                                  {usuario.nome}
+                                </span>
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-xs font-semibold text-gray-600">{formatCPF(usuario.cpf)}</td>
@@ -1000,7 +1463,35 @@ export function SolicitacoesMembro() {
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [abaAtiva, setAbaAtiva] = useState<Aba>('pendentes');
   const [selectedUser, setSelectedUser] = useState<PendingUser | null>(null);
+  const [selectedEditUser, setSelectedEditUser] = useState<PendingUser | null>(null);
+  const [selectedDeactivateUser, setSelectedDeactivateUser] = useState<PendingUser | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedId = searchParams.get('id');
+
+  // Handle URL selectedId param to automatically open details/approval modal
+  useEffect(() => {
+    if (selectedId && !loading) {
+      const userToSelect = pendentes.find(u => u.id === selectedId) || 
+                           ativos.find(u => u.id === selectedId) || 
+                           desativados.find(u => u.id === selectedId);
+      if (userToSelect) {
+        if (pendentes.some(u => u.id === selectedId)) {
+          setAbaAtiva('pendentes');
+        } else if (ativos.some(u => u.id === selectedId)) {
+          setAbaAtiva('ativos');
+        } else if (desativados.some(u => u.id === selectedId)) {
+          setAbaAtiva('desativados');
+        }
+        setSelectedUser(userToSelect);
+        
+        // Remove param from URL
+        searchParams.delete('id');
+        setSearchParams(searchParams);
+      }
+    }
+  }, [selectedId, loading, pendentes, ativos, desativados, searchParams, setSearchParams]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
@@ -1124,6 +1615,8 @@ export function SolicitacoesMembro() {
           abaAtiva={abaAtiva}
           onChangeAba={setAbaAtiva}
           onOpenDetalhes={setSelectedUser}
+          onOpenEdit={setSelectedEditUser}
+          onOpenDeactivate={setSelectedDeactivateUser}
         />
       )}
 
@@ -1134,6 +1627,35 @@ export function SolicitacoesMembro() {
           unidades={unidades}
           onClose={() => setSelectedUser(null)}
           onFinished={handleFinished}
+          onAuthError={handleAuthError}
+        />
+      )}
+
+      {/* Edit Modal */}
+      {selectedEditUser && (
+        <ModalEdicaoUsuario
+          usuario={selectedEditUser}
+          unidades={unidades}
+          onClose={() => setSelectedEditUser(null)}
+          onFinished={(msg) => {
+            setSelectedEditUser(null);
+            setSuccessMsg(msg);
+            void loadData();
+          }}
+          onAuthError={handleAuthError}
+        />
+      )}
+
+      {/* Deactivate Modal */}
+      {selectedDeactivateUser && (
+        <ModalDesativarUsuario
+          usuario={selectedDeactivateUser}
+          onClose={() => setSelectedDeactivateUser(null)}
+          onFinished={(msg) => {
+            setSelectedDeactivateUser(null);
+            setSuccessMsg(msg);
+            void loadData();
+          }}
           onAuthError={handleAuthError}
         />
       )}
