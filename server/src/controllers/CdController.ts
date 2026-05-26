@@ -99,9 +99,11 @@ export class CdController {
 
   // GET /api/cd/notas-fiscais/:id
   obterNf = async (req: Request, res: Response) => {
+    const id = String(req.params.id);
+
     try {
       const nf = await prisma.notaFiscal.findFirst({
-        where: { id: req.params.id, deletedAt: null },
+        where: { id, deletedAt: null },
         include: {
           fornecedor: { select: { razaoSocial: true, cnpj: true } },
           pedidoCompra: { select: { numero: true } },
@@ -119,7 +121,7 @@ export class CdController {
 
   // POST /api/cd/notas-fiscais/:id/conferir
   conferirNf = async (req: AuthRequest, res: Response) => {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const { itens }: { itens: ItemConferenciaInput[] } = req.body;
 
     if (!Array.isArray(itens) || itens.length === 0) {
@@ -151,7 +153,7 @@ export class CdController {
       const nfAtualizada = await prisma.notaFiscal.findUniqueOrThrow({
         where: { id },
         include: { itens: true },
-      });
+      }) as Prisma.NotaFiscalGetPayload<{ include: { itens: true } }>;
 
       // Se não há divergência, cria os lotes no estoque do CD e sela a NF como CONFERIDA
       if (nfAtualizada.status !== 'CONFERIDO_DIVERGENCIA') {
@@ -302,9 +304,11 @@ export class CdController {
 
   // PATCH /api/cd/alertas/:id/lido
   marcarAlertaLido = async (req: AuthRequest, res: Response) => {
+    const id = String(req.params.id);
+
     try {
       const alerta = await prisma.alertaCd.update({
-        where: { id: req.params.id },
+        where: { id },
         data: {
           status: 'LIDO',
           lidoEm: new Date(),
