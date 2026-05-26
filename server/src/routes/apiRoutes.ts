@@ -6,6 +6,7 @@ import { CatmatController } from '../controllers/CatmatController';
 import { UploadController, uploadConfig } from '../controllers/UploadController';
 import { FornecedorController } from '../controllers/FornecedorController';
 import { DashboardController } from '../controllers/DashboardController';
+import { CdController } from '../controllers/CdController';
 import { authMiddleware, roleMiddleware } from '../middlewares/auth';
 import { listarUnidades } from '../services/tenantService';
 
@@ -17,6 +18,7 @@ const catmatController = new CatmatController();
 const uploadController = new UploadController();
 const fornecedorController = new FornecedorController();
 const dashboardController = new DashboardController();
+const cdController = new CdController();
 
 // Todas as rotas da API requerem autenticação
 router.use(authMiddleware);
@@ -65,5 +67,16 @@ router.get('/fornecedores/:id', fornecedorController.detalhes);
 router.post('/fornecedores', roleMiddleware(['COMPRADOR']), fornecedorController.criar);
 router.put('/fornecedores/:id', roleMiddleware(['COMPRADOR']), fornecedorController.atualizar);
 router.patch('/fornecedores/:id/status', roleMiddleware(['COMPRADOR']), fornecedorController.toggleStatus);
+
+// Rotas do Centro de Distribuição (CD)
+router.post('/cd/notas-fiscais', cdController.registrarNf);
+router.get('/cd/notas-fiscais', cdController.listarNfs);
+router.get('/cd/notas-fiscais/:id', cdController.obterNf);
+router.post('/cd/notas-fiscais/:id/conferir', cdController.conferirNf);
+router.get('/cd/estoque', cdController.listarEstoque);
+router.post('/cd/recalls', roleMiddleware(['COMPRADOR']), cdController.registrarRecall);
+router.get('/cd/recalls', cdController.listarRecalls);
+router.get('/cd/alertas', cdController.listarAlertas);
+router.patch('/cd/alertas/:id/lido', cdController.marcarAlertaLido);
 
 export default router;

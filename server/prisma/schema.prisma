@@ -48,6 +48,31 @@ enum AtaStatus {
   ESGOTADA
 }
 
+enum NotaFiscalStatus {
+  PENDENTE
+  CONFERIDA
+  CONFERIDO_DIVERGENCIA
+  CANCELADA
+}
+
+enum CdEstoqueLoteStatus {
+  DISPONIVEL
+  BLOQUEADO_RECALL
+  ESGOTADO
+  VENCIDO
+}
+
+enum AlertaCdTipo {
+  DIVERGENCIA_NF
+  RECALL
+}
+
+enum AlertaCdStatus {
+  NOVO
+  LIDO
+  RESOLVIDO
+}
+
 model CatmatMedicamento {
   id                  String   @id @default(uuid())
   codigoBr            String   @unique @map("codigo_br") // Ex: BR027xxxx — índice único automático
@@ -74,8 +99,9 @@ model Fornecedor {
 
   // Relacionamentos
   usuarios      User[]
-  atas          Ata[]    @relation("FornecedorAtas")
+  atas          Ata[]         @relation("FornecedorAtas")
   pedidos       PedidoCompra[] @relation("FornecedorPedidos")
+  notasFiscais  NotaFiscal[]
 
   @@map("fornecedores")
 }
@@ -213,6 +239,7 @@ model PedidoCompra {
   deletedAt       DateTime?          @map("deleted_at")
   consumos        AtaConsumo[]
   itens           PedidoCompraItem[]
+  notasFiscais    NotaFiscal[]
 
   @@index([ataId])
   @@index([status])
@@ -253,4 +280,114 @@ model Auditoria {
   @@index([usuarioId])
   @@index([dataHora])
   @@map("auditorias")
+}
+
+// ─── Módulo Centro de Distribuição (CD) ──────────────────────────────────────
+
+model NotaFiscal {
+  id              String           @id @default(uuid())
+  numeroNf        String           @map("numero_nf")
+  serie           String
+  chaveAcesso     String?          @unique @map("chave_acesso")
+  dataEmissao     DateTime         @map("data_emissao")
+  dataRecebimento DateTime?        @map("data_recebimento")
+  fornecedorId    String           @map("fornecedor_id")
+  fornecedor      Fornecedor       @relation(fields: [fornecedorId], references: [id])
+  pedidoCompraId  String?          @map("pedido_compra_id")
+  pedidoCompra    PedidoCompra?    @relation(fields: [pedidoCompraId], references: [id])
+  status          NotaFiscalStatus @default(PENDENTE)
+  valorTotal      Decimal          @db.Decimal(12, 2) @map("valor_total")
+  xmlUrl          String?          @map("xml_url")
+  observacoes     String?
+  conferidoPor    String?          @map("conferido_por")
+  conferidoEm     DateTime?        @map("conferido_em")
+  criadoEm        DateTime         @default(now()) @map("criado_em")
+  atualizadoEm    DateTime         @updatedAt @map("atualizado_em")
+  deletedAt       DateTime?        @map("deleted_at")
+
+  itens           NotaFiscalItem[]
+
+  @@index([fornecedorId])
+  @@index([pedidoCompraId])
+  @@index([status])
+  @@map("notas_fiscais")
+}
+
+model NotaFiscalItem {
+  id                    String         @id @default(uuid())
+  notaFiscalId          String         @map("nota_fiscal_id")
+  notaFiscal            NotaFiscal     @relation(fields: [notaFiscalId], references: [id], onDelete: Cascade)
+  catmatCodigo          String?        @map("catmat_codigo")
+  medicamentoNome       String         @map("medicamento_nome")
+  numeroLote            String         @map("numero_lote")
+  dataValidade          DateTime       @db.Date @map("data_validade")
+  quantidadeEsperada    Int            @map("quantidade_esperada")
+  quantidadeRecebida    Int?           @map("quantidade_recebida")
+  precoUnitario         Decimal        @db.Decimal(10, 2) @map("preco_unitario")
+  divergencia           Boolean        @default(false)
+  observacaoDivergencia String?        @map("observacao_divergencia")
+  criadoEm              DateTime       @default(now()) @map("criado_em")
+
+  estoqueLote           CdEstoqueLote?
+
+  @@index([notaFiscalId])
+  @@index([catmatCodigo])
+  @@map("nota_fiscal_itens")
+}
+
+model CdEstoqueLote {
+  id                String              @id @default(uuid())
+  notaFiscalItemId  String              @unique @map("nota_fiscal_item_id")
+  notaFiscalItem    NotaFiscalItem      @relation(fields: [notaFiscalItemId], references: [id])
+  catmatCodigo      String?             @map("catmat_codigo")
+  medicamentoNome   String              @map("medicamento_nome")
+  numeroLote        String              @map("numero_lote")
+  dataValidade      DateTime            @db.Date @map("data_validade")
+  quantidadeInicial Int                 @map("quantidade_inicial")
+  quantidadeAtual   Int                 @map("quantidade_atual")
+  status            CdEstoqueLoteStatus @default(DISPONIVEL)
+  criadoEm          DateTime            @default(now()) @map("criado_em")
+  atualizadoEm      DateTime            @updatedAt @map("atualizado_em")
+  deletedAt         DateTime?           @map("deleted_at")
+
+  @@index([catmatCodigo, numeroLote])
+  @@index([status])
+  @@map("cd_estoque_lotes")
+}
+
+model Recall {
+  id                 String    @id @default(uuid())
+  catmatCodigo       String?   @map("catmat_codigo")
+  numeroLote         String?   @map("numero_lote")
+  motivo             String
+  autoridadeEmissora String?   @map("autoridade_emissora")
+  numeroAnvisa       String?   @map("numero_anvisa")
+  dataEmissao        DateTime  @default(now()) @map("data_emissao")
+  dataExpiracao      DateTime? @map("data_expiracao")
+  ativo              Boolean   @default(true)
+  criadoPor          String    @map("criado_por")
+  criadoEm           DateTime  @default(now()) @map("criado_em")
+  atualizadoEm       DateTime  @updatedAt @map("atualizado_em")
+
+  @@index([catmatCodigo, numeroLote])
+  @@index([ativo])
+  @@map("recalls")
+}
+
+model AlertaCd {
+  id                  String         @id @default(uuid())
+  tipo                AlertaCdTipo
+  referenciaId        String         @map("referencia_id")
+  referenciaTipo      String         @map("referencia_tipo")
+  titulo              String
+  descricao           String
+  status              AlertaCdStatus @default(NOVO)
+  perfisDestinatarios String[]       @map("perfis_destinatarios")
+  criadoEm            DateTime       @default(now()) @map("criado_em")
+  lidoEm              DateTime?      @map("lido_em")
+  lidoPor             String?        @map("lido_por")
+
+  @@index([status])
+  @@index([tipo])
+  @@map("alertas_cd")
 }
