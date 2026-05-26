@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { AuthRequest } from '../middlewares/auth';
 import { Prisma } from '@prisma/client';
+import { parseNfeXml } from '../utils/nfeXmlParser';
 
 interface ItemNfInput {
   catmatCodigo?: string;
@@ -65,6 +66,23 @@ export class CdController {
     } catch (err) {
       console.error(err);
       res.status(500).json({ erro: 'Erro ao registrar nota fiscal.' });
+    }
+  };
+
+  // POST /api/cd/notas-fiscais/xml
+  lerNfXml = async (req: Request, res: Response) => {
+    const { xml } = req.body;
+
+    if (!xml) {
+      res.status(400).json({ erro: 'O conteúdo XML é obrigatório.' });
+      return;
+    }
+
+    try {
+      const parsed = parseNfeXml(xml);
+      res.json(parsed);
+    } catch (err: any) {
+      res.status(400).json({ erro: err.message || 'Erro ao processar XML da nota fiscal.', issues: err.issues });
     }
   };
 

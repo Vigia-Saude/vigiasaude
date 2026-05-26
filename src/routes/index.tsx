@@ -120,6 +120,19 @@ export const router = createBrowserRouter([
           };
         },
       },
+      {
+        path: 'cd/importar',
+        lazy: async () => {
+          const { ImportarNota } = await import('../pages/Cd/ImportarNota');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedRoles={['COMPRADOR']}>
+                <ImportarNota />
+              </ProtectedRoute>
+            )
+          };
+        },
+      },
     ],
   },
   {

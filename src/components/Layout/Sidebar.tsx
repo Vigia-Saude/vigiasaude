@@ -18,6 +18,7 @@ export default function Sidebar({ isOpen, setIsOpen }: { isOpen: boolean; setIsO
     { name: 'Dashboard', path: '/dashboard', icon: LayoutGrid, roles: ['COMPRADOR', 'FORNECEDOR'] },
     { name: 'Pedidos de Compra (PdC)', path: '/pedidos', icon: ShoppingCart, roles: ['COMPRADOR', 'FORNECEDOR'] },
     { name: 'ATAs', path: '/atas', icon: FileCheck, roles: ['COMPRADOR', 'FORNECEDOR'] },
+    { name: 'Recebimento NF', path: '/cd/importar', icon: FileCheck, roles: ['COMPRADOR'], perfis: ['GESTOR_ESTOQUE', 'SECRETARIO_SAUDE'] },
     { name: 'Auditoria', path: '/auditoria', icon: Search, roles: ['COMPRADOR'] },
     { name: 'Fornecedores', path: '/fornecedores', icon: Users, roles: ['COMPRADOR'] },
     { name: 'Solicitações', path: '/solicitacoes', icon: Users, roles: ['COMPRADOR'], perfil: 'SECRETARIO_SAUDE' },
@@ -25,7 +26,8 @@ export default function Sidebar({ isOpen, setIsOpen }: { isOpen: boolean; setIsO
 
   const filteredLinks = allLinks.filter(link => 
     (!link.roles || (user && link.roles.includes(user.role))) &&
-    (!link.perfil || (user && user.perfil === link.perfil))
+    (!link.perfil || (user && user.perfil === link.perfil)) &&
+    (!link.perfis || (user && user.perfil && link.perfis.includes(user.perfil)))
   );
 
   return (
