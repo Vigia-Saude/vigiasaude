@@ -31,7 +31,11 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (user) {
-      navigate('/dashboard');
+      if (user.perfil === 'GESTOR_ESTOQUE') {
+        navigate('/cd/dashboard');
+      } else {
+        navigate('/dashboard');
+      }
     }
   }, [user, navigate]);
 
