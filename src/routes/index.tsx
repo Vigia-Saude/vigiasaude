@@ -8,17 +8,17 @@ import AccessDenied from '../pages/AccessDenied';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 
 // CD Pages
-import { DashboardCD } from '../pages/CD/DashboardCD';
-import { MeuEstoque } from '../pages/CD/MeuEstoque';
-import { Recebimento } from '../pages/CD/Recebimento';
-import { PedidosCD } from '../pages/CD/PedidosCD';
-import { Entregas } from '../pages/CD/Entregas';
-import { Recalls } from '../pages/CD/Recalls';
-import { Rastreabilidade } from '../pages/CD/Rastreabilidade';
-import { AuditoriaCD } from '../pages/CD/AuditoriaCD';
-import { Notificacoes } from '../pages/CD/Notificacoes';
-import { PortalPublico } from '../pages/CD/PortalPublico';
-import { Configuracoes } from '../pages/CD/Configuracoes';
+import { DashboardCD } from '../pages/Cd/DashboardCD';
+import { MeuEstoque } from '../pages/Cd/MeuEstoque';
+import { Recebimento } from '../pages/Cd/Recebimento';
+import { PedidosCD } from '../pages/Cd/PedidosCD';
+import { Entregas } from '../pages/Cd/Entregas';
+import { Recalls } from '../pages/Cd/Recalls';
+import { Rastreabilidade } from '../pages/Cd/Rastreabilidade';
+import { AuditoriaCD } from '../pages/Cd/AuditoriaCD';
+import { Notificacoes } from '../pages/Cd/Notificacoes';
+import { PortalPublico } from '../pages/Cd/PortalPublico';
+import { Configuracoes } from '../pages/Cd/Configuracoes';
 
 export const router = createBrowserRouter([
   {
