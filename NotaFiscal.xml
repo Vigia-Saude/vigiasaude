@@ -1,0 +1,311 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nfeProc versao="4.00"
+    xmlns="http://www.portalfiscal.inf.br/nfe">
+    <NFe xmlns="http://www.portalfiscal.inf.br/nfe">
+        <infNFe Id="NFe42260512418191000195550010000710631000771436" versao="4.00">
+            <ide>
+                <cUF>42</cUF>
+                <cNF>00077143</cNF>
+                <natOp>Venda de Mercadorias adq. de Terceiros</natOp>
+                <mod>55</mod>
+                <serie>1</serie>
+                <nNF>71063</nNF>
+                <dhEmi>2026-05-28T09:58:00-03:00</dhEmi>
+                <dhSaiEnt>2026-05-28T09:58:00-03:00</dhSaiEnt>
+                <tpNF>1</tpNF>
+                <idDest>2</idDest>
+                <cMunFG>4203204</cMunFG>
+                <tpImp>1</tpImp>
+                <tpEmis>1</tpEmis>
+                <cDV>6</cDV>
+                <tpAmb>1</tpAmb>
+                <finNFe>1</finNFe>
+                <indFinal>1</indFinal>
+                <indPres>3</indPres>
+                <indIntermed>0</indIntermed>
+                <procEmi>0</procEmi>
+                <verProc>1.7.5.00</verProc>
+            </ide>
+            <emit>
+                <CNPJ>12418191000195</CNPJ>
+                <xNome>CONQUISTA DIST MED E PROD HOSP LTDA</xNome>
+                <xFant>CONQUISTA MEDICAMENTOS</xFant>
+                <enderEmit>
+                    <xLgr>ROD BR 101 KM 131</xLgr>
+                    <nro>131</nro>
+                    <xCpl>GALPAO B7</xCpl>
+                    <xBairro>VARZEA DO RANCHINHO</xBairro>
+                    <cMun>4203204</cMun>
+                    <xMun>CAMBORIU</xMun>
+                    <UF>SC</UF>
+                    <CEP>88349175</CEP>
+                    <cPais>1058</cPais>
+                    <xPais>BRASIL</xPais>
+                </enderEmit>
+                <IE>256542937</IE>
+                <CRT>3</CRT>
+            </emit>
+            <dest>
+                <CNPJ>11867105000169</CNPJ>
+                <xNome>FUNDO MUNICIPAL DE SAUDE</xNome>
+                <enderDest>
+                    <xLgr>RUA CAMPO GRANDE</xLgr>
+                    <nro>1434</nro>
+                    <xBairro>CENTRO</xBairro>
+                    <cMun>5004601</cMun>
+                    <xMun>ITAQUIRAI</xMun>
+                    <UF>MS</UF>
+                    <CEP>79965000</CEP>
+                    <cPais>1058</cPais>
+                    <xPais>BRASIL</xPais>
+                </enderDest>
+                <indIEDest>9</indIEDest>
+            </dest>
+            <det nItem="1">
+                <prod>
+                    <cProd>6971</cProd>
+                    <cEAN>7898470681033</cEAN>
+                    <xProd>CETOCONAZOL 20MG/G 30G 100 BISN HIPOLABOR</xProd>
+                    <NCM>30049099</NCM>
+                    <CEST>1300401</CEST>
+                    <CFOP>6108</CFOP>
+                    <uCom>BISN</uCom>
+                    <qCom>200.0000</qCom>
+                    <vUnCom>2.77000</vUnCom>
+                    <vProd>554.00</vProd>
+                    <cEANTrib>7898470681033</cEANTrib>
+                    <uTrib>BISN</uTrib>
+                    <qTrib>200.0000</qTrib>
+                    <vUnTrib>2.77000</vUnTrib>
+                    <indTot>1</indTot>
+                    <rastro>
+                        <nLote>372/25</nLote>
+                        <qLote>200.000</qLote>
+                        <dFab>2025-08-12</dFab>
+                        <dVal>2027-07-31</dVal>
+                    </rastro>
+                    <med>
+                        <cProdANVISA>1134301310064</cProdANVISA>
+                        <vPMC>0.00</vPMC>
+                    </med>
+                </prod>
+                <imposto>
+                    <vTotTrib>74.51</vTotTrib>
+                    <ICMS>
+                        <ICMS00>
+                            <orig>5</orig>
+                            <CST>00</CST>
+                            <modBC>3</modBC>
+                            <vBC>554.00</vBC>
+                            <pICMS>7.00</pICMS>
+                            <vICMS>38.78</vICMS>
+                        </ICMS00>
+                    </ICMS>
+                    <IPI>
+                        <cEnq>999</cEnq>
+                        <IPINT>
+                            <CST>53</CST>
+                        </IPINT>
+                    </IPI>
+                    <PIS>
+                        <PISNT>
+                            <CST>04</CST>
+                        </PISNT>
+                    </PIS>
+                    <COFINS>
+                        <COFINSNT>
+                            <CST>04</CST>
+                        </COFINSNT>
+                    </COFINS>
+                    <ICMSUFDest>
+                        <vBCUFDest>554.00</vBCUFDest>
+                        <vBCFCPUFDest>0.00</vBCFCPUFDest>
+                        <pFCPUFDest>0.00</pFCPUFDest>
+                        <pICMSUFDest>17.00</pICMSUFDest>
+                        <pICMSInter>7.00</pICMSInter>
+                        <pICMSInterPart>100</pICMSInterPart>
+                        <vFCPUFDest>0.00</vFCPUFDest>
+                        <vICMSUFDest>55.40</vICMSUFDest>
+                        <vICMSUFRemet>0.00</vICMSUFRemet>
+                    </ICMSUFDest>
+                    <IBSCBS>
+                        <CST>200</CST>
+                        <cClassTrib>200010</cClassTrib>
+                        <gIBSCBS>
+                            <vBC>459.82</vBC>
+                            <gIBSUF>
+                                <pIBSUF>0.10</pIBSUF>
+                                <gDevTrib>
+                                    <vDevTrib>0.00</vDevTrib>
+                                </gDevTrib>
+                                <gRed>
+                                    <pRedAliq>100.00</pRedAliq>
+                                    <pAliqEfet>0.00</pAliqEfet>
+                                </gRed>
+                                <vIBSUF>0.00</vIBSUF>
+                            </gIBSUF>
+                            <gIBSMun>
+                                <pIBSMun>0.00</pIBSMun>
+                                <gDevTrib>
+                                    <vDevTrib>0.00</vDevTrib>
+                                </gDevTrib>
+                                <gRed>
+                                    <pRedAliq>100.00</pRedAliq>
+                                    <pAliqEfet>0.00</pAliqEfet>
+                                </gRed>
+                                <vIBSMun>0.00</vIBSMun>
+                            </gIBSMun>
+                            <vIBS>0.00</vIBS>
+                            <gCBS>
+                                <pCBS>0.90</pCBS>
+                                <gDevTrib>
+                                    <vDevTrib>0.00</vDevTrib>
+                                </gDevTrib>
+                                <gRed>
+                                    <pRedAliq>100.00</pRedAliq>
+                                    <pAliqEfet>0.00</pAliqEfet>
+                                </gRed>
+                                <vCBS>0.00</vCBS>
+                            </gCBS>
+                        </gIBSCBS>
+                    </IBSCBS>
+                </imposto>
+                <vItem>554.00</vItem>
+            </det>
+            <total>
+                <ICMSTot>
+                    <vBC>554.00</vBC>
+                    <vICMS>38.78</vICMS>
+                    <vICMSDeson>0.00</vICMSDeson>
+                    <vFCPUFDest>0.00</vFCPUFDest>
+                    <vICMSUFDest>55.40</vICMSUFDest>
+                    <vICMSUFRemet>0.00</vICMSUFRemet>
+                    <vFCP>0.00</vFCP>
+                    <vBCST>0.00</vBCST>
+                    <vST>0.00</vST>
+                    <vFCPST>0</vFCPST>
+                    <vFCPSTRet>0</vFCPSTRet>
+                    <vProd>554.00</vProd>
+                    <vFrete>0.00</vFrete>
+                    <vSeg>0.00</vSeg>
+                    <vDesc>0.00</vDesc>
+                    <vII>0</vII>
+                    <vIPI>0.00</vIPI>
+                    <vIPIDevol>0.00</vIPIDevol>
+                    <vPIS>0.00</vPIS>
+                    <vCOFINS>0.00</vCOFINS>
+                    <vOutro>0.00</vOutro>
+                    <vNF>554.00</vNF>
+                    <vTotTrib>74.51</vTotTrib>
+                </ICMSTot>
+                <IBSCBSTot>
+                    <vBCIBSCBS>459.82</vBCIBSCBS>
+                    <gIBS>
+                        <gIBSUF>
+                            <vDif>0.00</vDif>
+                            <vDevTrib>0.00</vDevTrib>
+                            <vIBSUF>0.00</vIBSUF>
+                        </gIBSUF>
+                        <gIBSMun>
+                            <vDif>0.00</vDif>
+                            <vDevTrib>0.00</vDevTrib>
+                            <vIBSMun>0.00</vIBSMun>
+                        </gIBSMun>
+                        <vIBS>0.00</vIBS>
+                        <vCredPres>0.00</vCredPres>
+                        <vCredPresCondSus>0.00</vCredPresCondSus>
+                    </gIBS>
+                    <gCBS>
+                        <vDif>0.00</vDif>
+                        <vDevTrib>0.00</vDevTrib>
+                        <vCBS>0.00</vCBS>
+                        <vCredPres>0.00</vCredPres>
+                        <vCredPresCondSus>0.00</vCredPresCondSus>
+                    </gCBS>
+                </IBSCBSTot>
+                <vNFTot>554.00</vNFTot>
+            </total>
+            <transp>
+                <modFrete>0</modFrete>
+                <transporta>
+                    <CNPJ>18963112000103</CNPJ>
+                    <xNome>MULTI EXPRESS LTDA</xNome>
+                    <IE>257163930</IE>
+                    <xEnder>R VICTORIO LUIZ ZANELLA, 1100</xEnder>
+                    <xMun>HERVAL D OESTE</xMun>
+                    <UF>SC</UF>
+                </transporta>
+                <vol>
+                    <qVol>1</qVol>
+                    <pesoL>8.400</pesoL>
+                    <pesoB>8.400</pesoB>
+                </vol>
+            </transp>
+            <cobr>
+                <fat>
+                    <nFat>71063</nFat>
+                    <vOrig>554.00</vOrig>
+                    <vDesc>0.00</vDesc>
+                    <vLiq>554.00</vLiq>
+                </fat>
+                <dup>
+                    <nDup>001</nDup>
+                    <dVenc>2026-06-27</dVenc>
+                    <vDup>554.00</vDup>
+                </dup>
+            </cobr>
+            <pag>
+                <detPag>
+                    <indPag>1</indPag>
+                    <tPag>15</tPag>
+                    <vPag>554.00</vPag>
+                </detPag>
+            </pag>
+            <infAdic>
+                <infAdFisco>Vr.ICMS FCP. R$ 0,00   Vr.Diferencial do ICMS Destino. R$ 55,40   Vr.Diferencial do ICMS Origem. R$ 0,00   | IR 1,2%(IN RFB 1234) Valor R$ 6,65</infAdFisco>
+                <infCpl>DADOS BANCARIOS: BANCO DO BRASIL AGENCIA 1707-8 C/C 28814-4 OU BANCO BRADESCO: AGENCIA 1406 C/C 10476-0; AF 1/2026 - PED 219/2026 - EMP 441/2226 - PREGAO 33/2025 - LOCAL DE ENTREGA: RUA CAMPO GRANDE N. 1434 - CENTRO - CEP: 79.965-000 - ITAQUIRAI/ MS - HORARIO PARA ENTREGA E DAS 07H:00MIN AS 11H:00MIN E DAS 13H:00MIN AS 17H:00MIN - Decretos: 3. LEI N.10.147 INCISO 1 ART. 1. - ISENCAO DE PIS E COFINS</infCpl>
+                <obsCont xCampo="Cubagem Total">
+                    <xTexto>0.0235480</xTexto>
+                </obsCont>
+            </infAdic>
+            <infRespTec>
+                <CNPJ>02765869000152</CNPJ>
+                <xContato>Suporte</xContato>
+                <email>suporte@qualifynet.com.br</email>
+                <fone>4130191418</fone>
+            </infRespTec>
+        </infNFe>
+        <Signature xmlns="http://www.w3.org/2000/09/xmldsig#">
+            <SignedInfo>
+                <CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
+                <SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/>
+                <Reference URI="#NFe42260512418191000195550010000710631000771436">
+                    <Transforms>
+                        <Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
+                        <Transform Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
+                    </Transforms>
+                    <DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/>
+                    <DigestValue>kTAeza4W02qz+IQ964S01hnfJpc=</DigestValue>
+                </Reference>
+            </SignedInfo>
+            <SignatureValue>NZcVsPreFeZ71Qn6yx/Vhju0nc6uqo9glAjGaLioSoQemuB0OEfy0QepDt6ZVA7YHoz3oJ5OU38XMguh97WY+eUKvXzfw2V4i7abX6FFtJqyMOkmh0akvMsC+nRB2+JDVDeFAM8z0PkkgpiWKvEnfthjZ/d2REYV8EzzisCg3cCyYthVSXpl/tMz0iwglGSPYG2VI9Tomcm9YV/hFD28VuAGmWAZyRUakQyDNXVpPLa5rBJpZTLVyZCXjQCJhYKViDuD1RITnRQkeekHSOzK8JPvvMwnsF0tLjsmGp9WV++XwErfWJgonHniDF3LKSHahyqzyWuIDTaZVik3Yu5Ilw==</SignatureValue>
+            <KeyInfo>
+                <X509Data>
+                    <X509Certificate>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</X509Certificate>
+                </X509Data>
+            </KeyInfo>
+        </Signature>
+    </NFe>
+    <protNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+        <infProt Id="ID242260242368089">
+            <tpAmb>1</tpAmb>
+            <verAplic>SVRS2605211109DR</verAplic>
+            <chNFe>42260512418191000195550010000710631000771436</chNFe>
+            <dhRecbto>2026-05-28T09:58:07-03:00</dhRecbto>
+            <nProt>242260242368089</nProt>
+            <digVal>kTAeza4W02qz+IQ964S01hnfJpc=</digVal>
+            <cStat>100</cStat>
+            <xMotivo>Autorizado o uso da NF-e</xMotivo>
+        </infProt>
+    </protNFe>
+</nfeProc>

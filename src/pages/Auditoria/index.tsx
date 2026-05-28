@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, Fragment } from 'react';
 import { getAuditoriaLogs, BackendAuditoriaLog } from '../../services/auditoriaService';
 import { 
   Search, 
@@ -406,9 +406,8 @@ export function AuditoriaLista() {
                     filteredLogs.map((log) => {
                       const isExpanded = expandedLogId === log.id;
                       return (
-                        <>
+                        <Fragment key={log.id}>
                           <tr 
-                            key={log.id} 
                             onClick={() => toggleExpand(log.id)}
                             className="hover:bg-gray-50/50 transition-colors group cursor-pointer"
                           >
@@ -534,7 +533,7 @@ export function AuditoriaLista() {
                               </td>
                             </tr>
                           )}
-                        </>
+                        </Fragment>
                       );
                     })
                   )}
