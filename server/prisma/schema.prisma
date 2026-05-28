@@ -118,6 +118,7 @@ model User {
   perfil           Perfil?
   status           UsuarioStatus @default(PENDENTE)
   unidadeId        String?       @map("unidade_id")
+  unidade          Unidade?      @relation(fields: [unidadeId], references: [id])
   tenantSchema     String?       @map("tenant_schema")
   permissoesExtras Json?         @map("permissoes_extras")
   justificativa    String?
@@ -130,6 +131,8 @@ model User {
   atualizadoEm     DateTime      @updatedAt @map("atualizado_em")
   deletedAt        DateTime?     @map("deleted_at")
   auditorias       Auditoria[]
+  pedidosSolicitados PedidoReposicao[] @relation("SolicitadoPor")
+  pedidosEntregar    PedidoReposicao[] @relation("MotoristaPedidos")
 
   @@index([fornecedorId])
   @@index([status])
@@ -390,4 +393,94 @@ model AlertaCd {
   @@index([status])
   @@index([tipo])
   @@map("alertas_cd")
+}
+
+enum PedidoReposicaoStatus {
+  PENDENTE
+  EM_ANALISE
+  EM_SEPARACAO
+  AGUARDANDO_MOTORISTA
+  EM_TRANSITO
+  CONCLUIDO
+  REJEITADO
+}
+
+enum PedidoReposicaoUrgencia {
+  BAIXA
+  MEDIA
+  ALTA
+}
+
+model Unidade {
+  id           String            @id @default(uuid())
+  nome         String
+  cnes         String?           @unique
+  endereco     String?
+  telefone     String?
+  tenantSchema String            @unique @map("tenant_schema")
+  ativa        Boolean           @default(true)
+  criadoEm     DateTime          @default(now()) @map("criado_em") @db.Timestamptz(6)
+  atualizadoEm DateTime          @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+  deletedAt    DateTime?         @map("deleted_at") @db.Timestamptz(6)
+  
+  usuarios     User[]
+  pedidos      PedidoReposicao[]
+
+  @@map("unidades")
+}
+
+model PedidoReposicao {
+  id              String                  @id @default(uuid())
+  numero          String                  @unique // Ex: PED-2026-0001
+  status          PedidoReposicaoStatus   @default(PENDENTE)
+  urgencia        PedidoReposicaoUrgencia @default(BAIXA)
+  unidadeId       String                  @map("unidade_id")
+  unidade         Unidade                 @relation(fields: [unidadeId], references: [id])
+  solicitadoPorId String                  @map("solicitado_por_id")
+  solicitadoPor   User                    @relation("SolicitadoPor", fields: [solicitadoPorId], references: [id])
+  
+  motoristaId     String?                 @map("motorista_id")
+  motorista       User?                   @relation("MotoristaPedidos", fields: [motoristaId], references: [id])
+  
+  justificativa   String?
+  motivoRejeicao  String?                 @map("motivo_rejeicao")
+  
+  criadoEm        DateTime                @default(now()) @map("criado_em")
+  atualizadoEm    DateTime                @updatedAt @map("atualizado_em")
+  deletedAt       DateTime?               @map("deleted_at")
+  
+  itens           PedidoReposicaoItem[]
+
+  @@index([unidadeId])
+  @@index([status])
+  @@index([motoristaId])
+  @@map("pedidos_reposicao")
+}
+
+model PedidoReposicaoItem {
+  id              String          @id @default(uuid())
+  pedidoId        String          @map("pedido_id")
+  pedido          PedidoReposicao @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  
+  catmatCodigo    String?         @map("catmat_codigo")
+  medicamentoNome String          @map("medicamento_nome")
+  quantidade      Int
+  
+  criadoEm        DateTime        @default(now()) @map("criado_em")
+  atualizadoEm    DateTime        @updatedAt @map("atualizado_em")
+
+  @@index([pedidoId])
+  @@index([catmatCodigo])
+  @@map("pedido_reposicao_itens")
+}
+
+model PermissoesPerfil {
+  id       String   @id @default(uuid())
+  perfil   Perfil
+  recurso  String
+  acao     String
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  @@unique([perfil, recurso, acao])
+  @@map("permissoes_perfil")
 }

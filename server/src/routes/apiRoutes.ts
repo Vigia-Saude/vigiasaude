@@ -9,6 +9,7 @@ import { DashboardController } from '../controllers/DashboardController';
 import { CdController } from '../controllers/CdController';
 import { authMiddleware, roleMiddleware } from '../middlewares/auth';
 import { listarUnidades } from '../services/tenantService';
+import { PedidoReposicaoController } from '../controllers/PedidoReposicaoController';
 
 const router = Router();
 const pedidoController = new PedidoController();
@@ -19,6 +20,7 @@ const uploadController = new UploadController();
 const fornecedorController = new FornecedorController();
 const dashboardController = new DashboardController();
 const cdController = new CdController();
+const pedidoReposicaoController = new PedidoReposicaoController();
 
 // Todas as rotas da API requerem autenticação
 router.use(authMiddleware);
@@ -79,5 +81,12 @@ router.post('/cd/recalls', roleMiddleware(['COMPRADOR']), cdController.registrar
 router.get('/cd/recalls', cdController.listarRecalls);
 router.get('/cd/alertas', cdController.listarAlertas);
 router.patch('/cd/alertas/:id/lido', cdController.marcarAlertaLido);
+
+// Rotas de Pedidos de Recomposição de Estoque (CD)
+router.get('/cd/pedidos-reposicao', pedidoReposicaoController.listar);
+router.get('/cd/pedidos-reposicao/motoristas', pedidoReposicaoController.listarMotoristas);
+router.get('/cd/pedidos-reposicao/:id', pedidoReposicaoController.detalhes);
+router.post('/cd/pedidos-reposicao', pedidoReposicaoController.criar);
+router.patch('/cd/pedidos-reposicao/:id/status', pedidoReposicaoController.atualizarStatus);
 
 export default router;

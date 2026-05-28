@@ -287,7 +287,9 @@ export class AuthController {
         data: {
           status: 'ATIVO',
           perfil: resolvedPerfil,
-          unidadeId: (usuario.role === 'COMPRADOR' && !isGlobalPerfil) ? (unidadeId ?? null) : null,
+          unidade: (usuario.role === 'COMPRADOR' && !isGlobalPerfil)
+            ? (unidadeId ? { connect: { id: unidadeId } } : { disconnect: true })
+            : { disconnect: true },
           tenantSchema: (usuario.role === 'COMPRADOR' && !isGlobalPerfil) ? (tenantSchema ?? null) : null,
           permissoesExtras: permissoesExtras as Prisma.InputJsonValue ?? Prisma.JsonNull,
           aprovadoPor: req.user?.id,
@@ -356,7 +358,9 @@ export class AuthController {
         nome,
         email: email || null,
         perfil: resolvedPerfil,
-        unidadeId: (usuario.role === 'COMPRADOR' && !isGlobalPerfil) ? (unidadeId ?? null) : null,
+        unidade: (usuario.role === 'COMPRADOR' && !isGlobalPerfil)
+          ? (unidadeId ? { connect: { id: unidadeId } } : { disconnect: true })
+          : { disconnect: true },
         tenantSchema: (usuario.role === 'COMPRADOR' && !isGlobalPerfil) ? (tenantSchema ?? null) : null,
         permissoesExtras: permissoesExtras as Prisma.InputJsonValue ?? Prisma.JsonNull,
       };
