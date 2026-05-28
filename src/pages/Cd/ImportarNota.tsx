@@ -216,23 +216,7 @@ export function ImportarNota() {
       const resNf = await apiClient.post('/api/cd/notas-fiscais', payloadNf);
       const createdNf = resNf.data;
 
-      // 2. Submit Physical conference automatically (no differences)
-      const conferenceItens = createdNf.itens.map((dbItem: any) => {
-        const matchingFeItem = itens.find(
-          fe => fe.medicamentoCatmatId === dbItem.catmatCodigo && fe.lote === dbItem.numeroLote
-        );
-        return {
-          itemId: dbItem.id,
-          quantidadeRecebida: matchingFeItem ? Number(matchingFeItem.quantidade_esperada) : dbItem.quantidadeEsperada,
-          observacaoDivergencia: null
-        };
-      });
-
-      await apiClient.post(`/api/cd/notas-fiscais/${createdNf.id}/conferir`, {
-        itens: conferenceItens
-      });
-
-      setSuccessMsg('Nota Fiscal e estoque processados com sucesso!');
+      setSuccessMsg('Nota Fiscal salva e enviada para análise de recebimento!');
       
       // Refresh metrics
       void fetchStats();
@@ -475,7 +459,7 @@ export function ImportarNota() {
                     Processando...
                   </>
                 ) : (
-                  'Confirmar Entrada no Estoque'
+                  'Confirmar Envio para Análise de Recebimento'
                 )}
               </button>
             </div>

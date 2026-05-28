@@ -204,7 +204,8 @@ Base URL: `/api` (todas requerem JWT exceto auth)
 9. **Uploads** ficam em `server/uploads/` gerenciados pelo Multer.
 10. **Variáveis de ambiente críticas:** `DATABASE_URL` (pooler porta 6543), `DIRECT_URL` (porta 5432 para migrations), `DATABASE_URL_DIRECT` (host direto para tenants), `JWT_SECRET`.
 11. **Retorno Paginado de Pedidos:** O endpoint `/api/pedidos` retorna um objeto paginado contendo `{ data: PedidoCompra[], pagination: ... }` ao invés de um array direto. O frontend deve acessar `response.data.data` para obter a lista.
-12. **Auto-cadastro de Fornecedor via XML:** O parser de XML (`/api/cd/notas-fiscais/xml`) realiza o auto-cadastro automático do fornecedor (com CNPJ, Razão Social e Nome Fantasia) caso ele não exista no banco de dados, retornando o `fornecedorId` criado no JSON de resposta.
+12. **Auto-cadastro de Fornecedor via XML**: O parser de XML (`/api/cd/notas-fiscais/xml`) realiza o auto-cadastro automático do fornecedor (com CNPJ, Razão Social e Nome Fantasia) caso ele não exista no banco de dados, retornando o `fornecedorId` criado no JSON de resposta.
+13. **Conferência Física e Entrada no Estoque**: A conferência física/fiscal de Notas Fiscais deve cadastrar lotes de estoque em `cd_estoque_lotes` para todos os itens recebidos com quantidade maior que zero, tanto em caso de sucesso total (`CONFERIDA`) quanto com divergências (`CONFERIDO_DIVERGENCIA`). As informações de auditoria (`conferidoPor`, `conferidoEm`) devem ser registradas em ambos os casos.
 
 ---
 

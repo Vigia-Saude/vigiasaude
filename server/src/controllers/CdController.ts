@@ -19,8 +19,12 @@ interface ItemConferenciaInput {
   observacaoDivergencia?: string;
 }
 
-async function verificarRecall(numeroLote: string, catmatCodigo: string | null): Promise<boolean> {
-  const result = await prisma.$queryRaw<[{ is_lote_bloqueado_recall: boolean }]>`
+async function verificarRecall(
+  numeroLote: string,
+  catmatCodigo: string | null,
+  client: Prisma.TransactionClient | typeof prisma = prisma
+): Promise<boolean> {
+  const result = await client.$queryRaw<[{ is_lote_bloqueado_recall: boolean }]>`
     SELECT public.is_lote_bloqueado_recall(${numeroLote}::text, ${catmatCodigo}::text) AS is_lote_bloqueado_recall
   `;
   return result[0]?.is_lote_bloqueado_recall ?? false;
@@ -228,37 +232,48 @@ export class CdController {
         include: { itens: true },
       }) as Prisma.NotaFiscalGetPayload<{ include: { itens: true } }>;
 
-      // Se não há divergência, cria os lotes no estoque do CD e sela a NF como CONFERIDA
-      if (nfAtualizada.status !== 'CONFERIDO_DIVERGENCIA') {
-        await prisma.$transaction(async (tx) => {
-          for (const item of nfAtualizada.itens) {
-            const bloqueado = await verificarRecall(item.numeroLote, item.catmatCodigo);
+      // Cria os lotes no estoque do CD para todos os itens recebidos (> 0) e atualiza metadados da NF
+      await prisma.$transaction(async (tx) => {
+        for (const item of nfAtualizada.itens) {
+          const qtdRecebida = item.quantidadeRecebida ?? 0;
+          if (qtdRecebida > 0) {
+            const bloqueado = await verificarRecall(item.numeroLote, item.catmatCodigo, tx);
             const statusLote = bloqueado ? 'BLOQUEADO_RECALL' : 'DISPONIVEL';
 
-            await tx.cdEstoqueLote.create({
-              data: {
-                notaFiscalItemId: item.id,
-                catmatCodigo: item.catmatCodigo,
-                medicamentoNome: item.medicamentoNome,
-                numeroLote: item.numeroLote,
-                dataValidade: item.dataValidade,
-                quantidadeInicial: item.quantidadeRecebida ?? item.quantidadeEsperada,
-                quantidadeAtual: item.quantidadeRecebida ?? item.quantidadeEsperada,
-                status: statusLote,
-              },
+            // Evitar duplicidades se já houver um registro de estoque correspondente
+            const loteExistente = await tx.cdEstoqueLote.findUnique({
+              where: { notaFiscalItemId: item.id }
             });
-          }
 
-          await tx.notaFiscal.update({
-            where: { id },
-            data: {
-              status: 'CONFERIDA',
-              conferidoPor: req.user?.id ?? null,
-              conferidoEm: new Date(),
-            },
-          });
+            if (!loteExistente) {
+              await tx.cdEstoqueLote.create({
+                data: {
+                  notaFiscalItemId: item.id,
+                  catmatCodigo: item.catmatCodigo,
+                  medicamentoNome: item.medicamentoNome,
+                  numeroLote: item.numeroLote,
+                  dataValidade: item.dataValidade,
+                  quantidadeInicial: qtdRecebida,
+                  quantidadeAtual: qtdRecebida,
+                  status: statusLote,
+                },
+              });
+            }
+          }
+        }
+
+        // Se houver divergência, mantém o status CONFERIDO_DIVERGENCIA. Caso contrário, CONFERIDA.
+        const statusFinal = nfAtualizada.status === 'CONFERIDO_DIVERGENCIA' ? 'CONFERIDO_DIVERGENCIA' : 'CONFERIDA';
+
+        await tx.notaFiscal.update({
+          where: { id },
+          data: {
+            status: statusFinal,
+            conferidoPor: req.user?.id ?? null,
+            conferidoEm: new Date(),
+          },
         });
-      }
+      });
 
       const resultado = await prisma.notaFiscal.findUniqueOrThrow({
         where: { id },
