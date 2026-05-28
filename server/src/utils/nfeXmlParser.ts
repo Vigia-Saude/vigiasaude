@@ -23,6 +23,8 @@ export interface ParsedNfeXml {
   serie: string;
   chaveAcesso: string;
   fornecedorCnpj: string;
+  fornecedorNome: string;
+  fornecedorFantasia: string;
   dataEmissao: string;
   valorTotal: number;
   itens: ParsedNfeItem[];
@@ -85,6 +87,8 @@ export function parseNfeXml(xml: string): ParsedNfeXml {
   const serie = readRequiredString(ide, 'serie', 'tag <ide><serie> ausente.');
   const dataEmissao = readRequiredString(ide, 'dhEmi', 'tag <ide><dhEmi> ausente.');
   const fornecedorCnpj = onlyDigits(readRequiredString(emit, 'CNPJ', 'tag <emit><CNPJ> ausente.'));
+  const fornecedorNome = readString(emit, 'xNome') || 'Fornecedor XML';
+  const fornecedorFantasia = readString(emit, 'xFant') || fornecedorNome;
   const chaveAcesso = extractChaveAcesso(root, infNfe);
   const valorTotal = parseRequiredNumber(total, 'vNF', 'tag <total><ICMSTot><vNF> ausente ou inválida.');
 
@@ -117,6 +121,8 @@ export function parseNfeXml(xml: string): ParsedNfeXml {
     serie,
     chaveAcesso,
     fornecedorCnpj,
+    fornecedorNome,
+    fornecedorFantasia,
     dataEmissao,
     valorTotal,
     itens,

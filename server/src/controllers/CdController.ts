@@ -80,7 +80,52 @@ export class CdController {
 
     try {
       const parsed = parseNfeXml(xml);
-      res.json(parsed);
+      
+      // Procurar fornecedor no banco pelo CNPJ extraído
+      const cleanCnpj = parsed.fornecedorCnpj.replace(/\D/g, '');
+      let fornecedor = await prisma.fornecedor.findFirst({
+        where: {
+          cnpj: {
+            contains: cleanCnpj
+          },
+          deletedAt: null
+        }
+      });
+
+      // Se não encontrar, tentar achar formatado "XX.XXX.XXX/XXXX-XX"
+      if (!fornecedor) {
+        const formattedCnpj = parsed.fornecedorCnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+        fornecedor = await prisma.fornecedor.findFirst({
+          where: {
+            cnpj: formattedCnpj,
+            deletedAt: null
+          }
+        });
+      }
+
+      // Se não existir, realizar auto-cadastro do fornecedor com base nas tags <emit>
+      if (!fornecedor) {
+        const formattedCnpj = parsed.fornecedorCnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+        fornecedor = await prisma.fornecedor.create({
+          data: {
+            cnpj: formattedCnpj,
+            razaoSocial: parsed.fornecedorNome,
+            nomeFantasia: parsed.fornecedorFantasia,
+            email: 'contato@' + (parsed.fornecedorFantasia.toLowerCase().replace(/[^a-z0-9]/g, '')) + '.com.br',
+            whatsapp: '(00) 00000-0000',
+            categorias: ['Medicamentos'],
+            status: 'ATIVO',
+            taxaAceitacao: 100.00
+          }
+        });
+        console.log(`[CD] Fornecedor auto-cadastrado via XML: ${parsed.fornecedorNome} (${formattedCnpj})`);
+      }
+
+      res.json({
+        ...parsed,
+        fornecedorId: fornecedor.id,
+        fornecedorNome: fornecedor.nomeFantasia
+      });
     } catch (err: any) {
       res.status(400).json({ erro: err.message || 'Erro ao processar XML da nota fiscal.', issues: err.issues });
     }

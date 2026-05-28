@@ -32,8 +32,10 @@ vi.mock('../config/prisma', () => {
       create: vi.fn(),
     },
     $transaction: vi.fn(),
+    $queryRaw: vi.fn(),
   };
   mock.$transaction.mockImplementation((callback) => callback(mock));
+  mock.$queryRaw.mockResolvedValue([{ nextval: 1n }]);
   return {
     default: mock,
   };

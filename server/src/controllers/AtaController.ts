@@ -305,19 +305,34 @@ export class AtaController {
 
       let resolvedCnpj = (fornecedorCnpj && fornecedorCnpj.trim() !== '') ? fornecedorCnpj.trim() : null;
 
-      // Validar fornecedor antes de abrir a transação
+      // Validar/Auto-criar fornecedor antes de abrir a transação
       if (resolvedCnpj) {
         const cleanCnpj = resolvedCnpj.replace(/\D/g, '');
-        const fornecedorExistente = await prisma.fornecedor.findFirst({
-          where: { cnpj: { contains: cleanCnpj } },
-          select: { cnpj: true }
+        let fornecedorExistente = await prisma.fornecedor.findFirst({
+          where: {
+            OR: [
+              { cnpj: { contains: cleanCnpj } },
+              { cnpj: resolvedCnpj }
+            ]
+          }
         });
         if (fornecedorExistente) {
           resolvedCnpj = fornecedorExistente.cnpj;
         } else {
-          return res.status(400).json({
-            error: `Fornecedor com CNPJ ${resolvedCnpj} não está cadastrado no sistema. Cadastre o fornecedor antes de criar a ATA.`
+          // Auto-criar fornecedor se não existir
+          const novoFornecedor = await prisma.fornecedor.create({
+            data: {
+              cnpj: resolvedCnpj,
+              razaoSocial: fornecedorNome,
+              nomeFantasia: fornecedorNome,
+              email: 'contato@' + (fornecedorNome.toLowerCase().replace(/[^a-z0-9]/g, '')) + '.com.br',
+              whatsapp: '(00) 00000-0000',
+              status: 'ATIVO',
+              taxaAceitacao: 100.00,
+              categorias: ['Medicamentos']
+            }
           });
+          resolvedCnpj = novoFornecedor?.cnpj || resolvedCnpj;
         }
       }
 

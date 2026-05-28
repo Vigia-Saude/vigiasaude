@@ -103,9 +103,10 @@ export function ImportarNota() {
         return;
       }
       try {
-        const response = await apiClient.get<PedidoCompra[]>('/api/pedidos');
+        const response = await apiClient.get<{ data: PedidoCompra[] } | PedidoCompra[]>('/api/pedidos');
+        const list = Array.isArray(response.data) ? response.data : (response.data?.data || []);
         // Filter orders of this supplier that are APROVADO or EM_TRANSITO or PENDENTE
-        const supplierPedidos = response.data.filter(
+        const supplierPedidos = list.filter(
           p => p.fornecedorId === selectedFornecedorId && p.status !== 'ENTREGUE' && p.status !== 'CANCELADO'
         );
         setPedidosCompra(supplierPedidos);
@@ -136,11 +137,11 @@ export function ImportarNota() {
         setXmlContent(text);
 
         // Call backend XML parser endpoint
-        const response = await apiClient.post<NfeData>('/api/cd/notas-fiscais/xml', { xml: text });
+        const response = await apiClient.post<NfeData & { fornecedorId?: string }>('/api/cd/notas-fiscais/xml', { xml: text });
         const data = response.data;
 
         // Map values into state
-        setNumeroNF(data.numeroNF || data.numeroNF);
+        setNumeroNF(data.numeroNF);
         setSerie(data.serie || '1');
         setChaveAcesso(data.chaveAcesso);
         setFornecedorCnpj(data.fornecedorCnpj);
@@ -154,6 +155,17 @@ export function ImportarNota() {
           observacao_divergencia: ''
         }));
         setItens(itemsWithReceived);
+
+        // Auto-selecionar o fornecedor resolvido e recarregar lista
+        if (data.fornecedorId) {
+          setSelectedFornecedorId(data.fornecedorId);
+          try {
+            const list = await getFornecedores();
+            setFornecedores(list);
+          } catch (err) {
+            console.error('Erro ao atualizar fornecedores:', err);
+          }
+        }
 
       } catch (err: any) {
         console.error(err);
