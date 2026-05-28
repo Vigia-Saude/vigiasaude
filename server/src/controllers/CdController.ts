@@ -37,6 +37,16 @@ export class CdController {
     }
 
     try {
+      if (chaveAcesso) {
+        const nfExistente = await prisma.notaFiscal.findFirst({
+          where: { chaveAcesso, deletedAt: null }
+        });
+        if (nfExistente) {
+          res.status(400).json({ erro: `Esta Nota Fiscal (Chave: ${chaveAcesso}) já foi cadastrada no sistema.` });
+          return;
+        }
+      }
+
       const nf = await prisma.notaFiscal.create({
         data: {
           numeroNf,
