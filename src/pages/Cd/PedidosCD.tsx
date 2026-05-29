@@ -510,27 +510,28 @@ export function PedidosCD() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => !detailsLoading && setDetailsOpen(false)} />
           
-          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden transform transition-all border border-gray-100 flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden transform transition-all border border-gray-100 flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200 relative z-10">
             {/* Modal Header */}
-            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+            <div className="px-6 pt-6 pb-2 flex items-start justify-between relative bg-white">
               <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg font-black text-gray-900 tracking-tight">
-                    {selectedPedido ? selectedPedido.numero : 'Carregando...'}
-                  </span>
-                  {selectedPedido && (
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide ${getUrgencyBadgeProps(selectedPedido.urgencia).className}`}>
-                      {getUrgencyBadgeProps(selectedPedido.urgencia).text}
-                    </span>
-                  )}
-                </div>
-                <span className="text-sm font-bold text-gray-500">
+                <span className="text-2xl font-bold text-gray-900">
+                  {selectedPedido ? (selectedPedido.numero.includes('-') ? selectedPedido.numero.split('-').pop() : selectedPedido.numero) : 'Carregando...'}
+                </span>
+                <span className="text-sm font-normal text-gray-500">
                   {selectedPedido ? selectedPedido.unidadeNome : 'Aguarde...'}
                 </span>
               </div>
+              <div className="flex items-center gap-3 pr-8 mt-1">
+                {selectedPedido && selectedPedido.urgencia === 'ALTA' && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-50 text-red-600 border border-red-100 shadow-2xs">
+                    <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                    Urgente
+                  </span>
+                )}
+              </div>
               <button 
                 onClick={() => setDetailsOpen(false)} 
-                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-colors cursor-pointer"
+                className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-colors cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -552,7 +553,7 @@ export function PedidosCD() {
                     
                     {/* Stepper Line filled progress */}
                     <div 
-                      className="absolute top-8 left-6 h-0.5 bg-blue-600 -z-10 transition-all duration-500" 
+                      className="absolute top-8 left-6 h-0.5 bg-emerald-500 -z-10 transition-all duration-500 delay-300" 
                       style={{ 
                         width: `${Math.max(0, getStepperActiveIndex(selectedPedido.status) * 25)}%` 
                       }} 
@@ -561,7 +562,7 @@ export function PedidosCD() {
                     <div className="flex justify-between items-start">
                       {[
                         { label: 'Pendente', icon: Clock },
-                        { label: 'Em Análise', icon: SearchIcon },
+                        { label: 'Em Análise', icon: Package },
                         { label: 'Em Separação', icon: Package },
                         { label: 'Enviado', icon: Truck },
                         { label: 'Concluído', icon: CheckCircle2 }
@@ -575,15 +576,15 @@ export function PedidosCD() {
                           <div key={idx} className="flex flex-col items-center text-center w-20 relative">
                             <div className={`h-8 w-8 rounded-full flex items-center justify-center transition-all duration-300 border ${
                               isCompleted 
-                                ? 'bg-blue-650 text-white border-blue-650' 
+                                ? 'bg-emerald-500 text-white border-emerald-500' 
                                 : isActive 
-                                  ? 'bg-blue-600 text-white border-blue-600 ring-4 ring-blue-50' 
-                                  : 'bg-white text-gray-400 border-gray-250'
+                                  ? 'bg-[#0056C6] text-white border-[#0056C6] ring-4 ring-blue-50' 
+                                  : 'bg-white text-gray-400 border-gray-200'
                             }`}>
                               <StepIcon className="h-4 w-4" />
                             </div>
                             <span className={`text-[10px] font-bold mt-2 leading-tight ${
-                              isActive ? 'text-blue-600 font-extrabold' : isCompleted ? 'text-gray-700' : 'text-gray-400'
+                              isActive ? 'text-[#0056C6] font-extrabold' : isCompleted ? 'text-emerald-600' : 'text-gray-450'
                             }`}>
                               {step.label}
                             </span>
@@ -617,7 +618,7 @@ export function PedidosCD() {
                 {/* Items List */}
                 <div className="space-y-3">
                   <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Medicamentos Solicitados</h4>
-                  <div className="border border-gray-150 rounded-xl overflow-hidden">
+                  <div className="border border-gray-150 rounded-xl overflow-hidden bg-white">
                     <table className="w-full border-collapse">
                       <thead>
                         <tr className="bg-gray-50/50 border-b border-gray-100 text-left">
@@ -648,13 +649,13 @@ export function PedidosCD() {
                             </td>
                             <td className="px-4 py-3.5 text-right">
                               {item.disponivel ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#DEF7EC] text-[#03543F]">
-                                  <Check className="h-3 w-3" />
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">
+                                  <CheckCircle className="h-3 w-3 text-emerald-500" />
                                   Disponível
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-600 border border-red-100">
-                                  <X className="h-3 w-3" />
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">
+                                  <XCircle className="h-3 w-3 text-red-500" />
                                   Indisponível
                                 </span>
                               )}
@@ -679,16 +680,16 @@ export function PedidosCD() {
 
             {/* Modal Footer Actions */}
             {selectedPedido && !detailsLoading && (
-              <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between gap-3 bg-gray-50/50">
+              <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-end gap-3 bg-white">
                 <button
                   onClick={() => setDetailsOpen(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-xl text-xs font-bold text-gray-700 bg-white hover:bg-gray-50 active:scale-95 transition-all cursor-pointer"
+                  className="px-4 py-2 border border-gray-250 rounded-xl text-xs font-bold text-gray-700 bg-white hover:bg-gray-50 active:scale-95 transition-all cursor-pointer"
                 >
                   Fechar
                 </button>
                 
                 {['PENDENTE', 'EM_ANALISE', 'EM_SEPARACAO'].includes(selectedPedido.status) && (
-                  <div className="flex items-center gap-2">
+                  <>
                     <button
                       onClick={handleOpenRejection}
                       className="px-4 py-2 border border-red-200 rounded-xl text-xs font-bold text-red-650 bg-white hover:bg-red-50 hover:border-red-300 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5"
@@ -700,10 +701,10 @@ export function PedidosCD() {
                       onClick={handleOpenApproval}
                       className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-bold text-white shadow-xs active:scale-95 transition-all cursor-pointer flex items-center gap-1.5"
                     >
-                      <CheckCircle className="h-4 w-4" />
-                      Aprovar e Transferir
+                      <Truck className="h-4 w-4" />
+                      Confirmar Envio para Farmácia
                     </button>
-                  </div>
+                  </>
                 )}
               </div>
             )}
@@ -716,7 +717,7 @@ export function PedidosCD() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => !submittingApproval && setApprovalOpen(false)} />
           
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl p-6 sm:p-8 transform transition-all border border-gray-100 animate-in fade-in zoom-in-95 duration-200 z-10">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl p-6 sm:p-8 transform transition-all border border-gray-100 animate-in fade-in zoom-in-95 duration-200 relative z-10">
             <div className="flex flex-col">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-blue-600 mb-4 border border-blue-100">
                 <Truck className="h-6 w-6" />
@@ -782,7 +783,7 @@ export function PedidosCD() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => !submittingRejection && setRejectionOpen(false)} />
           
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl p-6 sm:p-8 transform transition-all border border-gray-100 animate-in fade-in zoom-in-95 duration-200 z-10">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl p-6 sm:p-8 transform transition-all border border-gray-100 animate-in fade-in zoom-in-95 duration-200 relative z-10">
             <div className="flex flex-col">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-650 mb-4 border border-red-150">
                 <AlertTriangle className="h-6 w-6" />
