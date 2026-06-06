@@ -280,6 +280,30 @@ export class CdController {
         include: { itens: { include: { estoqueLote: true } } },
       });
 
+      // Audit Log for ENTRADA_ESTOQUE
+      if (req.user?.id) {
+        await prisma.auditoria.create({
+          data: {
+            usuarioId: req.user.id,
+            acao: 'ENTRADA_ESTOQUE',
+            entidadeId: resultado.id,
+            dadosAntes: { status: nf.status },
+            dadosDepois: {
+              id: resultado.id,
+              numeroNf: resultado.numeroNf,
+              status: resultado.status,
+              itens: resultado.itens.map(it => ({
+                medicamentoNome: it.medicamentoNome,
+                numeroLote: it.numeroLote,
+                quantidadeEsperada: it.quantidadeEsperada,
+                quantidadeRecebida: it.quantidadeRecebida
+              }))
+            },
+            justificativa: `Conferência da Nota Fiscal ${resultado.numeroNf} finalizada com status ${resultado.status}.`
+          }
+        }).catch(err => console.error('Erro ao salvar auditoria de entrada:', err));
+      }
+
       res.json(resultado);
     } catch (err) {
       console.error(err);
@@ -341,6 +365,28 @@ export class CdController {
           criadoPor: req.user!.id,
         },
       });
+
+      // Audit Log for RECALL_REGISTRADO
+      if (req.user?.id) {
+        await prisma.auditoria.create({
+          data: {
+            usuarioId: req.user.id,
+            acao: 'RECALL_REGISTRADO',
+            entidadeId: recall.id,
+            dadosAntes: Prisma.DbNull,
+            dadosDepois: {
+              id: recall.id,
+              medicamentoNome: recall.medicamentoNome,
+              numeroLote: recall.numeroLote,
+              catmatCodigo: recall.catmatCodigo,
+              motivo: recall.motivo,
+              risco: recall.risco,
+              fonte: recall.fonte
+            },
+            justificativa: `Recall registrado para lote ${recall.numeroLote || 'N/A'}. Motivo: ${recall.motivo}`
+          }
+        }).catch(err => console.error('Erro ao salvar auditoria de recall:', err));
+      }
 
       res.status(201).json(recall);
     } catch (err) {
@@ -432,10 +478,122 @@ export class CdController {
         }
       }
 
+      // Audit Log for RECALL_ENCERRADO
+      if (req.user?.id) {
+        await prisma.auditoria.create({
+          data: {
+            usuarioId: req.user.id,
+            acao: 'RECALL_ENCERRADO',
+            entidadeId: updatedRecall.id,
+            dadosAntes: { ativo: true },
+            dadosDepois: { ativo: false },
+            justificativa: `Recall encerrado e lotes liberados se aplicável.`
+          }
+        }).catch(err => console.error('Erro ao salvar auditoria de encerramento de recall:', err));
+      }
+
       res.json(updatedRecall);
     } catch (err) {
       console.error(err);
       res.status(500).json({ erro: 'Erro ao encerrar recall.' });
+    }
+  };
+
+  // GET /api/cd/auditoria
+  listarAuditoria = async (req: AuthRequest, res: Response) => {
+    const { busca, dataInicio, dataFim, categoria } = req.query;
+
+    try {
+      const where: Prisma.AuditoriaWhereInput = {};
+
+      // Filter by CD operations actions
+      // Entradas: ENTRADA_ESTOQUE
+      // Dispensações: DISPENSACAO
+      // Recalls: RECALL_REGISTRADO, RECALL_ENCERRADO
+      // Transferências: TRANSFERENCIA_INICIADA, TRANSFERENCIA_CONCLUIDA
+      // Pedidos: PEDIDO_CRIADO, PEDIDO_APROVADO, PEDIDO_REJEITADO
+      
+      const cdActions = [
+        'ENTRADA_ESTOQUE',
+        'DISPENSACAO',
+        'RECALL_REGISTRADO',
+        'RECALL_ENCERRADO',
+        'TRANSFERENCIA_INICIADA',
+        'TRANSFERENCIA_CONCLUIDA',
+        'PEDIDO_CRIADO',
+        'PEDIDO_APROVADO',
+        'PEDIDO_REJEITADO'
+      ];
+
+      if (categoria && String(categoria) !== 'TODOS') {
+        const cat = String(categoria).toUpperCase();
+        if (cat === 'ENTRADAS') {
+          where.acao = 'ENTRADA_ESTOQUE';
+        } else if (cat === 'DISPENSACOES') {
+          where.acao = 'DISPENSACAO';
+        } else if (cat === 'RECALLS') {
+          where.acao = { in: ['RECALL_REGISTRADO', 'RECALL_ENCERRADO'] };
+        } else if (cat === 'TRANSFERENCIAS') {
+          where.acao = { in: ['TRANSFERENCIA_INICIADA', 'TRANSFERENCIA_CONCLUIDA'] };
+        } else if (cat === 'PEDIDOS') {
+          where.acao = { in: ['PEDIDO_CRIADO', 'PEDIDO_APROVADO', 'PEDIDO_REJEITADO'] };
+        } else {
+          where.acao = { in: cdActions };
+        }
+      } else {
+        where.acao = { in: cdActions };
+      }
+
+      // Date filtering
+      if (dataInicio || dataFim) {
+        where.dataHora = {};
+        if (dataInicio) {
+          where.dataHora.gte = new Date(String(dataInicio));
+        }
+        if (dataFim) {
+          const end = new Date(String(dataFim));
+          end.setHours(23, 59, 59, 999);
+          where.dataHora.lte = end;
+        }
+      }
+
+      // Search (by User Name, User Email, Description/Justificativa, Action or Entity ID)
+      if (busca) {
+        const queryBusca = String(busca);
+        where.OR = [
+          { acao: { contains: queryBusca, mode: 'insensitive' } },
+          { entidadeId: { contains: queryBusca, mode: 'insensitive' } },
+          { justificativa: { contains: queryBusca, mode: 'insensitive' } },
+          {
+            usuario: {
+              OR: [
+                { nome: { contains: queryBusca, mode: 'insensitive' } },
+                { email: { contains: queryBusca, mode: 'insensitive' } },
+              ]
+            }
+          }
+        ];
+      }
+
+      const logs = await prisma.auditoria.findMany({
+        where,
+        orderBy: { dataHora: 'desc' },
+        include: {
+          usuario: {
+            select: {
+              nome: true,
+              email: true,
+              perfil: true,
+              role: true
+            }
+          }
+        }
+      });
+
+      res.json(logs);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ erro: 'Erro ao buscar logs de auditoria do CD.' });
     }
   };
 

@@ -83,6 +83,7 @@ router.get('/cd/recalls', cdController.listarRecalls);
 router.patch('/cd/recalls/:id/encerrar', roleMiddleware(['COMPRADOR']), cdController.encerrarRecall);
 router.get('/cd/alertas', cdController.listarAlertas);
 router.patch('/cd/alertas/:id/lido', cdController.marcarAlertaLido);
+router.get('/cd/auditoria', cdController.listarAuditoria);
 
 // Rotas de Pedidos de Recomposição de Estoque (CD)
 router.get('/cd/pedidos-reposicao', pedidoReposicaoController.listar);

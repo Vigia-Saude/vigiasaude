@@ -207,6 +207,29 @@ export class PedidoReposicaoController {
         include: { itens: true }
       });
 
+      // Audit Log for PEDIDO_CRIADO
+      if (req.user?.id) {
+        await prisma.auditoria.create({
+          data: {
+            usuarioId: req.user.id,
+            acao: 'PEDIDO_CRIADO',
+            entidadeId: pedido.id,
+            dadosAntes: Prisma.DbNull,
+            dadosDepois: {
+              id: pedido.id,
+              numero: pedido.numero,
+              urgencia: pedido.urgencia,
+              status: pedido.status,
+              itens: pedido.itens.map(it => ({
+                medicamentoNome: it.medicamentoNome,
+                quantidade: it.quantidade
+              }))
+            },
+            justificativa: `Pedido de reposição ${pedido.numero} criado para unidade.`
+          }
+        }).catch(err => console.error('Erro ao salvar auditoria de criação de pedido:', err));
+      }
+
       res.status(201).json(pedido);
     } catch (err) {
       console.error(err);
@@ -225,6 +248,15 @@ export class PedidoReposicaoController {
     }
 
     try {
+      const pedidoAnterior = await prisma.pedidoReposicao.findUnique({
+        where: { id }
+      });
+
+      if (!pedidoAnterior) {
+        res.status(404).json({ erro: 'Pedido de reposição não encontrado.' });
+        return;
+      }
+
       const dataUpdate: Prisma.PedidoReposicaoUpdateInput = {
         status: status as any
       };
@@ -243,9 +275,40 @@ export class PedidoReposicaoController {
         where: { id },
         data: dataUpdate,
         include: {
-          itens: true
+          itens: true,
+          motorista: { select: { nome: true } }
         }
       });
+
+      // Map new status to audit action
+      let acaoAuditoria = 'PEDIDO_APROVADO';
+      if (status === 'REJEITADO') {
+        acaoAuditoria = 'PEDIDO_REJEITADO';
+      } else if (status === 'AGUARDANDO_MOTORISTA' || status === 'EM_TRANSITO') {
+        acaoAuditoria = 'TRANSFERENCIA_INICIADA';
+      } else if (status === 'CONCLUIDO') {
+        acaoAuditoria = 'TRANSFERENCIA_CONCLUIDA';
+      }
+
+      // Audit Log for status change
+      if (req.user?.id) {
+        await prisma.auditoria.create({
+          data: {
+            usuarioId: req.user.id,
+            acao: acaoAuditoria,
+            entidadeId: pedido.id,
+            dadosAntes: { status: pedidoAnterior.status },
+            dadosDepois: {
+              id: pedido.id,
+              numero: pedido.numero,
+              status: pedido.status,
+              motorista: pedido.motorista?.nome || null,
+              motivoRejeicao: pedido.motivoRejeicao || null
+            },
+            justificativa: justificativa || motivoRejeicao || `Alteração do status do pedido ${pedido.numero} de ${pedidoAnterior.status} para ${pedido.status}.`
+          }
+        }).catch(err => console.error('Erro ao salvar auditoria de status do pedido:', err));
+      }
 
       res.json(pedido);
     } catch (err) {
