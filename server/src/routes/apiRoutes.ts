@@ -76,6 +76,7 @@ router.post('/cd/notas-fiscais', cdController.registrarNf);
 router.get('/cd/notas-fiscais', cdController.listarNfs);
 router.get('/cd/notas-fiscais/:id', cdController.obterNf);
 router.post('/cd/notas-fiscais/:id/conferir', cdController.conferirNf);
+router.get('/cd/estoque/detalhes', cdController.obterDetalhesMedicamento);
 router.get('/cd/estoque', cdController.listarEstoque);
 router.post('/cd/recalls', roleMiddleware(['COMPRADOR']), cdController.registrarRecall);
 router.get('/cd/recalls', cdController.listarRecalls);

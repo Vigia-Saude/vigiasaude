@@ -1,5 +1,7 @@
 import { useState, useEffect, Fragment } from 'react';
-import { Package, Search, ChevronDown, ChevronRight, Download, RefreshCw, AlertCircle } from 'lucide-react';
+import { Package, Search, ChevronDown, ChevronRight, Download, RefreshCw, AlertCircle, ArrowLeft, AlertTriangle, TrendingUp, TrendingDown } from 'lucide-react';
+import { useSearchParams } from 'react-router';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import apiClient from '../../services/apiClient';
 
 interface LoteDetail {
@@ -127,6 +129,33 @@ const MOCK_FALLBACK_ITEMS: MedicamentoGrupo[] = [
 
 export function MeuEstoque() {
   const [dbLotes, setDbLotes] = useState<LoteDetail[]>([]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedMed = searchParams.get('medicamento');
+  const [details, setDetails] = useState<any>(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+
+  useEffect(() => {
+    if (selectedMed) {
+      const fetchDetails = async () => {
+        try {
+          setLoadingDetails(true);
+          const response = await apiClient.get('/api/cd/estoque/detalhes', {
+            params: { nome: selectedMed }
+          });
+          setDetails(response.data);
+        } catch (err: any) {
+          console.error('Erro ao buscar detalhes do medicamento:', err);
+          setDetails(null);
+        } finally {
+          setLoadingDetails(false);
+        }
+      };
+      void fetchDetails();
+    } else {
+      setDetails(null);
+    }
+  }, [selectedMed]);
+
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
@@ -308,6 +337,315 @@ export function MeuEstoque() {
     document.body.removeChild(link);
   };
 
+  if (selectedMed) {
+    if (loadingDetails) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20 gap-4">
+          <RefreshCw className="h-8 w-8 text-blue-500 animate-spin" />
+          <p className="text-sm text-gray-505 font-semibold">Carregando detalhes do medicamento...</p>
+        </div>
+      );
+    }
+
+    if (!details) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20 gap-4">
+          <AlertCircle className="h-10 w-10 text-red-500" />
+          <p className="text-sm text-gray-550 font-semibold">Não foi possível carregar os detalhes de "{selectedMed}".</p>
+          <button
+            onClick={() => setSearchParams({})}
+            className="px-4 py-2 bg-blue-650 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors cursor-pointer"
+          >
+            Voltar ao Estoque
+          </button>
+        </div>
+      );
+    }
+
+    const { cards, lotesReservas, graficoConsumo, historicoMovimentacoes } = details;
+    const { estoqueTotal, reservado, disponivel, consumoMedio, leadTimeMedio } = cards;
+    
+    const diasCobertura = Math.max(0, Math.round(disponivel / consumoMedio));
+    const isRupturaRisco = diasCobertura < leadTimeMedio;
+
+    let statusBadge = 'Normal';
+    if (diasCobertura <= 5) {
+      statusBadge = 'Crítico';
+    } else if (diasCobertura <= 20) {
+      statusBadge = 'Atenção';
+    }
+
+    const getSpecs = (name: string) => {
+      if (name.toLowerCase().includes('insulina')) {
+        return { mainName: 'Insulina NPH', specs: '100UI/mL Frasco 10mL' };
+      }
+      if (name.toLowerCase().includes('amoxicilina')) {
+        return { mainName: 'Amoxicilina 500mg', specs: 'Cápsula' };
+      }
+      if (name.toLowerCase().includes('paracetamol')) {
+        return { mainName: 'Paracetamol 500mg', specs: 'Comprimido' };
+      }
+      const parts = name.split(' ');
+      return { mainName: parts.slice(0, 2).join(' '), specs: parts.slice(2).join(' ') || 'Concentração/Apresentação' };
+    };
+
+    const specsInfo = getSpecs(selectedMed);
+
+    const getPriorityClass = (prioridade: string) => {
+      if (prioridade.startsWith('1º')) {
+        return 'bg-blue-600 text-white border-blue-600';
+      }
+      if (prioridade.startsWith('2º')) {
+        return 'bg-blue-50 text-blue-700 border-blue-100';
+      }
+      return 'bg-gray-100 text-gray-650 border-gray-200';
+    };
+
+    return (
+      <div className="space-y-6 pb-8 animate-in fade-in duration-300">
+        {/* Voltar button & Title header */}
+        <div className="flex flex-col gap-4">
+          <button
+            onClick={() => setSearchParams({})}
+            className="flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-blue-600 bg-transparent border-0 cursor-pointer transition-colors w-fit p-0 outline-none"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Voltar ao Estoque
+          </button>
+
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+                {specsInfo.mainName}
+              </h1>
+              <p className="text-sm text-gray-550 font-semibold mt-1">
+                {specsInfo.specs}
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5 font-semibold">
+                {lotesReservas.length} lote(s) em estoque
+              </p>
+            </div>
+            
+            <span className={`inline-flex px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider border select-none ${
+              statusBadge === 'Crítico'
+                ? 'bg-red-50 text-red-650 border-red-150 animate-pulse'
+                : statusBadge === 'Atenção'
+                ? 'bg-amber-50 text-amber-700 border-amber-150'
+                : 'bg-emerald-50 text-emerald-700 border-emerald-150'
+            }`}>
+              {statusBadge}
+            </span>
+          </div>
+        </div>
+
+        {/* Rupture Risk Banner */}
+        {isRupturaRisco && (
+          <div className="flex items-start gap-3 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-2xl border border-red-150 animate-in slide-in-from-top duration-300">
+            <AlertTriangle className="h-5 w-5 text-red-650 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h4 className="text-xs font-black text-red-650 flex items-center gap-1.5">
+                Risco de ruptura em {diasCobertura} dias
+              </h4>
+              <p className="text-xs text-red-800 font-semibold mt-1">
+                Ação imediata recomendada. Lead time do fornecedor ({leadTimeMedio} dias) é maior que a cobertura atual.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+          <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs flex flex-col gap-2">
+            <span className="text-xs font-bold text-gray-400">Estoque Total</span>
+            <span className={`text-3xl font-black ${isRupturaRisco ? 'text-red-650' : 'text-gray-900'}`}>
+              {estoqueTotal} un
+            </span>
+          </div>
+
+          <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs flex flex-col gap-2">
+            <span className="text-xs font-bold text-gray-400">Reservado (FEFO)</span>
+            <span className="text-3xl font-black text-amber-600">
+              {reservado} un
+            </span>
+          </div>
+
+          <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs flex flex-col gap-2">
+            <span className="text-xs font-bold text-gray-400">Disponível p/ Reserva</span>
+            <span className="text-3xl font-black text-blue-900">
+              {disponivel} un
+            </span>
+          </div>
+
+          <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs flex flex-col gap-2">
+            <span className="text-xs font-bold text-gray-400">Consumo Médio</span>
+            <span className="text-3xl font-black text-gray-900">
+              {consumoMedio} un/dia
+            </span>
+            <span className="text-[10px] text-gray-400 font-bold -mt-1">Últimos 30 dias</span>
+          </div>
+
+          <div className={`p-6 rounded-2xl border shadow-xs flex flex-col gap-2 ${
+            isRupturaRisco ? 'bg-red-50/10 border-red-150' : 'bg-white border-gray-200/80'
+          }`}>
+            <span className="text-xs font-bold text-gray-400">Lead Time Médio</span>
+            <span className={`text-3xl font-black ${isRupturaRisco ? 'text-red-650' : 'text-gray-900'}`}>
+              {leadTimeMedio} dias
+            </span>
+            <span className="text-[10px] text-gray-400 font-bold -mt-1">Tempo de reposição</span>
+          </div>
+        </div>
+
+        {/* FEFO Lot Reservations Table */}
+        <div className="bg-white rounded-2xl border border-gray-200/80 shadow-xs overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-150">
+            <h3 className="text-sm font-bold text-gray-900">Reservas por Lote (FEFO - First Expired, First Out)</h3>
+            <p className="text-xs text-gray-400 font-semibold mt-0.5">Lotes ordenados por validade - prioridade automática para entrega</p>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-150">
+              <thead className="bg-gray-50 text-left text-xs font-bold text-gray-400 uppercase">
+                <tr>
+                  <th className="px-6 py-3.5">Lote</th>
+                  <th className="px-6 py-3.5">Validade</th>
+                  <th className="px-6 py-3.5 text-right">Estoque</th>
+                  <th className="px-6 py-3.5 text-right">Reservado</th>
+                  <th className="px-6 py-3.5 text-right">Disponível</th>
+                  <th className="px-6 py-3.5 text-center">Prioridade</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 text-xs font-semibold text-gray-750">
+                {lotesReservas.map((r: any) => (
+                  <tr key={r.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-6 py-4 font-bold text-gray-900">{r.lote}</td>
+                    <td className="px-6 py-4 text-gray-500">
+                      {new Date(r.validade).toLocaleDateString('pt-BR')}
+                    </td>
+                    <td className="px-6 py-4 text-right text-sm font-bold text-gray-900">{r.estoque}</td>
+                    <td className="px-6 py-4 text-right text-amber-600 font-bold">{r.reservado}</td>
+                    <td className="px-6 py-4 text-right text-blue-900 font-extrabold">{r.disponivel}</td>
+                    <td className="px-6 py-4 text-center">
+                      <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border select-none ${getPriorityClass(r.prioridade)}`}>
+                        {r.prioridade}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="p-4 bg-gray-50/50 border-t border-gray-150">
+            <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-2.5 text-xs font-semibold text-blue-750">
+              <AlertCircle className="h-4.5 w-4.5 text-blue-500 flex-shrink-0 mt-0.5" />
+              <span>
+                <strong>Regra FEFO:</strong> O sistema reserva automaticamente do lote com validade mais próxima para minimizar perdas por vencimento. As transferências sempre priorizam os lotes que vencem primeiro.
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Consumo Graph & Movimentações List Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+          {/* Chart Card */}
+          <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs md:col-span-7 flex flex-col gap-4">
+            <div>
+              <h3 className="text-sm font-bold text-gray-900">Gráfico de Consumo</h3>
+              <p className="text-xs text-gray-400 font-semibold mt-0.5">Tendência dos últimos 7 meses</p>
+            </div>
+            
+            <div className="h-[250px] w-full mt-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={graficoConsumo} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorConsumo" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2}/>
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis 
+                    dataKey="month" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 'bold' }} 
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 'bold' }} 
+                  />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05)' }}
+                    labelStyle={{ fontWeight: 'bold', color: '#1e293b' }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="volume" 
+                    stroke="#2563eb" 
+                    strokeWidth={2} 
+                    fillOpacity={1} 
+                    fill="url(#colorConsumo)" 
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* History Card */}
+          <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs md:col-span-5 flex flex-col gap-4">
+            <div>
+              <h3 className="text-sm font-bold text-gray-900">Histórico de Movimentações</h3>
+              <p className="text-xs text-gray-400 font-semibold mt-0.5">Rastreamento completo de entradas e saídas</p>
+            </div>
+
+            <div className="flex-1 max-h-[260px] overflow-y-auto pr-1 space-y-4">
+              {historicoMovimentacoes.length === 0 ? (
+                <div className="text-center py-10 text-gray-400 text-xs font-semibold">
+                  Nenhuma movimentação registrada para este medicamento.
+                </div>
+              ) : (
+                historicoMovimentacoes.map((mov: any) => {
+                  const isEntrada = mov.tipo === 'Entrada';
+                  return (
+                    <div key={mov.id} className="flex items-start justify-between gap-3 text-xs border-b border-gray-50 pb-3 last:border-b-0 last:pb-0">
+                      <div className="flex gap-3 items-start">
+                        <span className={`h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          isEntrada ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'
+                        }`}>
+                          {isEntrada ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                        </span>
+                        
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-bold text-gray-900">{mov.origemDestino}</span>
+                          <span className="text-gray-400 text-[10px] font-bold">
+                            {new Date(mov.dataHora).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                          </span>
+                          <span className="inline-flex w-fit px-1.5 py-0.2 mt-1 rounded bg-gray-50 border border-gray-200 text-gray-500 font-bold text-[9px]">
+                            {mov.lote}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="text-right flex flex-col gap-0.5">
+                        <span className={`font-black text-sm ${isEntrada ? 'text-emerald-600' : 'text-red-650'}`}>
+                          {isEntrada ? `+${mov.quantidade}` : mov.quantidade} un
+                        </span>
+                        <span className="text-[10px] text-gray-450 font-bold">
+                          Saldo: {mov.saldo}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-8 animate-in fade-in duration-300">
       {/* Header */}
@@ -475,7 +813,12 @@ export function MeuEstoque() {
                         </td>
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-gray-900 text-sm">{item.medicamentoNome}</span>
+                            <button
+                              onClick={() => setSearchParams({ medicamento: item.medicamentoNome })}
+                              className="text-left font-bold text-blue-650 hover:text-blue-800 hover:underline text-sm bg-transparent border-0 p-0 cursor-pointer"
+                            >
+                              {item.medicamentoNome}
+                            </button>
                             {hasMultipleLotes && (
                               <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-gray-100 text-gray-650 border border-gray-200 shadow-3xs">
                                 {item.lotes.length} lotes
