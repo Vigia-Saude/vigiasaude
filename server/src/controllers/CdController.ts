@@ -318,7 +318,7 @@ export class CdController {
 
   // POST /api/cd/recalls
   registrarRecall = async (req: AuthRequest, res: Response) => {
-    const { catmatCodigo, numeroLote, motivo, autoridadeEmissora, numeroAnvisa, dataExpiracao } = req.body;
+    const { catmatCodigo, numeroLote, medicamentoNome, fonte, risco, motivo, autoridadeEmissora, numeroAnvisa, dataExpiracao } = req.body;
 
     if (!motivo || (!catmatCodigo && !numeroLote)) {
       res.status(400).json({ erro: 'Informe motivo e ao menos catmatCodigo ou numeroLote.' });
@@ -330,6 +330,9 @@ export class CdController {
         data: {
           catmatCodigo: catmatCodigo ?? null,
           numeroLote: numeroLote ?? null,
+          medicamentoNome: medicamentoNome ?? null,
+          fonte: fonte ?? 'ANVISA',
+          risco: risco ?? 'MEDIO',
           motivo,
           autoridadeEmissora: autoridadeEmissora ?? null,
           numeroAnvisa: numeroAnvisa ?? null,
@@ -338,9 +341,6 @@ export class CdController {
           criadoPor: req.user!.id,
         },
       });
-
-      // Trigger trg_recall_insert executa no banco:
-      // bloqueia lotes em cd_estoque_lotes e cria alerta para SECRETARIO_SAUDE
 
       res.status(201).json(recall);
     } catch (err) {
@@ -353,13 +353,89 @@ export class CdController {
   listarRecalls = async (_req: Request, res: Response) => {
     try {
       const recalls = await prisma.recall.findMany({
-        where: { ativo: true },
         orderBy: { criadoEm: 'desc' },
       });
-      res.json(recalls);
+
+      const recallsComLotes = await Promise.all(
+        recalls.map(async (recall) => {
+          const conditions: any[] = [];
+          if (recall.numeroLote && recall.catmatCodigo) {
+            conditions.push({ numeroLote: recall.numeroLote, catmatCodigo: recall.catmatCodigo });
+          } else if (recall.catmatCodigo) {
+            conditions.push({ catmatCodigo: recall.catmatCodigo });
+          } else if (recall.numeroLote) {
+            conditions.push({ numeroLote: recall.numeroLote });
+          }
+
+          const lotesAfetados = await prisma.cdEstoqueLote.count({
+            where: {
+              AND: conditions,
+            },
+          });
+
+          return {
+            ...recall,
+            lotesAfetados,
+          };
+        })
+      );
+
+      res.json(recallsComLotes);
     } catch (err) {
       console.error(err);
       res.status(500).json({ erro: 'Erro ao listar recalls.' });
+    }
+  };
+
+  // PATCH /api/cd/recalls/:id/encerrar
+  encerrarRecall = async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+
+    try {
+      const recall = await prisma.recall.findUnique({
+        where: { id: id as string },
+      });
+
+      if (!recall) {
+        res.status(404).json({ erro: 'Recall não encontrado.' });
+        return;
+      }
+
+      const updatedRecall = await prisma.recall.update({
+        where: { id: id as string },
+        data: { ativo: false },
+      });
+
+      const conditions: any[] = [];
+      if (recall.numeroLote && recall.catmatCodigo) {
+        conditions.push({ numeroLote: recall.numeroLote, catmatCodigo: recall.catmatCodigo });
+      } else if (recall.catmatCodigo) {
+        conditions.push({ catmatCodigo: recall.catmatCodigo });
+      } else if (recall.numeroLote) {
+        conditions.push({ numeroLote: recall.numeroLote });
+      }
+
+      const matchingLots = await prisma.cdEstoqueLote.findMany({
+        where: {
+          status: 'BLOQUEADO_RECALL',
+          AND: conditions,
+        },
+      });
+
+      for (const lot of matchingLots) {
+        const isStillBlocked = await verificarRecall(lot.numeroLote, lot.catmatCodigo);
+        if (!isStillBlocked) {
+          await prisma.cdEstoqueLote.update({
+            where: { id: lot.id },
+            data: { status: 'DISPONIVEL' },
+          });
+        }
+      }
+
+      res.json(updatedRecall);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ erro: 'Erro ao encerrar recall.' });
     }
   };
 

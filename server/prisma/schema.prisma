@@ -362,6 +362,9 @@ model Recall {
   id                 String    @id @default(uuid())
   catmatCodigo       String?   @map("catmat_codigo")
   numeroLote         String?   @map("numero_lote")
+  medicamentoNome    String?   @map("medicamento_nome")
+  fonte              String?   @default("ANVISA")
+  risco              String?
   motivo             String
   autoridadeEmissora String?   @map("autoridade_emissora")
   numeroAnvisa       String?   @map("numero_anvisa")

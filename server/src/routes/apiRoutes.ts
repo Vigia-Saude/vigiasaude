@@ -80,6 +80,7 @@ router.get('/cd/estoque/detalhes', cdController.obterDetalhesMedicamento);
 router.get('/cd/estoque', cdController.listarEstoque);
 router.post('/cd/recalls', roleMiddleware(['COMPRADOR']), cdController.registrarRecall);
 router.get('/cd/recalls', cdController.listarRecalls);
+router.patch('/cd/recalls/:id/encerrar', roleMiddleware(['COMPRADOR']), cdController.encerrarRecall);
 router.get('/cd/alertas', cdController.listarAlertas);
 router.patch('/cd/alertas/:id/lido', cdController.marcarAlertaLido);
 
