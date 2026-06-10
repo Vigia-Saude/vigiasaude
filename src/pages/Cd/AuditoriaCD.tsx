@@ -67,7 +67,7 @@ export function AuditoriaCD() {
       if (dataInicio) params.dataInicio = dataInicio;
       if (dataFim) params.dataFim = dataFim;
 
-      const response = await apiClient.get<AuditLog[]>('/cd/auditoria', { params });
+      const response = await apiClient.get<AuditLog[]>('/api/cd/auditoria', { params });
       setLogs(response.data);
     } catch (err: any) {
       console.error(err);

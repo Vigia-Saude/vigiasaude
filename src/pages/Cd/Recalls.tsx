@@ -211,8 +211,8 @@ export function Recalls() {
     return true;
   });
 
-  const getRiscoStyle = (risco: string) => {
-    switch (risco.toUpperCase()) {
+  const getRiscoStyle = (risco: string | null | undefined) => {
+    switch ((risco || '').toUpperCase()) {
       case 'CRITICO':
         return 'bg-rose-50 text-rose-700 border-rose-200';
       case 'ALTO':
@@ -224,8 +224,8 @@ export function Recalls() {
     }
   };
 
-  const getFonteStyle = (fonte: string) => {
-    switch (fonte.toUpperCase()) {
+  const getFonteStyle = (fonte: string | null | undefined) => {
+    switch ((fonte || '').toUpperCase()) {
       case 'ANVISA':
         return 'bg-blue-50 text-blue-700 border-blue-200';
       case 'FABRICANTE':
@@ -490,12 +490,12 @@ export function Recalls() {
                         </td>
                         <td className="py-4 px-4">
                           <span className={`px-2.5 py-1 text-xs font-bold rounded-lg border ${getFonteStyle(recall.fonte)}`}>
-                            {recall.fonte}
+                            {recall.fonte || 'N/A'}
                           </span>
                         </td>
                         <td className="py-4 px-4">
                           <span className={`px-2.5 py-1 text-xs font-bold rounded-lg border ${getRiscoStyle(recall.risco)}`}>
-                            {recall.risco}
+                            {recall.risco || 'N/A'}
                           </span>
                         </td>
                         <td className="py-4 px-4">
