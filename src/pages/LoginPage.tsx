@@ -33,6 +33,10 @@ export default function LoginPage() {
     if (user) {
       if (user.perfil === 'GESTOR_ESTOQUE') {
         navigate('/cd/dashboard');
+      } else if (user.perfil === 'FARMACIA') {
+        navigate('/farmacia/dashboard');
+      } else if (user.perfil === 'POSTO_SAUDE') {
+        navigate('/posto/dashboard');
       } else {
         navigate('/dashboard');
       }
