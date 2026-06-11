@@ -20,6 +20,24 @@ import { Notificacoes } from '../pages/Cd/Notificacoes';
 import { PortalPublico } from '../pages/Cd/PortalPublico';
 import { Configuracoes } from '../pages/Cd/Configuracoes';
 
+// Farmacia Pages
+import { DashboardFarmacia } from '../pages/Farmacia/DashboardFarmacia';
+import { MeuEstoqueFarmacia } from '../pages/Farmacia/MeuEstoqueFarmacia';
+import { PedidosRecomposicao as PedidosRecomposicaoFarmacia } from '../pages/Farmacia/PedidosRecomposicao';
+import { Dispensacao as DispensacaoFarmacia } from '../pages/Farmacia/Dispensacao';
+import { EntregasReposicao as EntregasReposicaoFarmacia } from '../pages/Farmacia/EntregasReposicao';
+import { NotificacoesFarmacia } from '../pages/Farmacia/NotificacoesFarmacia';
+import { ConfiguracoesFarmacia } from '../pages/Farmacia/ConfiguracoesFarmacia';
+
+// Posto Pages
+import { DashboardPosto } from '../pages/Posto/DashboardPosto';
+import { MeuEstoquePosto } from '../pages/Posto/MeuEstoquePosto';
+import { PedidosRecomposicao as PedidosRecomposicaoPosto } from '../pages/Posto/PedidosRecomposicao';
+import { Dispensacao as DispensacaoPosto } from '../pages/Posto/Dispensacao';
+import { EntregasReposicao as EntregasReposicaoPosto } from '../pages/Posto/EntregasReposicao';
+import { NotificacoesPosto } from '../pages/Posto/NotificacoesPosto';
+import { ConfiguracoesPosto } from '../pages/Posto/ConfiguracoesPosto';
+
 export const router = createBrowserRouter([
   {
     path: '/',
@@ -42,7 +60,7 @@ export const router = createBrowserRouter([
       {
         path: 'dashboard',
         element: (
-          <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE']}>
+          <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE']}>
             <Dashboard />
           </ProtectedRoute>
         ),
@@ -61,7 +79,7 @@ export const router = createBrowserRouter([
           const { AtasLista } = await import('../pages/Atas');
           return {
             Component: () => (
-              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE']}>
+              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE']}>
                 <AtasLista />
               </ProtectedRoute>
             )
@@ -74,7 +92,7 @@ export const router = createBrowserRouter([
           const { AtasDetalhes } = await import('../pages/Atas/Detalhes');
           return {
             Component: () => (
-              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE']}>
+              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE']}>
                 <AtasDetalhes />
               </ProtectedRoute>
             )
@@ -87,7 +105,7 @@ export const router = createBrowserRouter([
           const { PedidosLista } = await import('../pages/Pedidos');
           return {
             Component: () => (
-              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE']}>
+              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE']}>
                 <PedidosLista />
               </ProtectedRoute>
             )
@@ -100,7 +118,7 @@ export const router = createBrowserRouter([
           const { NovoPedido } = await import('../pages/Pedidos/Novo');
           return {
             Component: () => (
-              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE']}>
+              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE']}>
                 <NovoPedido />
               </ProtectedRoute>
             )
@@ -113,7 +131,7 @@ export const router = createBrowserRouter([
           const { ConfirmarEntrega } = await import('../pages/Pedidos/ConfirmarEntrega');
           return {
             Component: () => (
-              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE']}>
+              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE']}>
                 <ConfirmarEntrega />
               </ProtectedRoute>
             )
@@ -126,7 +144,7 @@ export const router = createBrowserRouter([
           const { CompararOrcamentos } = await import('../pages/CompararOrcamentos');
           return {
             Component: () => (
-              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE']}>
+              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE']}>
                 <CompararOrcamentos />
               </ProtectedRoute>
             )
@@ -140,7 +158,7 @@ export const router = createBrowserRouter([
           const { FornecedoresLista } = await import('../pages/Fornecedores');
           return {
             Component: () => (
-              <ProtectedRoute allowedRoles={['COMPRADOR']} excludePerfil={['GESTOR_ESTOQUE']}>
+              <ProtectedRoute allowedRoles={['COMPRADOR']} excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE']}>
                 <FornecedoresLista />
               </ProtectedRoute>
             )
@@ -153,7 +171,7 @@ export const router = createBrowserRouter([
           const { AuditoriaLista } = await import('../pages/Auditoria');
           return { 
             Component: () => (
-              <ProtectedRoute allowedRoles={['COMPRADOR']} excludePerfil={['GESTOR_ESTOQUE']}>
+              <ProtectedRoute allowedRoles={['COMPRADOR']} excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE']}>
                 <AuditoriaLista />
               </ProtectedRoute>
             ) 
@@ -166,7 +184,7 @@ export const router = createBrowserRouter([
           const { SolicitacoesMembro } = await import('../pages/Solicitacoes');
           return {
             Component: () => (
-              <ProtectedRoute allowedRoles={['COMPRADOR']} excludePerfil={['GESTOR_ESTOQUE']}>
+              <ProtectedRoute allowedRoles={['COMPRADOR']} excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE']}>
                 <SolicitacoesMembro />
               </ProtectedRoute>
             )
@@ -273,6 +291,122 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE']}>
             <Configuracoes />
+          </ProtectedRoute>
+        ),
+      },
+
+      // Farmacia Protected Routes
+      {
+        path: 'farmacia/dashboard',
+        element: (
+          <ProtectedRoute allowedPerfil={['FARMACIA']}>
+            <DashboardFarmacia />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'farmacia/meu-estoque',
+        element: (
+          <ProtectedRoute allowedPerfil={['FARMACIA']}>
+            <MeuEstoqueFarmacia />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'farmacia/pedidos-recomposicao',
+        element: (
+          <ProtectedRoute allowedPerfil={['FARMACIA']}>
+            <PedidosRecomposicaoFarmacia />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'farmacia/dispensacao',
+        element: (
+          <ProtectedRoute allowedPerfil={['FARMACIA']}>
+            <DispensacaoFarmacia />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'farmacia/entregas',
+        element: (
+          <ProtectedRoute allowedPerfil={['FARMACIA']}>
+            <EntregasReposicaoFarmacia />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'farmacia/notificacoes',
+        element: (
+          <ProtectedRoute allowedPerfil={['FARMACIA']}>
+            <NotificacoesFarmacia />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'farmacia/configuracoes',
+        element: (
+          <ProtectedRoute allowedPerfil={['FARMACIA']}>
+            <ConfiguracoesFarmacia />
+          </ProtectedRoute>
+        ),
+      },
+
+      // Posto de Saude Protected Routes
+      {
+        path: 'posto/dashboard',
+        element: (
+          <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+            <DashboardPosto />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'posto/meu-estoque',
+        element: (
+          <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+            <MeuEstoquePosto />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'posto/pedidos-recomposicao',
+        element: (
+          <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+            <PedidosRecomposicaoPosto />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'posto/dispensacao',
+        element: (
+          <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+            <DispensacaoPosto />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'posto/entregas',
+        element: (
+          <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+            <EntregasReposicaoPosto />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'posto/notificacoes',
+        element: (
+          <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+            <NotificacoesPosto />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'posto/configuracoes',
+        element: (
+          <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+            <ConfiguracoesPosto />
           </ProtectedRoute>
         ),
       },

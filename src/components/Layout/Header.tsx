@@ -12,6 +12,22 @@ export default function Header({ toggleSidebar }: { toggleSidebar: () => void })
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const getPerfilDisplayName = () => {
+    if (user?.role === 'FORNECEDOR') return 'FORNECEDOR';
+    if (!user?.perfil) return 'COMPRADOR';
+    
+    let perfilName = user.perfil.replace(/_/g, ' ');
+    if (user.perfil === 'FARMACIA') perfilName = 'Farmácia';
+    else if (user.perfil === 'POSTO_SAUDE') perfilName = 'Posto de Saúde';
+    else if (user.perfil === 'GESTOR_ESTOQUE') perfilName = 'Gerente de Estoque';
+    else if (user.perfil === 'SECRETARIO_SAUDE') perfilName = 'Secretário de Saúde';
+    
+    if (user.unidadeNome) {
+      return `${perfilName} - ${user.unidadeNome}`;
+    }
+    return perfilName;
+  };
+
   // Fechar dropdown ao clicar fora
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -73,8 +89,8 @@ export default function Header({ toggleSidebar }: { toggleSidebar: () => void })
         {user && (
           <div className="hidden sm:block">
             <h2 className="text-sm font-semibold text-gray-800">Bem-vindo, {user.nome}</h2>
-            <p className="text-xs text-gray-500 uppercase">
-              {user.role === 'COMPRADOR' ? (user.perfil ? user.perfil.replace(/_/g, ' ') : 'COMPRADOR') : 'FORNECEDOR'}
+            <p className="text-xs text-gray-500 font-medium">
+              {getPerfilDisplayName()}
             </p>
           </div>
         )}

@@ -20,6 +20,7 @@ enum Perfil {
   FARMACIA
   MEDICO
   ENTREGADOR
+  POSTO_SAUDE
 }
 
 enum UsuarioStatus {

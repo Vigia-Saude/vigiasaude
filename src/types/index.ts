@@ -151,7 +151,8 @@ export interface User {
   role: UserRole;
   email?: string;
   cpf?: string;
-  perfil?: 'SECRETARIO_SAUDE' | 'GESTOR_ESTOQUE' | 'FARMACIA' | 'MEDICO' | 'ENTREGADOR' | null;
+  perfil?: 'SECRETARIO_SAUDE' | 'GESTOR_ESTOQUE' | 'FARMACIA' | 'MEDICO' | 'ENTREGADOR' | 'POSTO_SAUDE' | null;
   tenantSchema?: string | null;
   unidadeId?: string | null;
+  unidadeNome?: string;
 }

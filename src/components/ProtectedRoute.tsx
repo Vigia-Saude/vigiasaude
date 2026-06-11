@@ -6,8 +6,8 @@ import type { UserRole } from '../types';
 interface ProtectedRouteProps {
   children: ReactNode;
   allowedRoles?: UserRole[];
-  allowedPerfil?: ('SECRETARIO_SAUDE' | 'GESTOR_ESTOQUE' | 'FARMACIA' | 'MEDICO' | 'ENTREGADOR')[];
-  excludePerfil?: ('SECRETARIO_SAUDE' | 'GESTOR_ESTOQUE' | 'FARMACIA' | 'MEDICO' | 'ENTREGADOR')[];
+  allowedPerfil?: ('SECRETARIO_SAUDE' | 'GESTOR_ESTOQUE' | 'FARMACIA' | 'MEDICO' | 'ENTREGADOR' | 'POSTO_SAUDE')[];
+  excludePerfil?: ('SECRETARIO_SAUDE' | 'GESTOR_ESTOQUE' | 'FARMACIA' | 'MEDICO' | 'ENTREGADOR' | 'POSTO_SAUDE')[];
 }
 
 export function ProtectedRoute({ children, allowedRoles, allowedPerfil, excludePerfil }: ProtectedRouteProps) {

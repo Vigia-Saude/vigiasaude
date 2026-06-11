@@ -396,6 +396,7 @@ export default function LoginPage() {
                         <option value="SECRETARIO_SAUDE">Secretário de Saúde</option>
                         <option value="GESTOR_ESTOQUE">Gestor de Estoque</option>
                         <option value="FARMACIA">Farmácia</option>
+                        <option value="POSTO_SAUDE">Posto de Saúde</option>
                         <option value="MEDICO">Médico</option>
                         <option value="ENTREGADOR">Entregador</option>
                       </select>

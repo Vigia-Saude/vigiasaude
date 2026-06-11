@@ -20,7 +20,7 @@ import {
   Power
 } from 'lucide-react';
 
-type Perfil = 'SECRETARIO_SAUDE' | 'GESTOR_ESTOQUE' | 'FARMACIA' | 'MEDICO' | 'ENTREGADOR';
+type Perfil = 'SECRETARIO_SAUDE' | 'GESTOR_ESTOQUE' | 'FARMACIA' | 'MEDICO' | 'ENTREGADOR' | 'POSTO_SAUDE';
 type Aba = 'pendentes' | 'ativos' | 'desativados';
 
 interface PendingUser {
@@ -66,6 +66,7 @@ const PERFIS: Array<{ value: Perfil; label: string }> = [
   { value: 'SECRETARIO_SAUDE', label: 'Secretário de Saúde' },
   { value: 'GESTOR_ESTOQUE', label: 'Gestor de Estoque' },
   { value: 'FARMACIA', label: 'Farmácia' },
+  { value: 'POSTO_SAUDE', label: 'Posto de Saúde' },
   { value: 'MEDICO', label: 'Médico' },
   { value: 'ENTREGADOR', label: 'Entregador' },
 ];
@@ -95,6 +96,11 @@ const PERFIL_PERMISSOES_PREVIEW: Record<Perfil, string[]> = {
   FARMACIA: [
     'Dispensação de Medicamentos',
     'Estoque da Farmácia',
+    'Atendimento ao Cidadão'
+  ],
+  POSTO_SAUDE: [
+    'Dispensação de Medicamentos',
+    'Estoque do Posto de Saúde',
     'Atendimento ao Cidadão'
   ],
   MEDICO: [
@@ -164,6 +170,8 @@ function getPerfilBadgeClass(perfil: Perfil | null) {
       return 'bg-amber-50 text-amber-700 border-amber-100';
     case 'FARMACIA':
       return 'bg-purple-50 text-purple-700 border-purple-100';
+    case 'POSTO_SAUDE':
+      return 'bg-cyan-50 text-cyan-700 border-cyan-100';
     case 'MEDICO':
       return 'bg-blue-50 text-blue-700 border-blue-100';
     case 'ENTREGADOR':

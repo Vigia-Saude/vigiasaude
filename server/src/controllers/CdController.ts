@@ -775,7 +775,7 @@ export class CdController {
         return {
           id: l.id,
           lote: l.numeroLote,
-          validade: l.dataValidade.toISOString().split('T')[0],
+          validade: (l.dataValidade instanceof Date ? l.dataValidade : new Date(l.dataValidade)).toISOString().split('T')[0],
           estoque: l.quantidadeAtual,
           reservado: 0,
           disponivel: l.quantidadeAtual,

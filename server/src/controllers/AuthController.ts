@@ -86,7 +86,10 @@ export class AuthController {
     const { cpf, password } = parsed.data;
 
     try {
-      const user = await prisma.user.findUnique({ where: { cpf } });
+      const user = await prisma.user.findUnique({
+        where: { cpf },
+        include: { unidade: { select: { id: true, nome: true } } }
+      });
 
       if (!user || !(await bcrypt.compare(password, user.senhaHash))) {
         return res.status(401).json({ error: 'Credenciais inválidas' });
@@ -125,6 +128,7 @@ export class AuthController {
           perfil: user.perfil,
           tenantSchema: user.tenantSchema,
           unidadeId: user.unidadeId,
+          unidadeNome: user.unidade?.nome,
         },
         token,
       });
