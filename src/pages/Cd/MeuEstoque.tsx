@@ -3,6 +3,7 @@ import { Package, Search, ChevronDown, ChevronRight, Download, RefreshCw, AlertC
 import { useSearchParams } from 'react-router';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import apiClient from '../../services/apiClient';
+import { useAuth } from '../../context/AuthContext';
 
 interface LoteDetail {
   id: string;
@@ -128,6 +129,7 @@ const MOCK_FALLBACK_ITEMS: MedicamentoGrupo[] = [
 ];
 
 export function MeuEstoque() {
+  const { user } = useAuth();
   const [dbLotes, setDbLotes] = useState<LoteDetail[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedMed = searchParams.get('medicamento');
@@ -646,15 +648,36 @@ export function MeuEstoque() {
     );
   }
 
+  const getPageHeader = () => {
+    if (user?.perfil === 'FARMACIA') {
+      return {
+        title: 'Estoque da Farmácia',
+        subtitle: `Medicamentos disponíveis na unidade - ${user.unidadeNome || 'Farmácia Central'}`
+      };
+    }
+    if (user?.perfil === 'POSTO_SAUDE') {
+      return {
+        title: 'Estoque do Posto de Saúde',
+        subtitle: `Medicamentos disponíveis na unidade - ${user.unidadeNome || 'UBS Bairro Norte'}`
+      };
+    }
+    return {
+      title: 'Gestão de Estoque',
+      subtitle: 'Visão global do Centro de Distribuição'
+    };
+  };
+
+  const headerInfo = getPageHeader();
+
   return (
     <div className="space-y-6 pb-8 animate-in fade-in duration-300">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
-            Gestão de Estoque
+            {headerInfo.title}
           </h1>
-          <p className="text-sm text-gray-500 font-medium">Visão global do Centro de Distribuição</p>
+          <p className="text-sm text-gray-500 font-medium">{headerInfo.subtitle}</p>
         </div>
         <div className="flex items-center gap-2.5">
           <button 
