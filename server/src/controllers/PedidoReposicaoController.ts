@@ -6,12 +6,16 @@ import { Prisma } from '@prisma/client';
 export class PedidoReposicaoController {
   // GET /api/cd/pedidos-reposicao
   listar = async (req: AuthRequest, res: Response) => {
-    const { status, urgencia, busca, data, page = '1', limit = '50' } = req.query;
+    const { status, urgencia, busca, data, page = '1', limit = '50', unidadeId } = req.query;
     const skip = (Math.max(1, Number(page)) - 1) * Math.min(100, Number(limit));
     const take = Math.min(100, Number(limit));
 
     try {
       const where: Prisma.PedidoReposicaoWhereInput = { deletedAt: null };
+
+      if (unidadeId) {
+        where.unidadeId = String(unidadeId);
+      }
 
       if (status) {
         where.status = status as any;
@@ -78,11 +82,17 @@ export class PedidoReposicaoController {
       }));
 
       // Gather counters for the metric cards
-      const [totalCount, pendentesCount, emAnaliseCount, emSeparacaoCount] = await Promise.all([
-        prisma.pedidoReposicao.count({ where: { deletedAt: null } }),
-        prisma.pedidoReposicao.count({ where: { deletedAt: null, status: 'PENDENTE' } }),
-        prisma.pedidoReposicao.count({ where: { deletedAt: null, status: 'EM_ANALISE' } }),
-        prisma.pedidoReposicao.count({ where: { deletedAt: null, status: 'EM_SEPARACAO' } })
+      const statsWhere: Prisma.PedidoReposicaoWhereInput = { deletedAt: null };
+      if (unidadeId) {
+        statsWhere.unidadeId = String(unidadeId);
+      }
+
+      const [totalCount, pendentesCount, emAnaliseCount, emSeparacaoCount, enviadosCount] = await Promise.all([
+        prisma.pedidoReposicao.count({ where: statsWhere }),
+        prisma.pedidoReposicao.count({ where: { ...statsWhere, status: 'PENDENTE' } }),
+        prisma.pedidoReposicao.count({ where: { ...statsWhere, status: 'EM_ANALISE' } }),
+        prisma.pedidoReposicao.count({ where: { ...statsWhere, status: 'EM_SEPARACAO' } }),
+        prisma.pedidoReposicao.count({ where: { ...statsWhere, status: 'EM_TRANSITO' } })
       ]);
 
       res.json({
@@ -93,7 +103,8 @@ export class PedidoReposicaoController {
           total: totalCount,
           pendentes: pendentesCount,
           emAnalise: emAnaliseCount,
-          emSeparacao: emSeparacaoCount
+          emSeparacao: emSeparacaoCount,
+          enviados: enviadosCount
         }
       });
     } catch (err) {
@@ -173,7 +184,7 @@ export class PedidoReposicaoController {
 
   // POST /api/cd/pedidos-reposicao
   criar = async (req: AuthRequest, res: Response) => {
-    const { unidadeId, urgencia, itens } = req.body;
+    const { unidadeId, urgencia, itens, justificativa } = req.body;
 
     if (!unidadeId || !urgencia || !Array.isArray(itens) || itens.length === 0) {
       res.status(400).json({ erro: 'Campos obrigatórios: unidadeId, urgencia, itens.' });
@@ -196,6 +207,7 @@ export class PedidoReposicaoController {
           unidadeId,
           solicitadoPorId: req.user!.id,
           status: 'PENDENTE',
+          justificativa: justificativa || null,
           itens: {
             create: itens.map((item: any) => ({
               catmatCodigo: item.catmatCodigo || null,
