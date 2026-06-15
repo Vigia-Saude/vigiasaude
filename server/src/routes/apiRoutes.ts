@@ -100,4 +100,11 @@ router.post('/farmacia/dispensar', farmaciaController.dispensar);
 router.get('/farmacia/dispensacoes/recentes', farmaciaController.dispensacoesRecentes);
 router.get('/farmacia/pacientes', farmaciaController.buscarPacientes);
 
+// Rotas da Farmácia (Entregas Domiciliares)
+router.get('/farmacia/entregas', farmaciaController.listarEntregas);
+router.get('/farmacia/entregas/stats', farmaciaController.statsEntregas);
+router.post('/farmacia/entregas', farmaciaController.criarEntrega);
+router.patch('/farmacia/entregas/:id/coletar', farmaciaController.confirmarColeta);
+router.patch('/farmacia/entregas/:id/status', farmaciaController.atualizarStatusEntrega);
+
 export default router;

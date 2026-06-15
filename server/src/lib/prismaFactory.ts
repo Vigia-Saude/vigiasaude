@@ -14,8 +14,8 @@ export function getPrismaForSchema(schema: string): PrismaClient {
   const cached = clientCache.get(schema);
   if (cached) return cached;
 
-  const baseUrl = process.env.DATABASE_URL_DIRECT;
-  if (!baseUrl) throw new Error('DATABASE_URL_DIRECT não configurada');
+  const baseUrl = process.env.DATABASE_URL_DIRECT || process.env.DIRECT_URL;
+  if (!baseUrl) throw new Error('DATABASE_URL_DIRECT ou DIRECT_URL não configurada');
 
   const url = new URL(baseUrl);
   url.searchParams.set('options', `--search_path=${schema},public`);

@@ -24,7 +24,7 @@ export default function SidebarFarmacia({ isOpen, setIsOpen }: SidebarFarmaciaPr
     { name: 'Meu Estoque', path: '/farmacia/meu-estoque', icon: Package },
     { name: 'Pedidos de Recomposição', path: '/farmacia/pedidos-recomposicao', icon: ShoppingCart },
     { name: 'Dispensação', path: '/farmacia/dispensacao', icon: Pill },
-    { name: 'Entregas de Reposição', path: '/farmacia/entregas', icon: Truck },
+    { name: 'Gestão de Entregas', path: '/farmacia/entregas', icon: Truck },
     { name: 'Notificações', path: '/farmacia/notificacoes', icon: Bell },
     { name: 'Configurações', path: '/farmacia/configuracoes', icon: Settings },
   ];
