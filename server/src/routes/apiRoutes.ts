@@ -10,6 +10,7 @@ import { CdController } from '../controllers/CdController';
 import { authMiddleware, roleMiddleware } from '../middlewares/auth';
 import { listarUnidades } from '../services/tenantService';
 import { PedidoReposicaoController } from '../controllers/PedidoReposicaoController';
+import { FarmaciaController } from '../controllers/FarmaciaController';
 
 const router = Router();
 const pedidoController = new PedidoController();
@@ -21,6 +22,7 @@ const fornecedorController = new FornecedorController();
 const dashboardController = new DashboardController();
 const cdController = new CdController();
 const pedidoReposicaoController = new PedidoReposicaoController();
+const farmaciaController = new FarmaciaController();
 
 // Todas as rotas da API requerem autenticação
 router.use(authMiddleware);
@@ -91,5 +93,11 @@ router.get('/cd/pedidos-reposicao/motoristas', pedidoReposicaoController.listarM
 router.get('/cd/pedidos-reposicao/:id', pedidoReposicaoController.detalhes);
 router.post('/cd/pedidos-reposicao', pedidoReposicaoController.criar);
 router.patch('/cd/pedidos-reposicao/:id/status', pedidoReposicaoController.atualizarStatus);
+
+// Rotas da Farmácia (Dispensação)
+router.get('/farmacia/estoque', farmaciaController.buscarEstoque);
+router.post('/farmacia/dispensar', farmaciaController.dispensar);
+router.get('/farmacia/dispensacoes/recentes', farmaciaController.dispensacoesRecentes);
+router.get('/farmacia/pacientes', farmaciaController.buscarPacientes);
 
 export default router;

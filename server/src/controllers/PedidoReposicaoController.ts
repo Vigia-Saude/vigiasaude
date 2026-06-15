@@ -322,12 +322,154 @@ export class PedidoReposicaoController {
         }).catch(err => console.error('Erro ao salvar auditoria de status do pedido:', err));
       }
 
+      // ─── Quando status = EM_SEPARACAO → Deduzir do estoque do CD ───
+      if (status === 'EM_SEPARACAO') {
+        await this.deduzirEstoqueCD(pedido.itens);
+      }
+
+      // ─── Quando status = CONCLUIDO → Adicionar ao estoque do tenant da farmácia ───
+      if (status === 'CONCLUIDO') {
+        await this.adicionarEstoqueFarmacia(pedido.unidadeId, pedido.itens, pedido.numero);
+      }
+
       res.json(pedido);
     } catch (err) {
       console.error(err);
       res.status(500).json({ erro: 'Erro ao atualizar status do pedido.' });
     }
   };
+
+  /**
+   * Deduz itens do estoque do CD (cd_estoque_lotes) usando FEFO.
+   * Percorre os lotes disponíveis em ordem de validade e subtrai as quantidades.
+   */
+  private deduzirEstoqueCD = async (itens: { catmatCodigo: string | null; medicamentoNome: string; quantidade: number }[]) => {
+    for (const item of itens) {
+      let restante = item.quantidade;
+
+      // Busca lotes disponíveis no CD com FEFO
+      const lotes = await prisma.cdEstoqueLote.findMany({
+        where: {
+          OR: [
+            ...(item.catmatCodigo ? [{ catmatCodigo: item.catmatCodigo }] : []),
+            { medicamentoNome: { contains: item.medicamentoNome, mode: 'insensitive' as const } }
+          ],
+          status: 'DISPONIVEL',
+          quantidadeAtual: { gt: 0 },
+          deletedAt: null
+        },
+        orderBy: { dataValidade: 'asc' }
+      });
+
+      for (const lote of lotes) {
+        if (restante <= 0) break;
+
+        const deduzir = Math.min(restante, lote.quantidadeAtual);
+        const novaQtd = lote.quantidadeAtual - deduzir;
+
+        await prisma.cdEstoqueLote.update({
+          where: { id: lote.id },
+          data: {
+            quantidadeAtual: novaQtd,
+            status: novaQtd === 0 ? 'ESGOTADO' : 'DISPONIVEL'
+          }
+        });
+
+        restante -= deduzir;
+      }
+    }
+  };
+
+  /**
+   * Adiciona itens ao estoque da farmácia (tenant) quando o pedido é concluído.
+   * Cria medicamentos se não existirem e insere lotes novos.
+   */
+  private adicionarEstoqueFarmacia = async (
+    unidadeId: string,
+    itens: { catmatCodigo: string | null; medicamentoNome: string; quantidade: number }[],
+    numeroPedido: string
+  ) => {
+    // Buscar o tenant schema da unidade
+    const unidades = await prisma.$queryRaw<{ tenant_schema: string }[]>`
+      SELECT tenant_schema FROM public.unidades WHERE id = ${unidadeId} AND deleted_at IS NULL
+    `;
+
+    if (unidades.length === 0 || !unidades[0].tenant_schema) {
+      console.warn(`[Stock Transfer] Unidade ${unidadeId} não tem tenant schema configurado.`);
+      return;
+    }
+
+    const tenantSchema = unidades[0].tenant_schema;
+
+    // Validação do schema para segurança
+    if (!/^tenant_[a-z][a-z0-9_]{1,50}$/.test(tenantSchema)) {
+      console.warn(`[Stock Transfer] Schema inválido: ${tenantSchema}`);
+      return;
+    }
+
+    const { getPrismaForSchema } = await import('../lib/prismaFactory.js');
+    const tenant = getPrismaForSchema(tenantSchema);
+
+    for (const item of itens) {
+      try {
+        // 1. Buscar ou criar medicamento no tenant
+        const medicamentos: { id: string }[] = await tenant.$queryRawUnsafe(
+          `SELECT id FROM medicamentos WHERE nome ILIKE $1 AND deleted_at IS NULL LIMIT 1`,
+          item.medicamentoNome
+        );
+
+        let medicamentoId: string;
+
+        if (medicamentos.length > 0) {
+          medicamentoId = medicamentos[0].id;
+        } else {
+          // Criar medicamento
+          const novos: { id: string }[] = await tenant.$queryRawUnsafe(
+            `INSERT INTO medicamentos (id, catmat_codigo, nome, estoque_minimo)
+             VALUES (gen_random_uuid()::text, $1, $2, 0)
+             RETURNING id`,
+            item.catmatCodigo,
+            item.medicamentoNome
+          );
+          medicamentoId = novos[0].id;
+        }
+
+        // 2. Buscar lote sugerido do CD para info de validade e numero lote
+        const lotesCD = await prisma.cdEstoqueLote.findMany({
+          where: {
+            OR: [
+              ...(item.catmatCodigo ? [{ catmatCodigo: item.catmatCodigo }] : []),
+              { medicamentoNome: { contains: item.medicamentoNome, mode: 'insensitive' as const } }
+            ],
+            deletedAt: null
+          },
+          orderBy: { dataValidade: 'asc' },
+          take: 1
+        });
+
+        const loteRef = lotesCD[0];
+        const numeroLote = loteRef?.numeroLote || `REPO-${numeroPedido}`;
+        const validade = loteRef?.dataValidade || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+
+        // 3. Criar lote no tenant
+        await tenant.$queryRawUnsafe(
+          `INSERT INTO lotes (id, medicamento_id, numero_lote, quantidade, quantidade_atual, validade, nota_fiscal)
+           VALUES (gen_random_uuid()::text, $1, $2, $3, $3, $4, $5)`,
+          medicamentoId,
+          numeroLote,
+          item.quantidade,
+          validade,
+          `Reposição ${numeroPedido}`
+        );
+
+        console.log(`[Stock Transfer] ${item.medicamentoNome} x${item.quantidade} → ${tenantSchema}`);
+      } catch (err) {
+        console.error(`[Stock Transfer] Erro ao transferir ${item.medicamentoNome}:`, err);
+        // Continua com os próximos itens, não falha todo o pedido
+      }
+    }
+  };
+
 
   // GET /api/cd/pedidos-reposicao/motoristas
   listarMotoristas = async (_req: AuthRequest, res: Response) => {

@@ -40,11 +40,11 @@ export default function SidebarFarmacia({ isOpen, setIsOpen }: SidebarFarmaciaPr
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-30 w-64 transform bg-slate-900 text-slate-100 shadow-xl transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-30 w-64 transform bg-emerald-950 text-emerald-100 shadow-xl transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex h-20 items-center justify-between pl-5 pr-4 border-b border-slate-800">
+        <div className="flex h-20 items-center justify-between pl-5 pr-4 border-b border-emerald-900">
           <Link to="/farmacia/dashboard" className="flex items-center gap-3 select-none">
             <Shield className="h-9 w-9 text-emerald-500 stroke-[1.5]" />
             <div className="flex flex-col">
@@ -54,12 +54,12 @@ export default function SidebarFarmacia({ isOpen, setIsOpen }: SidebarFarmaciaPr
           </Link>
           <button 
             onClick={() => setIsOpen(false)}
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white lg:hidden transition-colors"
+            className="rounded-lg p-1 text-emerald-400 hover:bg-emerald-900 hover:text-white lg:hidden transition-colors"
           >
             <ChevronLeft className="h-5 w-5 stroke-[1.5]" />
           </button>
           <button 
-            className="hidden lg:flex items-center justify-center rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+            className="hidden lg:flex items-center justify-center rounded-lg p-1 text-emerald-400 hover:bg-emerald-900 hover:text-white transition-colors"
             title="Recolher menu"
           >
             <ChevronLeft className="h-5 w-5 stroke-[1.5]" />
@@ -79,11 +79,11 @@ export default function SidebarFarmacia({ isOpen, setIsOpen }: SidebarFarmaciaPr
                 className={`flex items-center justify-between rounded-lg px-4 py-3 transition-all duration-200 group ${
                   isActive
                     ? 'bg-emerald-600 text-white font-semibold shadow-lg shadow-emerald-900/30'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-white font-medium'
+                    : 'text-emerald-300 hover:bg-emerald-900 hover:text-white font-medium'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Icon className={`h-5 w-5 shrink-0 transition-transform group-hover:scale-105 duration-200 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
+                  <Icon className={`h-5 w-5 shrink-0 transition-transform group-hover:scale-105 duration-200 ${isActive ? 'text-white' : 'text-emerald-400 group-hover:text-white'}`} />
                   <span className="text-sm leading-snug">{link.name}</span>
                 </div>
               </Link>

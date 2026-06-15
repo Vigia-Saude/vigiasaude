@@ -536,7 +536,7 @@ export class CdController {
 
   // PATCH /api/cd/recalls/:id/encerrar
   encerrarRecall = async (req: AuthRequest, res: Response) => {
-    const { id } = req.params;
+    const id = String(req.params.id);
 
     try {
       const recall = await prisma.recall.findUnique({
