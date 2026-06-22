@@ -1,42 +1,8 @@
 import { createBrowserRouter, Navigate } from 'react-router';
 import Layout from '../components/Layout/Layout';
 import LoginPage from '../pages/LoginPage';
-import Dashboard from '../pages/Dashboard';
-import Fornecedor from '../pages/Fornecedor';
 import Fallback from '../pages/Fallback';
-import AccessDenied from '../pages/AccessDenied';
 import { ProtectedRoute } from '../components/ProtectedRoute';
-
-// CD Pages
-import { DashboardCD } from '../pages/Cd/DashboardCD';
-import { MeuEstoque } from '../pages/Cd/MeuEstoque';
-import { Recebimento } from '../pages/Cd/Recebimento';
-import { PedidosCD } from '../pages/Cd/PedidosCD';
-import { Entregas } from '../pages/Cd/Entregas';
-import { Recalls } from '../pages/Cd/Recalls';
-import { Rastreabilidade } from '../pages/Cd/Rastreabilidade';
-import { AuditoriaCD } from '../pages/Cd/AuditoriaCD';
-import { Notificacoes } from '../pages/Cd/Notificacoes';
-import { PortalPublico } from '../pages/Cd/PortalPublico';
-import { Configuracoes } from '../pages/Cd/Configuracoes';
-
-// Farmacia Pages
-import { DashboardFarmacia } from '../pages/Farmacia/DashboardFarmacia';
-import { MeuEstoqueFarmacia } from '../pages/Farmacia/MeuEstoqueFarmacia';
-import { PedidosRecomposicao as PedidosRecomposicaoFarmacia } from '../pages/Farmacia/PedidosRecomposicao';
-import { Dispensacao as DispensacaoFarmacia } from '../pages/Farmacia/Dispensacao';
-import { EntregasReposicao as EntregasReposicaoFarmacia } from '../pages/Farmacia/EntregasReposicao';
-import { NotificacoesFarmacia } from '../pages/Farmacia/NotificacoesFarmacia';
-import { ConfiguracoesFarmacia } from '../pages/Farmacia/ConfiguracoesFarmacia';
-
-// Posto Pages
-import { DashboardPosto } from '../pages/Posto/DashboardPosto';
-import { MeuEstoquePosto } from '../pages/Posto/MeuEstoquePosto';
-import { PedidosRecomposicao as PedidosRecomposicaoPosto } from '../pages/Posto/PedidosRecomposicao';
-import { Dispensacao as DispensacaoPosto } from '../pages/Posto/Dispensacao';
-import { EntregasReposicao as EntregasReposicaoPosto } from '../pages/Posto/EntregasReposicao';
-import { NotificacoesPosto } from '../pages/Posto/NotificacoesPosto';
-import { ConfiguracoesPosto } from '../pages/Posto/ConfiguracoesPosto';
 
 export const router = createBrowserRouter([
   {
@@ -46,7 +12,10 @@ export const router = createBrowserRouter([
   },
   {
     path: '/acesso-negado',
-    element: <AccessDenied />,
+    lazy: async () => {
+      const AccessDenied = (await import('../pages/AccessDenied')).default;
+      return { Component: AccessDenied };
+    }
   },
   {
     path: '/',
@@ -59,19 +28,29 @@ export const router = createBrowserRouter([
     children: [
       {
         path: 'dashboard',
-        element: (
-          <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE']}>
-            <Dashboard />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const Dashboard = (await import('../pages/Dashboard')).default;
+          return {
+            Component: () => (
+              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE']}>
+                <Dashboard />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
       {
         path: 'fornecedor',
-        element: (
-          <ProtectedRoute allowedRoles={['FORNECEDOR']}>
-            <Fornecedor />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const Fornecedor = (await import('../pages/Fornecedor')).default;
+          return {
+            Component: () => (
+              <ProtectedRoute allowedRoles={['FORNECEDOR']}>
+                <Fornecedor />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
       {
         path: 'atas',
@@ -151,7 +130,6 @@ export const router = createBrowserRouter([
           };
         },
       },
-
       {
         path: 'fornecedores',
         lazy: async () => {
@@ -195,27 +173,42 @@ export const router = createBrowserRouter([
       // CD Manager Protected Routes
       {
         path: 'cd/dashboard',
-        element: (
-          <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE']}>
-            <DashboardCD />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const { DashboardCD } = await import('../pages/Cd/DashboardCD');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE']}>
+                <DashboardCD />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
       {
         path: 'cd/meu-estoque',
-        element: (
-          <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE']}>
-            <MeuEstoque />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const { MeuEstoque } = await import('../pages/Cd/MeuEstoque');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE']}>
+                <MeuEstoque />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
       {
         path: 'cd/recebimento',
-        element: (
-          <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE']}>
-            <Recebimento />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const { Recebimento } = await import('../pages/Cd/Recebimento');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE']}>
+                <Recebimento />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
       {
         path: 'cd/importar',
@@ -232,183 +225,293 @@ export const router = createBrowserRouter([
       },
       {
         path: 'cd/pedidos',
-        element: (
-          <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE']}>
-            <PedidosCD />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const { PedidosCD } = await import('../pages/Cd/PedidosCD');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE']}>
+                <PedidosCD />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
       {
         path: 'cd/entregas',
-        element: (
-          <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE']}>
-            <Entregas />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const { Entregas } = await import('../pages/Cd/Entregas');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE']}>
+                <Entregas />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
       {
         path: 'cd/recalls',
-        element: (
-          <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE']}>
-            <Recalls />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const { Recalls } = await import('../pages/Cd/Recalls');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE']}>
+                <Recalls />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
       {
         path: 'cd/rastreabilidade',
-        element: (
-          <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE']}>
-            <Rastreabilidade />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const { Rastreabilidade } = await import('../pages/Cd/Rastreabilidade');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE']}>
+                <Rastreabilidade />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
       {
         path: 'cd/auditoria',
-        element: (
-          <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE']}>
-            <AuditoriaCD />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const { AuditoriaCD } = await import('../pages/Cd/AuditoriaCD');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE']}>
+                <AuditoriaCD />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
       {
         path: 'cd/notificacoes',
-        element: (
-          <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE']}>
-            <Notificacoes />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const { Notificacoes } = await import('../pages/Cd/Notificacoes');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE']}>
+                <Notificacoes />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
       {
         path: 'cd/portal-publico',
-        element: (
-          <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE']}>
-            <PortalPublico />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const { PortalPublico } = await import('../pages/Cd/PortalPublico');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE']}>
+                <PortalPublico />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
       {
         path: 'cd/configuracoes',
-        element: (
-          <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE']}>
-            <Configuracoes />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const { Configuracoes } = await import('../pages/Cd/Configuracoes');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE']}>
+                <Configuracoes />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
 
       // Farmacia Protected Routes
       {
         path: 'farmacia/dashboard',
-        element: (
-          <ProtectedRoute allowedPerfil={['FARMACIA']}>
-            <DashboardFarmacia />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const { DashboardFarmacia } = await import('../pages/Farmacia/DashboardFarmacia');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['FARMACIA']}>
+                <DashboardFarmacia />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
       {
         path: 'farmacia/meu-estoque',
-        element: (
-          <ProtectedRoute allowedPerfil={['FARMACIA']}>
-            <MeuEstoqueFarmacia />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const { MeuEstoqueFarmacia } = await import('../pages/Farmacia/MeuEstoqueFarmacia');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['FARMACIA']}>
+                <MeuEstoqueFarmacia />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
       {
         path: 'farmacia/pedidos-recomposicao',
-        element: (
-          <ProtectedRoute allowedPerfil={['FARMACIA']}>
-            <PedidosRecomposicaoFarmacia />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const { PedidosRecomposicao: PedidosRecomposicaoFarmacia } = await import('../pages/Farmacia/PedidosRecomposicao');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['FARMACIA']}>
+                <PedidosRecomposicaoFarmacia />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
       {
         path: 'farmacia/dispensacao',
-        element: (
-          <ProtectedRoute allowedPerfil={['FARMACIA']}>
-            <DispensacaoFarmacia />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const { Dispensacao: DispensacaoFarmacia } = await import('../pages/Farmacia/Dispensacao');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['FARMACIA']}>
+                <DispensacaoFarmacia />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
       {
         path: 'farmacia/entregas',
-        element: (
-          <ProtectedRoute allowedPerfil={['FARMACIA']}>
-            <EntregasReposicaoFarmacia />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const { EntregasReposicao: EntregasReposicaoFarmacia } = await import('../pages/Farmacia/EntregasReposicao');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['FARMACIA']}>
+                <EntregasReposicaoFarmacia />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
       {
         path: 'farmacia/notificacoes',
-        element: (
-          <ProtectedRoute allowedPerfil={['FARMACIA']}>
-            <NotificacoesFarmacia />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const { NotificacoesFarmacia } = await import('../pages/Farmacia/NotificacoesFarmacia');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['FARMACIA']}>
+                <NotificacoesFarmacia />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
       {
         path: 'farmacia/configuracoes',
-        element: (
-          <ProtectedRoute allowedPerfil={['FARMACIA']}>
-            <ConfiguracoesFarmacia />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const { ConfiguracoesFarmacia } = await import('../pages/Farmacia/ConfiguracoesFarmacia');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['FARMACIA']}>
+                <ConfiguracoesFarmacia />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
 
       // Posto de Saude Protected Routes
       {
         path: 'posto/dashboard',
-        element: (
-          <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
-            <DashboardPosto />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const { DashboardPosto } = await import('../pages/Posto/DashboardPosto');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+                <DashboardPosto />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
       {
         path: 'posto/meu-estoque',
-        element: (
-          <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
-            <MeuEstoquePosto />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const { MeuEstoquePosto } = await import('../pages/Posto/MeuEstoquePosto');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+                <MeuEstoquePosto />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
       {
         path: 'posto/pedidos-recomposicao',
-        element: (
-          <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
-            <PedidosRecomposicaoPosto />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const { PedidosRecomposicao: PedidosRecomposicaoPosto } = await import('../pages/Posto/PedidosRecomposicao');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+                <PedidosRecomposicaoPosto />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
       {
         path: 'posto/dispensacao',
-        element: (
-          <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
-            <DispensacaoPosto />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const { Dispensacao: DispensacaoPosto } = await import('../pages/Posto/Dispensacao');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+                <DispensacaoPosto />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
       {
         path: 'posto/entregas',
-        element: (
-          <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
-            <EntregasReposicaoPosto />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const { EntregasReposicao: EntregasReposicaoPosto } = await import('../pages/Posto/EntregasReposicao');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+                <EntregasReposicaoPosto />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
       {
         path: 'posto/notificacoes',
-        element: (
-          <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
-            <NotificacoesPosto />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const { NotificacoesPosto } = await import('../pages/Posto/NotificacoesPosto');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+                <NotificacoesPosto />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
       {
         path: 'posto/configuracoes',
-        element: (
-          <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
-            <ConfiguracoesPosto />
-          </ProtectedRoute>
-        ),
+        lazy: async () => {
+          const { ConfiguracoesPosto } = await import('../pages/Posto/ConfiguracoesPosto');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+                <ConfiguracoesPosto />
+              </ProtectedRoute>
+            )
+          };
+        }
       },
     ],
   },
