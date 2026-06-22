@@ -355,41 +355,8 @@ export class CdController {
 
         const dadosLotes: any[] = [];
         
-        // Se estiver vazio, popula com dados iniciais simulados para demonstração enriquecida
-        if (estoqueMap.size === 0) {
-          dadosLotes.push(
-            {
-              id: 'lote-farm-1',
-              medicamentoNome: 'Insulina NPH 100UI/mL Frasco 10mL',
-              numeroLote: 'LOT-FARM-01',
-              dataValidade: new Date('2027-05-15'),
-              quantidadeInicial: 200,
-              quantidadeAtual: 150,
-              status: 'DISPONIVEL',
-              catmatCodigo: '445566'
-            },
-            {
-              id: 'lote-farm-2',
-              medicamentoNome: 'Amoxicilina 500mg Cápsula',
-              numeroLote: 'LOT-FARM-02',
-              dataValidade: new Date('2026-12-20'),
-              quantidadeInicial: 100,
-              quantidadeAtual: 85,
-              status: 'DISPONIVEL',
-              catmatCodigo: '112233'
-            },
-            {
-              id: 'lote-farm-3',
-              medicamentoNome: 'Paracetamol 500mg Comprimido',
-              numeroLote: 'LOT-FARM-03',
-              dataValidade: new Date('2027-01-10'),
-              quantidadeInicial: 500,
-              quantidadeAtual: 320,
-              status: 'DISPONIVEL',
-              catmatCodigo: '778899'
-            }
-          );
-        } else {
+        // Se não houver estoque na unidade, retorna array vazio em produção
+        if (estoqueMap.size > 0) {
           let idx = 0;
           estoqueMap.forEach((val, key) => {
             dadosLotes.push({
@@ -776,28 +743,26 @@ export class CdController {
           if (item) estoqueTotal += item.quantidade;
         });
 
-        let loteNum = 'LOT-FARM-01';
-        let dataVal = new Date('2027-05-15');
-        // Se não tiver pedidos concluídos, usar mock correspondente do MeuEstoque da Farmácia
         if (estoqueTotal === 0) {
-          if (medicamentoNome.toLowerCase().includes('insulina')) {
-            estoqueTotal = 150;
-            loteNum = 'LOT-FARM-01';
-            dataVal = new Date('2027-05-15');
-          } else if (medicamentoNome.toLowerCase().includes('amoxicilina')) {
-            estoqueTotal = 85;
-            loteNum = 'LOT-FARM-02';
-            dataVal = new Date('2026-12-20');
-          } else if (medicamentoNome.toLowerCase().includes('paracetamol')) {
-            estoqueTotal = 320;
-            loteNum = 'LOT-FARM-03';
-            dataVal = new Date('2027-01-10');
-          } else {
-            estoqueTotal = 50; // default mock
-            loteNum = 'LOT-FARM-99';
-            dataVal = new Date('2027-06-30');
-          }
+          res.json({
+            medicamentoNome,
+            cards: {
+              estoqueTotal: 0,
+              reservado: 0,
+              disponivel: 0,
+              consumoMedio: 0,
+              leadTimeMedio: 7,
+              status: 'SEM_ESTOQUE'
+            },
+            lotes: [],
+            movimentacoes: [],
+            graficoConsumo: []
+          });
+          return;
         }
+
+        let loteNum = 'LOT-UNIT-01';
+        let dataVal = new Date('2027-05-15');
 
         const lotesReservas = [
           {

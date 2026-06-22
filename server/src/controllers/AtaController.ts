@@ -2,6 +2,45 @@ import { Response } from 'express';
 import { AuthRequest } from '../middlewares/auth';
 import prisma from '../config/prisma';
 import { Prisma } from '@prisma/client';
+import { z } from 'zod';
+
+const medicamentoAtaSchema = z.object({
+  catmatCodigo: z.string().optional().nullable(),
+  nome: z.string().min(1),
+  unidadeFornecimento: z.string().optional().nullable(),
+  unidadeAta: z.string().optional().nullable(),
+  marca: z.string().optional().nullable(),
+  modelo: z.string().optional().nullable(),
+  precoUnitario: z.number().or(z.string().transform(Number)),
+  qtdeInicial: z.number().or(z.string().transform(Number)),
+  precoBPS: z.number().or(z.string().transform(Number)).optional().nullable(),
+  precoCMED: z.number().or(z.string().transform(Number)).optional().nullable(),
+  observacoes: z.string().optional().nullable(),
+});
+
+
+const criarAtaSchema = z.object({
+  numero: z.string().min(1),
+  fornecedorNome: z.string().min(1),
+  fornecedorCnpj: z.string().optional().nullable(),
+  processoLicitatorio: z.string().optional().nullable(),
+  numeroPregao: z.string().optional().nullable(),
+  numeroEdital: z.string().optional().nullable(),
+  vigenciaInicio: z.string().or(z.date()).transform((val) => new Date(val)),
+  vigenciaFim: z.string().or(z.date()).transform((val) => new Date(val)),
+  valorTeto: z.number().or(z.string().transform(Number)),
+  documentoPdfUrl: z.string().optional().nullable(),
+  observacoes: z.string().optional().nullable(),
+  medicamentos: z.array(medicamentoAtaSchema).min(1),
+});
+
+const registrarConsumoSchema = z.object({
+  ataItemId: z.string(),
+  quantidade: z.number().positive(),
+  valorUnitario: z.number().nonnegative(),
+  setorSolicitante: z.string().optional().nullable(),
+  observacao: z.string().optional().nullable(),
+});
 
 export class AtaController {
   // GET /api/atas
@@ -280,6 +319,11 @@ export class AtaController {
   // POST /api/atas
   criar = async (req: AuthRequest, res: Response): Promise<Response> => {
     try {
+      const parsed = criarAtaSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: 'Dados inválidos.', detalhes: parsed.error.flatten().fieldErrors });
+      }
+
       const {
         numero,
         fornecedorNome,
@@ -293,15 +337,7 @@ export class AtaController {
         documentoPdfUrl,
         observacoes,
         medicamentos
-      } = req.body;
-
-      if (!numero || !fornecedorNome || !vigenciaInicio || !vigenciaFim || !valorTeto) {
-        return res.status(400).json({ error: 'Campos obrigatórios ausentes.' });
-      }
-
-      if (!medicamentos || !Array.isArray(medicamentos) || medicamentos.length === 0) {
-        return res.status(400).json({ error: 'A ata deve conter pelo menos um medicamento.' });
-      }
+      } = parsed.data;
 
       let resolvedCnpj = (fornecedorCnpj && fornecedorCnpj.trim() !== '') ? fornecedorCnpj.trim() : null;
 
@@ -409,17 +445,18 @@ export class AtaController {
   // POST /api/atas/:ataId/consumos
   registrarConsumo = async (req: AuthRequest, res: Response): Promise<Response> => {
     const ataId = req.params.ataId as string;
+    const parsed = registrarConsumoSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Dados inválidos.', detalhes: parsed.error.flatten().fieldErrors });
+    }
+
     const {
       ataItemId,
       quantidade,
       valorUnitario,
       setorSolicitante,
       observacao
-    } = req.body;
-
-    if (!ataItemId || !quantidade || !valorUnitario) {
-      return res.status(400).json({ error: 'Campos obrigatórios ausentes: ataItemId, quantidade, valorUnitario.' });
-    }
+    } = parsed.data;
 
     try {
       const result = await prisma.$transaction(async (tx) => {

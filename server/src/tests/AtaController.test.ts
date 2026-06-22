@@ -105,7 +105,7 @@ describe('AtaController - Testes Unitários de Regras de Negócio e Segurança',
       await controller.criar(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Campos obrigatórios ausentes.' });
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Dados inválidos.' }));
     });
 
     it('deve retornar erro 400 se a lista de medicamentos estiver vazia', async () => {
@@ -124,7 +124,7 @@ describe('AtaController - Testes Unitários de Regras de Negócio e Segurança',
       await controller.criar(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ error: 'A ata deve conter pelo menos um medicamento.' });
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Dados inválidos.' }));
     });
 
     it('deve retornar erro 400 se o número da ATA já existir (P2002)', async () => {

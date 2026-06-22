@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import apiClient from '../../services/apiClient';
 import { toast } from 'sonner';
+import { formatCPF } from '../../lib/utils';
+
 
 /* ─── Types ─── */
 interface Lote {
@@ -182,15 +184,7 @@ export function EntregasReposicao() {
     fetchEstoque();
   }, [fetchEntregas, fetchStats, fetchEstoque]);
 
-  /* ─── Helpers ─── */
-  const formatCPF = (value: string) => {
-    const digits = value.replace(/\D/g, '');
-    const truncated = digits.slice(0, 11);
-    if (truncated.length <= 3) return truncated;
-    if (truncated.length <= 6) return `${truncated.slice(0, 3)}.${truncated.slice(3)}`;
-    if (truncated.length <= 9) return `${truncated.slice(0, 3)}.${truncated.slice(3, 6)}.${truncated.slice(6)}`;
-    return `${truncated.slice(0, 3)}.${truncated.slice(3, 6)}.${truncated.slice(6, 9)}-${truncated.slice(9, 11)}`;
-  };
+
 
   /* ─── Patient Autocomplete Search ─── */
   const loadPatients = useCallback(async (searchVal: string) => {

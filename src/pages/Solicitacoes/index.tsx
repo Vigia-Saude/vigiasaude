@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import apiClient from '../../services/apiClient';
+import { formatCPF } from '../../lib/utils';
 import { 
   Users, 
   Shield, 
@@ -116,11 +117,7 @@ const PERFIL_PERMISSOES_PREVIEW: Record<Perfil, string[]> = {
 };
 
 
-function formatCPF(cpf: string | null) {
-  if (!cpf) return '-';
-  const digits = cpf.replace(/\D/g, '');
-  return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-}
+
 
 function formatDate(dateStr: string | null | undefined) {
   if (!dateStr) return '-';

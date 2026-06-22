@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { Shield, Lock, Eye, EyeOff, Loader2, ArrowLeft, Building2, User } from 'lucide-react';
 import apiClient from '../services/apiClient';
+import { formatCPF } from '../lib/utils';
+
 
 export default function LoginPage() {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -58,13 +60,7 @@ export default function LoginPage() {
     loadFornecedores();
   }, []);
 
-  const formatCPF = (val: string) => {
-    const digits = val.replace(/\D/g, '').slice(0, 11);
-    return digits
-      .replace(/(\d{3})(\d)/, '$1.$2')
-      .replace(/(\d{3})(\d)/, '$1.$2')
-      .replace(/(\d{3})(\d{1,2})/, '$1-$2');
-  };
+
 
   const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCpf(formatCPF(e.target.value));

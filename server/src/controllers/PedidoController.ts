@@ -1,7 +1,31 @@
 import { Response } from 'express';
 import prisma from '../config/prisma';
 import { AuthRequest } from '../middlewares/auth';
-import { Prisma } from '@prisma/client';
+import { Prisma, PedidoStatus } from '@prisma/client';
+import { z } from 'zod';
+
+const itemPedidoSchema = z.object({
+  medicamentoId: z.string().optional().nullable(),
+  medicamentoNome: z.string().min(1),
+  quantidade: z.number().positive(),
+  precoUnitario: z.number().positive(),
+  ataItemId: z.string().optional().nullable(),
+});
+
+const criarPedidoSchema = z.object({
+  ataId: z.string().optional().nullable().or(z.literal('')),
+  fornecedorId: z.string().optional().nullable().or(z.literal('')),
+  status: z.nativeEnum(PedidoStatus).optional().nullable(),
+  dataSolicitacao: z.string().or(z.date()).optional().nullable(),
+  itens: z.array(itemPedidoSchema).min(1),
+  justificativa: z.string().optional().nullable(),
+});
+
+const atualizarStatusSchema = z.object({
+  status: z.nativeEnum(PedidoStatus),
+  justificativa: z.string().min(1).optional().nullable(),
+});
+
 
 interface ItemPedido {
   medicamentoId: string | null;
@@ -173,15 +197,16 @@ export class PedidoController {
 
   // POST /api/pedidos
   criarPedido = async (req: AuthRequest, res: Response) => {
-    const { ataId, fornecedorId, status, dataSolicitacao, itens, justificativa } = req.body;
+    const parsed = criarPedidoSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Dados inválidos.', detalhes: parsed.error.flatten().fieldErrors });
+    }
+
+    const { ataId, fornecedorId, status, dataSolicitacao, itens, justificativa } = parsed.data;
     const usuarioId = req.user?.id;
 
     if (!usuarioId) {
       return res.status(401).json({ error: 'Usuário não identificado.' });
-    }
-
-    if (!itens || !Array.isArray(itens) || itens.length === 0) {
-      return res.status(400).json({ error: 'O pedido deve conter pelo menos um medicamento.' });
     }
 
     try {
@@ -224,9 +249,7 @@ export class PedidoController {
       if (!resolvedFornecedorId) {
         return res.status(400).json({ error: 'O fornecedor do pedido é obrigatório.' });
       }
-
-      const statusInicial = status || 'PENDENTE';
-
+      const statusInicial: PedidoStatus = status || PedidoStatus.PENDENTE;
       // 4. Executar Criação em Transação (com validações internas)
       const novoPedido = await prisma.$transaction(async (tx) => {
         // Gerar número sequencial atômico via sequence do PostgreSQL (sem race condition)
@@ -425,15 +448,16 @@ export class PedidoController {
   // PATCH /api/pedidos/:id/status
   atualizarStatus = async (req: AuthRequest, res: Response) => {
     const id = req.params.id as string;
-    const { status, justificativa } = req.body;
+    const parsed = atualizarStatusSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Dados inválidos.', detalhes: parsed.error.flatten().fieldErrors });
+    }
+
+    const { status, justificativa } = parsed.data;
     const usuarioId = req.user?.id;
 
     if (!usuarioId) {
       return res.status(401).json({ error: 'Usuário não identificado.' });
-    }
-
-    if (!status) {
-      return res.status(400).json({ error: 'Status é obrigatório.' });
     }
 
     try {
@@ -636,15 +660,16 @@ export class PedidoController {
   // PUT /api/pedidos/:id
   atualizarPedido = async (req: AuthRequest, res: Response) => {
     const id = req.params.id as string;
-    const { ataId, fornecedorId, status, dataSolicitacao, itens, justificativa } = req.body;
+    const parsed = criarPedidoSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Dados inválidos.', detalhes: parsed.error.flatten().fieldErrors });
+    }
+
+    const { ataId, fornecedorId, status, dataSolicitacao, itens, justificativa } = parsed.data;
     const usuarioId = req.user?.id;
 
     if (!usuarioId) {
       return res.status(401).json({ error: 'Usuário não identificado.' });
-    }
-
-    if (!itens || !Array.isArray(itens) || itens.length === 0) {
-      return res.status(400).json({ error: 'O pedido deve conter pelo menos um medicamento.' });
     }
 
     try {
@@ -700,7 +725,7 @@ export class PedidoController {
         return res.status(400).json({ error: 'O fornecedor do pedido é obrigatório.' });
       }
 
-      const statusInicial = status || 'RASCUNHO';
+      const statusInicial: PedidoStatus = status || PedidoStatus.RASCUNHO;
 
       // 4. Executar Atualização em Transação
       const pedidoAtualizado = await prisma.$transaction(async (tx) => {

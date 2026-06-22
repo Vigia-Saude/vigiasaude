@@ -29,3 +29,14 @@ export function maskCurrencyBRL(value: string): string {
 export function parseCurrencyBRL(value: string): number {
   return parseInt(value.replace(/\D/g, '')) / 100 || 0;
 }
+
+export function formatCPF(value: string | null | undefined): string {
+  if (!value) return '';
+  const digits = value.replace(/\D/g, '');
+  const truncated = digits.slice(0, 11);
+  if (truncated.length <= 3) return truncated;
+  if (truncated.length <= 6) return `${truncated.slice(0, 3)}.${truncated.slice(3)}`;
+  if (truncated.length <= 9) return `${truncated.slice(0, 3)}.${truncated.slice(3, 6)}.${truncated.slice(6)}`;
+  return `${truncated.slice(0, 3)}.${truncated.slice(3, 6)}.${truncated.slice(6, 9)}-${truncated.slice(9, 11)}`;
+}
+

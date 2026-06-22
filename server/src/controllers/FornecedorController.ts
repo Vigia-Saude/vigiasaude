@@ -2,6 +2,24 @@ import { Response } from 'express';
 import prisma from '../config/prisma';
 import { AuthRequest } from '../middlewares/auth';
 import { Prisma } from '@prisma/client';
+import { z } from 'zod';
+
+const criarFornecedorSchema = z.object({
+  cnpj: z.string().min(14),
+  razaoSocial: z.string().min(2),
+  nomeFantasia: z.string().min(2),
+  email: z.string().email(),
+  whatsapp: z.string().min(10),
+  categorias: z.array(z.string()).min(1),
+});
+
+const atualizarFornecedorSchema = z.object({
+  razaoSocial: z.string().min(2).optional(),
+  nomeFantasia: z.string().min(2).optional(),
+  email: z.string().email().optional(),
+  whatsapp: z.string().min(10).optional(),
+  categorias: z.array(z.string()).min(1).optional(),
+});
 
 export class FornecedorController {
   // GET /api/fornecedores
@@ -74,12 +92,13 @@ export class FornecedorController {
 
   // POST /api/fornecedores
   async criar(req: AuthRequest, res: Response) {
-    const { cnpj, razaoSocial, nomeFantasia, email, whatsapp, categorias } = req.body;
-    const usuarioId = req.user?.id;
-
-    if (!cnpj || !razaoSocial || !nomeFantasia || !email || !whatsapp || !categorias) {
-      return res.status(400).json({ error: 'Todos os campos obrigatórios devem ser preenchidos' });
+    const parsed = criarFornecedorSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Dados inválidos.', detalhes: parsed.error.flatten().fieldErrors });
     }
+
+    const { cnpj, razaoSocial, nomeFantasia, email, whatsapp, categorias } = parsed.data;
+    const usuarioId = req.user?.id;
 
     try {
       // Verificar se CNPJ já existe
@@ -130,7 +149,12 @@ export class FornecedorController {
   // PUT /api/fornecedores/:id
   async atualizar(req: AuthRequest, res: Response) {
     const id = req.params.id as string;
-    const { razaoSocial, nomeFantasia, email, whatsapp, categorias } = req.body;
+    const parsed = atualizarFornecedorSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Dados inválidos.', detalhes: parsed.error.flatten().fieldErrors });
+    }
+
+    const { razaoSocial, nomeFantasia, email, whatsapp, categorias } = parsed.data;
     const usuarioId = req.user?.id;
 
     try {

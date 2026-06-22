@@ -17,6 +17,22 @@ const PORT = process.env.PORT || 3001
 // Confiar no proxy reverso para o rate limiter funcionar
 app.set('trust proxy', 1)
 
+// Middleware para padronizar o formato de erro ({ error } e { erro }) de forma retrocompatível
+app.use((req, res, next) => {
+  const originalJson = res.json;
+  res.json = function (body) {
+    if (body && typeof body === 'object') {
+      if ('error' in body && !('erro' in body)) {
+        body.erro = body.error;
+      } else if ('erro' in body && !('error' in body)) {
+        body.error = body.erro;
+      }
+    }
+    return originalJson.call(this, body);
+  };
+  next();
+});
+
 // Middlewares de Segurança
 app.use(helmet())
 const allowedOrigins = [
