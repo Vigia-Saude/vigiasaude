@@ -6,6 +6,7 @@ import SidebarFarmacia from './SidebarFarmacia';
 import SidebarPosto from './SidebarPosto';
 import Header from './Header';
 import { useAuth } from '../../context/AuthContext';
+import ErrorBoundary from './ErrorBoundary';
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -32,7 +33,9 @@ export default function Layout() {
         <Header toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
         
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-          <Outlet />
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
     </div>

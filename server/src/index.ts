@@ -3,6 +3,7 @@ import cors from 'cors'
 import * as dotenv from 'dotenv'
 import helmet from 'helmet'
 import path from 'path'
+import { rateLimit } from 'express-rate-limit'
 
 import authRoutes from './routes/authRoutes'
 import apiRoutes from './routes/apiRoutes'
@@ -55,12 +56,19 @@ app.use(cors({
   },
   credentials: true
 }))
-app.use(express.json())
+app.use(express.json({ limit: '1mb' }))
+
+// Rate Limiter Global para as rotas da API
+const apiLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minuto
+  max: 100, // Máximo 100 requisições por IP
+  message: { error: 'Muitas requisições vindas deste IP, por favor tente novamente em um minuto.' }
+})
 
 // Rotas
 app.use('/auth', authRoutes)
-app.use('/api', apiRoutes)
-app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')))
+app.use('/api', apiLimiter, apiRoutes)
+app.use('/uploads', authMiddleware, express.static(path.join(__dirname, '..', 'uploads')))
 
 // Rota de teste pública
 app.get('/', (req, res) => {

@@ -44,23 +44,23 @@ router.get('/dashboard/stats', dashboardController.getStats);
 // Rotas de Atas
 router.get('/atas', ataController.listar);
 router.get('/atas/:id', ataController.detalhes);
-router.post('/atas', ataController.criar);
-router.post('/atas/:ataId/consumos', ataController.registrarConsumo);
+router.post('/atas', roleMiddleware(['COMPRADOR']), ataController.criar);
+router.post('/atas/:ataId/consumos', roleMiddleware(['COMPRADOR', 'GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE']), ataController.registrarConsumo);
 
 // Rotas de CATMAT
 router.get('/catmat/buscar', catmatController.buscar);
 router.get('/catmat/:codigoBr', catmatController.buscarPorCodigo);
 
 // Rotas de Upload
-router.post('/upload', uploadConfig.single('file'), uploadController.upload);
+router.post('/upload', roleMiddleware(['COMPRADOR', 'GESTOR_ESTOQUE']), uploadConfig.single('file'), uploadController.upload);
 
 // Rotas de Pedidos
 router.get('/pedidos', pedidoController.listar);
 router.get('/pedidos/:id', pedidoController.detalhes);
-router.post('/pedidos', pedidoController.criarPedido);
-router.put('/pedidos/:id', pedidoController.atualizarPedido);
-router.patch('/pedidos/:id/status', pedidoController.atualizarStatus);
-router.patch('/pedidos/:id/entrega', pedidoController.confirmarEntrega);
+router.post('/pedidos', roleMiddleware(['COMPRADOR']), pedidoController.criarPedido);
+router.put('/pedidos/:id', roleMiddleware(['COMPRADOR', 'FORNECEDOR']), pedidoController.atualizarPedido);
+router.patch('/pedidos/:id/status', roleMiddleware(['COMPRADOR', 'FORNECEDOR']), pedidoController.atualizarStatus);
+router.patch('/pedidos/:id/entrega', roleMiddleware(['COMPRADOR', 'FORNECEDOR']), pedidoController.confirmarEntrega);
 
 // Rotas de Auditoria (Restrito a COMPRADOR)
 router.get('/auditoria', roleMiddleware(['COMPRADOR']), auditoriaController.listar);
@@ -73,11 +73,11 @@ router.put('/fornecedores/:id', roleMiddleware(['COMPRADOR']), fornecedorControl
 router.patch('/fornecedores/:id/status', roleMiddleware(['COMPRADOR']), fornecedorController.toggleStatus);
 
 // Rotas do Centro de Distribuição (CD)
-router.post('/cd/notas-fiscais/xml', cdController.lerNfXml);
-router.post('/cd/notas-fiscais', cdController.registrarNf);
+router.post('/cd/notas-fiscais/xml', roleMiddleware(['GESTOR_ESTOQUE']), cdController.lerNfXml);
+router.post('/cd/notas-fiscais', roleMiddleware(['GESTOR_ESTOQUE']), cdController.registrarNf);
 router.get('/cd/notas-fiscais', cdController.listarNfs);
 router.get('/cd/notas-fiscais/:id', cdController.obterNf);
-router.post('/cd/notas-fiscais/:id/conferir', cdController.conferirNf);
+router.post('/cd/notas-fiscais/:id/conferir', roleMiddleware(['GESTOR_ESTOQUE']), cdController.conferirNf);
 router.get('/cd/estoque/detalhes', cdController.obterDetalhesMedicamento);
 router.get('/cd/estoque', cdController.listarEstoque);
 router.post('/cd/recalls', roleMiddleware(['COMPRADOR']), cdController.registrarRecall);
@@ -91,20 +91,20 @@ router.get('/cd/auditoria', cdController.listarAuditoria);
 router.get('/cd/pedidos-reposicao', pedidoReposicaoController.listar);
 router.get('/cd/pedidos-reposicao/motoristas', pedidoReposicaoController.listarMotoristas);
 router.get('/cd/pedidos-reposicao/:id', pedidoReposicaoController.detalhes);
-router.post('/cd/pedidos-reposicao', pedidoReposicaoController.criar);
-router.patch('/cd/pedidos-reposicao/:id/status', pedidoReposicaoController.atualizarStatus);
+router.post('/cd/pedidos-reposicao', roleMiddleware(['FARMACIA', 'POSTO_SAUDE', 'GESTOR_ESTOQUE']), pedidoReposicaoController.criar);
+router.patch('/cd/pedidos-reposicao/:id/status', roleMiddleware(['GESTOR_ESTOQUE', 'ENTREGADOR', 'FARMACIA', 'POSTO_SAUDE']), pedidoReposicaoController.atualizarStatus);
 
 // Rotas da Farmácia (Dispensação)
 router.get('/farmacia/estoque', farmaciaController.buscarEstoque);
-router.post('/farmacia/dispensar', farmaciaController.dispensar);
+router.post('/farmacia/dispensar', roleMiddleware(['FARMACIA', 'POSTO_SAUDE']), farmaciaController.dispensar);
 router.get('/farmacia/dispensacoes/recentes', farmaciaController.dispensacoesRecentes);
 router.get('/farmacia/pacientes', farmaciaController.buscarPacientes);
 
 // Rotas da Farmácia (Entregas Domiciliares)
 router.get('/farmacia/entregas', farmaciaController.listarEntregas);
 router.get('/farmacia/entregas/stats', farmaciaController.statsEntregas);
-router.post('/farmacia/entregas', farmaciaController.criarEntrega);
-router.patch('/farmacia/entregas/:id/coletar', farmaciaController.confirmarColeta);
-router.patch('/farmacia/entregas/:id/status', farmaciaController.atualizarStatusEntrega);
+router.post('/farmacia/entregas', roleMiddleware(['FARMACIA', 'POSTO_SAUDE']), farmaciaController.criarEntrega);
+router.patch('/farmacia/entregas/:id/coletar', roleMiddleware(['ENTREGADOR', 'FARMACIA', 'POSTO_SAUDE']), farmaciaController.confirmarColeta);
+router.patch('/farmacia/entregas/:id/status', roleMiddleware(['ENTREGADOR', 'FARMACIA', 'POSTO_SAUDE']), farmaciaController.atualizarStatusEntrega);
 
 export default router;
