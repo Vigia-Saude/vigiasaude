@@ -497,9 +497,9 @@ export class FarmaciaController {
       }
 
       // 5. Iniciar transação no BD
-      await tenant.$executeRawUnsafe('BEGIN');
-      try {
-        const entregaInsertRes: any[] = await tenant.$queryRawUnsafe(
+      // 5. Iniciar transação no BD
+      const result = await tenant.$transaction(async (tx) => {
+        const entregaInsertRes: any[] = await tx.$queryRawUnsafe(
           `
           INSERT INTO entregas_domiciliares (
             numero, status, prioridade, paciente_id, paciente_nome, paciente_cpf, endereco, observacoes, criado_por
@@ -523,7 +523,7 @@ export class FarmaciaController {
           const loteNum = lote ? lote.numero_lote : null;
 
           // Inserir item
-          await tenant.$executeRawUnsafe(
+          await tx.$executeRawUnsafe(
             `
             INSERT INTO entrega_itens (
               entrega_id, medicamento_id, medicamento_nome, lote_id, numero_lote, quantidade
@@ -538,7 +538,7 @@ export class FarmaciaController {
           );
 
           // Decrementar lote
-          await tenant.$executeRawUnsafe(
+          await tx.$executeRawUnsafe(
             `
             UPDATE lotes SET quantidade_atual = quantidade_atual - $1
             WHERE id = $2
@@ -548,12 +548,10 @@ export class FarmaciaController {
           );
         }
 
-        await tenant.$executeRawUnsafe('COMMIT');
-        res.status(201).json({ id: entregaId, numero });
-      } catch (transactionErr) {
-        await tenant.$executeRawUnsafe('ROLLBACK');
-        throw transactionErr;
-      }
+        return { id: entregaId, numero };
+      });
+
+      res.status(201).json(result);
     } catch (err) {
       console.error(err);
       res.status(500).json({ erro: 'Erro ao registrar entrega.' });
@@ -650,9 +648,8 @@ export class FarmaciaController {
         id
       );
 
-      await tenant.$executeRawUnsafe('BEGIN');
-      try {
-        await tenant.$executeRawUnsafe(
+      await tenant.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe(
           `UPDATE entregas_domiciliares SET status = $1, atualizado_em = NOW() WHERE id = $2`,
           status,
           id
@@ -662,7 +659,7 @@ export class FarmaciaController {
         if (currentStatus !== 'DEVOLVIDO' && status === 'DEVOLVIDO') {
           for (const item of items) {
             if (item.lote_id) {
-              await tenant.$executeRawUnsafe(
+              await tx.$executeRawUnsafe(
                 `UPDATE lotes SET quantidade_atual = quantidade_atual + $1 WHERE id = $2`,
                 item.quantidade,
                 item.lote_id
@@ -670,13 +667,9 @@ export class FarmaciaController {
             }
           }
         }
+      });
 
-        await tenant.$executeRawUnsafe('COMMIT');
-        res.json({ id, status });
-      } catch (err) {
-        await tenant.$executeRawUnsafe('ROLLBACK');
-        throw err;
-      }
+      res.json({ id, status });
     } catch (err) {
       console.error(err);
       res.status(500).json({ erro: 'Erro ao atualizar status da entrega.' });

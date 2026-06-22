@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Menu, Bell, LogOut, Clock } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import apiClient from '../../services/apiClient';
 import { useNavigate } from 'react-router';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export default function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
   const { user, logout } = useAuth();
@@ -47,19 +46,8 @@ export default function Header({ toggleSidebar }: { toggleSidebar: () => void })
 
     async function fetchPendentes() {
       try {
-        const token = localStorage.getItem('vigia_token') || localStorage.getItem('vigiasaude_token');
-        if (!token) return;
-
-        const res = await fetch(`${API_BASE_URL}/auth/pendentes`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          setPendentes(data);
-        }
+        const res = await apiClient.get('/auth/pendentes');
+        setPendentes(res.data);
       } catch (err) {
         console.error('Erro ao buscar notificações pendentes:', err);
       }

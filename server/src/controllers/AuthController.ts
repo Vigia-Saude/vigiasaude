@@ -6,7 +6,10 @@ import { Prisma } from '@prisma/client';
 import prisma from '../config/prisma';
 import type { AuthRequest } from '../middlewares/auth';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key';
+if (!process.env.JWT_SECRET) {
+  throw new Error('FATAL: JWT_SECRET environment variable is not defined.');
+}
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const loginSchema = z.object({
   cpf: z.string().min(11),

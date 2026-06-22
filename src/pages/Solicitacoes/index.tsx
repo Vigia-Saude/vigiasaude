@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
+import apiClient from '../../services/apiClient';
 import { 
   Users, 
   Shield, 
@@ -60,7 +61,6 @@ interface PermissaoExtra {
   badge?: string;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const PERFIS: Array<{ value: Perfil; label: string }> = [
   { value: 'SECRETARIO_SAUDE', label: 'Secretário de Saúde' },
@@ -115,9 +115,6 @@ const PERFIL_PERMISSOES_PREVIEW: Record<Perfil, string[]> = {
   ]
 };
 
-function getAuthToken() {
-  return localStorage.getItem('vigia_token') || localStorage.getItem('vigiasaude_token');
-}
 
 function formatCPF(cpf: string | null) {
   if (!cpf) return '-';
@@ -210,31 +207,17 @@ function ModalAprovacao({ usuario, unidades, onClose, onFinished, onAuthError }:
   const unidadeSelecionada = unidades.find((unidade) => unidade.id === unidadeId);
 
   const request = async (url: string, body: unknown) => {
-    const token = getAuthToken();
-    if (!token) {
-      onAuthError();
-      return null;
+    try {
+      const response = await apiClient.post(url, body);
+      return response;
+    } catch (error: any) {
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        onAuthError();
+        return null;
+      }
+      const message = error.response?.data?.error || error.response?.data?.message || error.message || 'Erro ao processar a solicitação.';
+      throw new Error(message);
     }
-
-    const response = await fetch(`${API_BASE_URL}${url}`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (response.status === 401 || response.status === 403) {
-      onAuthError();
-      return null;
-    }
-
-    if (!response.ok) {
-      throw new Error(await readErrorMessage(response));
-    }
-
-    return response;
   };
 
   const handleTogglePermissao = (key: string, checked: boolean) => {
@@ -623,46 +606,29 @@ function ModalEdicaoUsuario({ usuario, unidades, onClose, onFinished, onAuthErro
     setLoading(true);
     setErrorMsg(null);
 
-    const token = getAuthToken();
-    if (!token) {
-      onAuthError();
-      return;
-    }
-
     try {
       const extrasSelecionadas = Object.fromEntries(
         Object.entries(permissoesExtras).filter(([, checked]) => checked)
       );
 
-      const response = await fetch(`${API_BASE_URL}/auth/usuarios/${usuario.id}`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          nome: nome.trim(),
-          email: email.trim(),
-          perfil,
-          unidadeId: isGlobalOrSupplier ? null : unidadeId,
-          tenantSchema: isGlobalOrSupplier ? null : unidadeSelecionada?.tenant_schema,
-          permissoesExtras: extrasSelecionadas,
-          status: 'ATIVO', // Força ativação ao editar/salvar
-        }),
+      await apiClient.put(`/auth/usuarios/${usuario.id}`, {
+        nome: nome.trim(),
+        email: email.trim(),
+        perfil,
+        unidadeId: isGlobalOrSupplier ? null : unidadeId,
+        tenantSchema: isGlobalOrSupplier ? null : unidadeSelecionada?.tenant_schema,
+        permissoesExtras: extrasSelecionadas,
+        status: 'ATIVO', // Força ativação ao editar/salvar
       });
 
-      if (response.status === 401 || response.status === 403) {
+      onFinished(`Usuário ${nome} atualizado com sucesso.`);
+    } catch (error: any) {
+      if (error.response?.status === 401 || error.response?.status === 403) {
         onAuthError();
         return;
       }
-
-      if (!response.ok) {
-        throw new Error(await readErrorMessage(response));
-      }
-
-      onFinished(`Usuário ${nome} atualizado com sucesso.`);
-    } catch (error) {
-      setErrorMsg(error instanceof Error ? error.message : 'Erro ao atualizar usuário.');
+      const message = error.response?.data?.error || error.response?.data?.message || error.message || 'Erro ao atualizar usuário.';
+      setErrorMsg(message);
     } finally {
       setLoading(false);
     }
@@ -873,36 +839,19 @@ function ModalDesativarUsuario({ usuario, onClose, onFinished, onAuthError }: Mo
     setLoading(true);
     setErrorMsg(null);
 
-    const token = getAuthToken();
-    if (!token) {
-      onAuthError();
-      return;
-    }
-
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/desativar/${usuario.id}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          motivoDesativacao: motivo.trim(),
-        }),
+      await apiClient.post(`/auth/desativar/${usuario.id}`, {
+        motivoDesativacao: motivo.trim(),
       });
 
-      if (response.status === 401 || response.status === 403) {
+      onFinished(`Usuário ${usuario.nome} desativado com sucesso.`);
+    } catch (error: any) {
+      if (error.response?.status === 401 || error.response?.status === 403) {
         onAuthError();
         return;
       }
-
-      if (!response.ok) {
-        throw new Error(await readErrorMessage(response));
-      }
-
-      onFinished(`Usuário ${usuario.nome} desativado com sucesso.`);
-    } catch (error) {
-      setErrorMsg(error instanceof Error ? error.message : 'Erro ao desativar usuário.');
+      const message = error.response?.data?.error || error.response?.data?.message || error.message || 'Erro ao desativar usuário.';
+      setErrorMsg(message);
     } finally {
       setLoading(false);
     }
@@ -1511,28 +1460,17 @@ export function SolicitacoesMembro() {
   }, [navigate]);
 
   const privateFetch = useCallback(async <T,>(path: string): Promise<T> => {
-    const token = getAuthToken();
-    if (!token) {
-      handleAuthError();
-      throw new Error('Sessão expirada. Faça login novamente.');
+    try {
+      const response = await apiClient.get<T>(path);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        handleAuthError();
+        throw new Error('Acesso não autorizado.');
+      }
+      const message = error.response?.data?.error || error.response?.data?.message || error.message || 'Erro ao carregar dados.';
+      throw new Error(message);
     }
-
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (response.status === 401 || response.status === 403) {
-      handleAuthError();
-      throw new Error('Acesso não autorizado.');
-    }
-
-    if (!response.ok) {
-      throw new Error(await readErrorMessage(response));
-    }
-
-    return response.json() as Promise<T>;
   }, [handleAuthError]);
 
   const loadData = useCallback(async () => {
