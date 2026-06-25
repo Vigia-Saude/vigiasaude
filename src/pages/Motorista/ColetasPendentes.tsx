@@ -51,7 +51,8 @@ export function ColetasPendentes() {
     try {
       const res = await apiClient.get('/api/motorista/coletas', { params: { page, limit } });
       const data = res.data;
-      setColetas(data.dados || data.data || data || []);
+      const coletasArray = Array.isArray(data) ? data : (Array.isArray(data?.dados) ? data.dados : (Array.isArray(data?.data) ? data.data : []));
+      setColetas(coletasArray);
       setTotalPages(data.totalPages || 1);
     } catch (err) {
       console.error('Erro ao carregar coletas:', err);

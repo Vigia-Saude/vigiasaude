@@ -48,7 +48,9 @@ export function DashboardMotorista() {
         apiClient.get('/api/motorista/coletas', { params: { page: 1, limit: 5 } }),
       ]);
       setStats(statsRes.data);
-      setColetas(coletasRes.data.dados || coletasRes.data.data || coletasRes.data || []);
+      const coletasData = coletasRes.data;
+      const coletasArray = Array.isArray(coletasData) ? coletasData : (Array.isArray(coletasData?.dados) ? coletasData.dados : (Array.isArray(coletasData?.data) ? coletasData.data : []));
+      setColetas(coletasArray);
     } catch (err) {
       console.error('Erro ao carregar dados do dashboard:', err);
     } finally {

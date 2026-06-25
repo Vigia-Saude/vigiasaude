@@ -45,7 +45,8 @@ export function HistoricoMotorista() {
 
       const res = await apiClient.get('/api/motorista/historico', { params });
       const data = res.data;
-      setHistorico(data.dados || data.data || data || []);
+      const historicoArray = Array.isArray(data) ? data : (Array.isArray(data?.dados) ? data.dados : (Array.isArray(data?.data) ? data.data : []));
+      setHistorico(historicoArray);
       setTotalPages(data.totalPages || 1);
     } catch (err) {
       console.error('Erro ao carregar histórico:', err);
