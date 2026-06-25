@@ -132,6 +132,22 @@ Substituição dos layouts e cards antigos para um design visual simétrico de 3
 
 ---
 
+### 4.7 Portal do Motorista e Sistema de Bipagem (ENTREGADOR)
+#### **[100% FINALIZADO]** (2026-06-25)
+Desenvolvimento completo da área de logística e distribuição dedicada ao motorista/entregador:
+* **Dashboard do Motorista**: Visão em tempo real de estatísticas de transporte (Coletas Pendentes, Em Trânsito, Concluídas Hoje, Total do Mês) e atalhos rápidos das próximas coletas.
+* **Fluxo de Coleta com Bipagem**: Permite que o motorista assuma o transporte de pedidos de reposição com status `AGUARDANDO_MOTORISTA` realizando a conferência item a item através do escaneamento do código de barras/QR Code.
+* **Fluxo de Entrega com Bipagem e Assinatura**: Nas entregas ativas (`EM_TRANSITO`), o motorista realiza nova conferência por bipagem dos itens e colhe a assinatura digital do responsável da unidade receptora (farmácia) na tela através do HTML5 Canvas.
+* **Sistema de Bipagem (`BipagemTracker`)**:
+  * Leitor integrado de câmera usando a biblioteca `html5-qrcode`.
+  * Feedback sonoro programático via Web Audio API (beep de sucesso em 800Hz e erro em 300Hz) e feedback visual (flash verde de sucesso e shake vermelho de erro).
+  * Bloqueio inteligente que impossibilita a confirmação do fluxo até que 100% dos itens esperados tenham sido escaneados.
+* **Arquivos principais**:
+  * Backend: [MotoristaController.ts](file:///c:/Users/giancarlolino/Desktop/APP/VigiaSaude/vigiasaude/server/src/controllers/MotoristaController.ts) e rotas em [apiRoutes.ts](file:///c:/Users/giancarlolino/Desktop/APP/VigiaSaude/vigiasaude/server/src/routes/apiRoutes.ts).
+  * Frontend: Páginas no diretório [src/pages/Motorista/](file:///c:/Users/giancarlolino/Desktop/APP/VigiaSaude/vigiasaude/src/pages/Motorista/), componentes em [src/components/Bipagem/](file:///c:/Users/giancarlolino/Desktop/APP/VigiaSaude/vigiasaude/src/components/Bipagem/) e layouts/rotas atualizados.
+
+---
+
 ## 5. Práticas de Trabalho e Atualização
 
 Este arquivo deve ser atualizado continuamente conforme novas implementações sejam 100% finalizadas. Toda nova funcionalidade entregue precisa:

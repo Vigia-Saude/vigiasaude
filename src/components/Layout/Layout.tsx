@@ -4,6 +4,7 @@ import Sidebar from './Sidebar';
 import SidebarCD from './SidebarCD';
 import SidebarFarmacia from './SidebarFarmacia';
 import SidebarPosto from './SidebarPosto';
+import SidebarMotorista from './SidebarMotorista';
 import Header from './Header';
 import { useAuth } from '../../context/AuthContext';
 import ErrorBoundary from './ErrorBoundary';
@@ -20,6 +21,8 @@ export default function Layout() {
         return <SidebarFarmacia isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />;
       case 'POSTO_SAUDE':
         return <SidebarPosto isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />;
+      case 'ENTREGADOR':
+        return <SidebarMotorista isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />;
       default:
         return <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />;
     }

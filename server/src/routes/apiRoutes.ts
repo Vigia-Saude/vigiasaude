@@ -11,6 +11,7 @@ import { authMiddleware, roleMiddleware } from '../middlewares/auth';
 import { listarUnidades } from '../services/tenantService';
 import { PedidoReposicaoController } from '../controllers/PedidoReposicaoController';
 import { FarmaciaController } from '../controllers/FarmaciaController';
+import { MotoristaController } from '../controllers/MotoristaController';
 
 const router = Router();
 const pedidoController = new PedidoController();
@@ -23,6 +24,7 @@ const dashboardController = new DashboardController();
 const cdController = new CdController();
 const pedidoReposicaoController = new PedidoReposicaoController();
 const farmaciaController = new FarmaciaController();
+const motoristaController = new MotoristaController();
 
 // Todas as rotas da API requerem autenticação
 router.use(authMiddleware);
@@ -106,5 +108,14 @@ router.get('/farmacia/entregas/stats', farmaciaController.statsEntregas);
 router.post('/farmacia/entregas', roleMiddleware(['FARMACIA', 'POSTO_SAUDE']), farmaciaController.criarEntrega);
 router.patch('/farmacia/entregas/:id/coletar', roleMiddleware(['ENTREGADOR', 'FARMACIA', 'POSTO_SAUDE']), farmaciaController.confirmarColeta);
 router.patch('/farmacia/entregas/:id/status', roleMiddleware(['ENTREGADOR', 'FARMACIA', 'POSTO_SAUDE']), farmaciaController.atualizarStatusEntrega);
+
+// Rotas do Motorista (Entregador)
+router.get('/motorista/dashboard', roleMiddleware(['ENTREGADOR']), motoristaController.dashboard);
+router.get('/motorista/coletas', roleMiddleware(['ENTREGADOR']), motoristaController.coletasPendentes);
+router.get('/motorista/entregas', roleMiddleware(['ENTREGADOR']), motoristaController.entregasAtivas);
+router.get('/motorista/historico', roleMiddleware(['ENTREGADOR']), motoristaController.historico);
+router.patch('/motorista/coletas/:id/aceitar', roleMiddleware(['ENTREGADOR']), motoristaController.aceitarColeta);
+router.patch('/motorista/entregas/:id/confirmar', roleMiddleware(['ENTREGADOR']), motoristaController.confirmarEntrega);
+router.patch('/motorista/entregas/:id/devolver', roleMiddleware(['ENTREGADOR']), motoristaController.devolverEntrega);
 
 export default router;

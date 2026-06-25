@@ -32,7 +32,7 @@ export const router = createBrowserRouter([
           const Dashboard = (await import('../pages/Dashboard')).default;
           return {
             Component: () => (
-              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE']}>
+              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE', 'ENTREGADOR']}>
                 <Dashboard />
               </ProtectedRoute>
             )
@@ -58,7 +58,7 @@ export const router = createBrowserRouter([
           const { AtasLista } = await import('../pages/Atas');
           return {
             Component: () => (
-              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE']}>
+              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE', 'ENTREGADOR']}>
                 <AtasLista />
               </ProtectedRoute>
             )
@@ -71,7 +71,7 @@ export const router = createBrowserRouter([
           const { AtasDetalhes } = await import('../pages/Atas/Detalhes');
           return {
             Component: () => (
-              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE']}>
+              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE', 'ENTREGADOR']}>
                 <AtasDetalhes />
               </ProtectedRoute>
             )
@@ -84,7 +84,7 @@ export const router = createBrowserRouter([
           const { PedidosLista } = await import('../pages/Pedidos');
           return {
             Component: () => (
-              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE']}>
+              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE', 'ENTREGADOR']}>
                 <PedidosLista />
               </ProtectedRoute>
             )
@@ -97,7 +97,7 @@ export const router = createBrowserRouter([
           const { NovoPedido } = await import('../pages/Pedidos/Novo');
           return {
             Component: () => (
-              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE']}>
+              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE', 'ENTREGADOR']}>
                 <NovoPedido />
               </ProtectedRoute>
             )
@@ -110,7 +110,7 @@ export const router = createBrowserRouter([
           const { ConfirmarEntrega } = await import('../pages/Pedidos/ConfirmarEntrega');
           return {
             Component: () => (
-              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE']}>
+              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE', 'ENTREGADOR']}>
                 <ConfirmarEntrega />
               </ProtectedRoute>
             )
@@ -123,7 +123,7 @@ export const router = createBrowserRouter([
           const { CompararOrcamentos } = await import('../pages/CompararOrcamentos');
           return {
             Component: () => (
-              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE']}>
+              <ProtectedRoute excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE', 'ENTREGADOR']}>
                 <CompararOrcamentos />
               </ProtectedRoute>
             )
@@ -136,7 +136,7 @@ export const router = createBrowserRouter([
           const { FornecedoresLista } = await import('../pages/Fornecedores');
           return {
             Component: () => (
-              <ProtectedRoute allowedRoles={['COMPRADOR']} excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE']}>
+              <ProtectedRoute allowedRoles={['COMPRADOR']} excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE', 'ENTREGADOR']}>
                 <FornecedoresLista />
               </ProtectedRoute>
             )
@@ -149,7 +149,7 @@ export const router = createBrowserRouter([
           const { AuditoriaLista } = await import('../pages/Auditoria');
           return { 
             Component: () => (
-              <ProtectedRoute allowedRoles={['COMPRADOR']} excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE']}>
+              <ProtectedRoute allowedRoles={['COMPRADOR']} excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE', 'ENTREGADOR']}>
                 <AuditoriaLista />
               </ProtectedRoute>
             ) 
@@ -162,7 +162,7 @@ export const router = createBrowserRouter([
           const { SolicitacoesMembro } = await import('../pages/Solicitacoes');
           return {
             Component: () => (
-              <ProtectedRoute allowedRoles={['COMPRADOR']} excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE']}>
+              <ProtectedRoute allowedRoles={['COMPRADOR']} excludePerfil={['GESTOR_ESTOQUE', 'FARMACIA', 'POSTO_SAUDE', 'ENTREGADOR']}>
                 <SolicitacoesMembro />
               </ProtectedRoute>
             )
@@ -508,6 +508,73 @@ export const router = createBrowserRouter([
             Component: () => (
               <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
                 <ConfiguracoesPosto />
+              </ProtectedRoute>
+            )
+          };
+        }
+      },
+
+      // Motorista Protected Routes
+      {
+        path: 'motorista/dashboard',
+        lazy: async () => {
+          const { DashboardMotorista } = await import('../pages/Motorista/DashboardMotorista');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['ENTREGADOR']}>
+                <DashboardMotorista />
+              </ProtectedRoute>
+            )
+          };
+        }
+      },
+      {
+        path: 'motorista/coletas',
+        lazy: async () => {
+          const { ColetasPendentes } = await import('../pages/Motorista/ColetasPendentes');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['ENTREGADOR']}>
+                <ColetasPendentes />
+              </ProtectedRoute>
+            )
+          };
+        }
+      },
+      {
+        path: 'motorista/entregas',
+        lazy: async () => {
+          const { MinhasEntregas } = await import('../pages/Motorista/MinhasEntregas');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['ENTREGADOR']}>
+                <MinhasEntregas />
+              </ProtectedRoute>
+            )
+          };
+        }
+      },
+      {
+        path: 'motorista/historico',
+        lazy: async () => {
+          const { HistoricoMotorista } = await import('../pages/Motorista/HistoricoMotorista');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['ENTREGADOR']}>
+                <HistoricoMotorista />
+              </ProtectedRoute>
+            )
+          };
+        }
+      },
+      {
+        path: 'motorista/configuracoes',
+        lazy: async () => {
+          const { ConfiguracoesMotorista } = await import('../pages/Motorista/ConfiguracoesMotorista');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['ENTREGADOR']}>
+                <ConfiguracoesMotorista />
               </ProtectedRoute>
             )
           };

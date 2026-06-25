@@ -39,6 +39,8 @@ export default function LoginPage() {
         navigate('/farmacia/dashboard');
       } else if (user.perfil === 'POSTO_SAUDE') {
         navigate('/posto/dashboard');
+      } else if (user.perfil === 'ENTREGADOR') {
+        navigate('/motorista/dashboard');
       } else {
         navigate('/dashboard');
       }
