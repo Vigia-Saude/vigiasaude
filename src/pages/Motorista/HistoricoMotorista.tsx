@@ -45,7 +45,7 @@ export function HistoricoMotorista() {
 
       const res = await apiClient.get('/api/motorista/historico', { params });
       const data = res.data;
-      setHistorico(data.data || data || []);
+      setHistorico(data.dados || data.data || data || []);
       setTotalPages(data.totalPages || 1);
     } catch (err) {
       console.error('Erro ao carregar histórico:', err);
