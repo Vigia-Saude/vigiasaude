@@ -21,11 +21,10 @@ export default function LoginPage() {
   const [regCpf, setRegCpf] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
-  const [regRole, setRegRole] = useState<'COMPRADOR' | 'FORNECEDOR'>('COMPRADOR');
+  const [regConfirmPassword, setRegConfirmPassword] = useState('');
+  const [showRegValidation, setShowRegValidation] = useState(false);
   const [regPerfil, setRegPerfil] = useState('SECRETARIO_SAUDE');
   const [regJustificativa, setRegJustificativa] = useState('');
-  const [regFornecedorId, setRegFornecedorId] = useState('');
-  const [fornecedores, setFornecedores] = useState<any[]>([]);
   const [isRegLoading, setIsRegLoading] = useState(false);
 
   const { login, isLoading, user } = useAuth();
@@ -46,23 +45,6 @@ export default function LoginPage() {
       }
     }
   }, [user, navigate]);
-
-  useEffect(() => {
-    async function loadFornecedores() {
-      try {
-        const response = await apiClient.get('/auth/fornecedores');
-        setFornecedores(response.data);
-        if (response.data.length > 0) {
-          setRegFornecedorId(response.data[0].id);
-        }
-      } catch (err) {
-        console.error('Erro ao carregar fornecedores públicos:', err);
-      }
-    }
-    loadFornecedores();
-  }, []);
-
-
 
   const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCpf(formatCPF(e.target.value));
@@ -91,30 +73,36 @@ export default function LoginPage() {
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
+    setShowRegValidation(true);
+
     const cleanCPF = regCpf.replace(/\D/g, '');
-    if (cleanCPF.length !== 11) {
-      setErrorMsg('CPF inválido. O CPF deve conter 11 dígitos.');
+    const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail);
+    const isJustificativaValid = regJustificativa.trim().length >= 30;
+
+    if (!regNome.trim() || cleanCPF.length !== 11 || !isEmailValid || regPassword.length < 8 || regPassword !== regConfirmPassword || !isJustificativaValid) {
+      if (regPassword.length < 8) {
+        setErrorMsg('A senha precisa ter no mínimo 8 caracteres.');
+      } else if (regPassword !== regConfirmPassword) {
+        setErrorMsg('As senhas não coincidem.');
+      } else if (!isEmailValid) {
+        setErrorMsg('Por favor, informe um e-mail válido.');
+      } else if (!isJustificativaValid) {
+        setErrorMsg('A justificativa de acesso deve conter pelo menos 30 caracteres.');
+      } else {
+        setErrorMsg('Por favor, preencha todos os campos obrigatórios.');
+      }
       return;
     }
 
-    const payload: any = {
+    const payload = {
       nome: regNome,
       cpf: cleanCPF,
-      email: regEmail || undefined,
+      email: regEmail,
       password: regPassword,
-      role: regRole,
+      role: 'COMPRADOR' as const,
+      perfil: regPerfil,
+      justificativa: regJustificativa,
     };
-
-    if (regRole === 'COMPRADOR') {
-      payload.perfil = regPerfil;
-      payload.justificativa = regJustificativa;
-    } else {
-      if (!regFornecedorId) {
-        setErrorMsg('Selecione o fornecedor correspondente.');
-        return;
-      }
-      payload.fornecedorId = regFornecedorId;
-    }
 
     setIsRegLoading(true);
     try {
@@ -125,10 +113,9 @@ export default function LoginPage() {
       setRegCpf('');
       setRegEmail('');
       setRegPassword('');
+      setRegConfirmPassword('');
       setRegJustificativa('');
-      if (fornecedores.length > 0) {
-        setRegFornecedorId(fornecedores[0].id);
-      }
+      setShowRegValidation(false);
     } catch (err: any) {
       setErrorMsg(err.response?.data?.error || 'Não foi possível enviar a solicitação. Tente novamente.');
     } finally {
@@ -281,7 +268,10 @@ export default function LoginPage() {
             <div className="space-y-6">
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => setIsRegistering(false)}
+                  onClick={() => {
+                    setIsRegistering(false);
+                    setShowRegValidation(false);
+                  }}
                   className="p-2 -ml-2 rounded-lg text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors"
                 >
                   <ArrowLeft className="h-5 w-5" />
@@ -292,158 +282,166 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* Seletor de Perfil Comprador / Fornecedor */}
-              <div className="grid grid-cols-2 p-1 bg-gray-100 rounded-xl">
-                <button
-                  type="button"
-                  onClick={() => setRegRole('COMPRADOR')}
-                  className={`flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-lg transition-all ${
-                    regRole === 'COMPRADOR'
-                      ? 'bg-white text-blue-700 shadow-sm'
-                      : 'text-gray-500 hover:text-gray-900'
-                  }`}
-                >
-                  <User className="w-4 h-4" />
-                  Comprador
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRegRole('FORNECEDOR')}
-                  className={`flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-lg transition-all ${
-                    regRole === 'FORNECEDOR'
-                      ? 'bg-white text-blue-700 shadow-sm'
-                      : 'text-gray-500 hover:text-gray-900'
-                  }`}
-                >
-                  <Building2 className="w-4 h-4" />
-                  Fornecedor
-                </button>
-              </div>
-
               <form onSubmit={handleRegisterSubmit} className="space-y-4">
-                <div>
-                  <label htmlFor="reg-nome" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
-                    Nome Completo
-                  </label>
-                  <input
-                    id="reg-nome"
-                    type="text"
-                    required
-                    placeholder="Ex: João da Silva"
-                    value={regNome}
-                    onChange={(e) => setRegNome(e.target.value)}
-                    className="mt-1 block w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 sm:text-sm"
-                  />
-                </div>
+                {(() => {
+                  const cleanCPF = regCpf.replace(/\D/g, '');
+                  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail);
+                  const isNomeInvalid = showRegValidation && !regNome.trim();
+                  const isCpfInvalid = showRegValidation && cleanCPF.length !== 11;
+                  const isEmailInvalid = showRegValidation && !isEmailValid;
+                  const isPasswordInvalid = showRegValidation && regPassword.length < 8;
+                  const isConfirmPasswordInvalid = showRegValidation && regConfirmPassword !== regPassword;
+                  const isJustificativaInvalid = showRegValidation && regJustificativa.trim().length < 30;
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="reg-cpf" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
-                      CPF
-                    </label>
-                    <input
-                      id="reg-cpf"
-                      type="text"
-                      required
-                      placeholder="000.000.000-00"
-                      value={regCpf}
-                      onChange={handleRegCpfChange}
-                      className="mt-1 block w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 sm:text-sm"
-                    />
-                  </div>
+                  const inputClass = (isInvalid: boolean) =>
+                    `mt-1 block w-full rounded-xl border px-4 py-2.5 text-gray-900 transition-all focus:bg-white focus:ring-4 sm:text-sm ${
+                      isInvalid
+                        ? 'border-red-500 bg-red-50/50 focus:border-red-500 focus:ring-red-500/10'
+                        : 'border-gray-300 bg-gray-50 focus:border-blue-500 focus:ring-blue-500/10'
+                    }`;
 
-                  <div>
-                    <label htmlFor="reg-email" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
-                      E-mail (Opcional)
-                    </label>
-                    <input
-                      id="reg-email"
-                      type="email"
-                      placeholder="exemplo@email.com"
-                      value={regEmail}
-                      onChange={(e) => setRegEmail(e.target.value)}
-                      className="mt-1 block w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 sm:text-sm"
-                    />
-                  </div>
-                </div>
+                  return (
+                    <>
+                      <div>
+                        <label htmlFor="reg-nome" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                          Nome Completo *
+                        </label>
+                        <input
+                          id="reg-nome"
+                          type="text"
+                          required
+                          placeholder="Ex: João da Silva"
+                          value={regNome}
+                          onChange={(e) => setRegNome(e.target.value)}
+                          className={inputClass(isNomeInvalid)}
+                        />
+                        {isNomeInvalid && (
+                          <p className="mt-1 text-xs text-red-500 font-medium">Nome completo é obrigatório.</p>
+                        )}
+                      </div>
 
-                <div>
-                  <label htmlFor="reg-pass" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
-                    Senha (mínimo 8 caracteres)
-                  </label>
-                  <input
-                    id="reg-pass"
-                    type="password"
-                    required
-                    minLength={8}
-                    placeholder="••••••••"
-                    value={regPassword}
-                    onChange={(e) => setRegPassword(e.target.value)}
-                    className="mt-1 block w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 sm:text-sm"
-                  />
-                </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label htmlFor="reg-cpf" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                            CPF *
+                          </label>
+                          <input
+                            id="reg-cpf"
+                            type="text"
+                            required
+                            placeholder="000.000.000-00"
+                            value={regCpf}
+                            onChange={handleRegCpfChange}
+                            className={inputClass(isCpfInvalid)}
+                          />
+                          {isCpfInvalid && (
+                            <p className="mt-1 text-xs text-red-500 font-medium">CPF inválido (11 dígitos).</p>
+                          )}
+                        </div>
 
-                {regRole === 'COMPRADOR' ? (
-                  <>
-                    <div>
-                      <label htmlFor="reg-perfil" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
-                        Perfil Solicitado
-                      </label>
-                      <select
-                        id="reg-perfil"
-                        value={regPerfil}
-                        onChange={(e) => setRegPerfil(e.target.value)}
-                        className="mt-1 block w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 sm:text-sm"
-                      >
-                        <option value="SECRETARIO_SAUDE">Secretário de Saúde</option>
-                        <option value="GESTOR_ESTOQUE">Gestor de Estoque</option>
-                        <option value="FARMACIA">Farmácia</option>
-                        <option value="POSTO_SAUDE">Posto de Saúde</option>
-                        <option value="MEDICO">Médico</option>
-                        <option value="ENTREGADOR">Entregador</option>
-                      </select>
-                    </div>
+                        <div>
+                          <label htmlFor="reg-email" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                            E-mail *
+                          </label>
+                          <input
+                            id="reg-email"
+                            type="email"
+                            required
+                            placeholder="exemplo@email.com"
+                            value={regEmail}
+                            onChange={(e) => setRegEmail(e.target.value)}
+                            className={inputClass(isEmailInvalid)}
+                          />
+                          {isEmailInvalid && (
+                            <p className="mt-1 text-xs text-red-500 font-medium">Informe um e-mail válido.</p>
+                          )}
+                        </div>
+                      </div>
 
-                    <div>
-                      <label htmlFor="reg-just" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
-                        Justificativa de Acesso (mínimo 10 caracteres)
-                      </label>
-                      <textarea
-                        id="reg-just"
-                        required
-                        minLength={10}
-                        rows={3}
-                        placeholder="Descreva o motivo de solicitar o acesso ao sistema..."
-                        value={regJustificativa}
-                        onChange={(e) => setRegJustificativa(e.target.value)}
-                        className="mt-1 block w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 sm:text-sm placeholder:text-gray-400"
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <div>
-                    <label htmlFor="reg-forn" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
-                      Empresa / Fornecedor Vinculado
-                    </label>
-                    <select
-                      id="reg-forn"
-                      required
-                      value={regFornecedorId}
-                      onChange={(e) => setRegFornecedorId(e.target.value)}
-                      className="mt-1 block w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 sm:text-sm"
-                    >
-                      {fornecedores.length === 0 ? (
-                        <option value="">Carregando fornecedores...</option>
-                      ) : (
-                        fornecedores.map((f) => (
-                          <option key={f.id} value={f.id}>
-                            {f.nomeFantasia} ({f.cnpj})
-                          </option>
-                        ))
-                      )}
-                    </select>
-                  </div>
-                )}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label htmlFor="reg-pass" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                            Senha * (mín. 8 caracteres)
+                          </label>
+                          <input
+                            id="reg-pass"
+                            type="password"
+                            required
+                            minLength={8}
+                            placeholder="••••••••"
+                            value={regPassword}
+                            onChange={(e) => setRegPassword(e.target.value)}
+                            className={inputClass(isPasswordInvalid)}
+                          />
+                          {isPasswordInvalid && (
+                            <p className="mt-1 text-xs text-red-500 font-medium">Mínimo de 8 caracteres.</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label htmlFor="reg-confirm-pass" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                            Confirmar Senha *
+                          </label>
+                          <input
+                            id="reg-confirm-pass"
+                            type="password"
+                            required
+                            placeholder="••••••••"
+                            value={regConfirmPassword}
+                            onChange={(e) => setRegConfirmPassword(e.target.value)}
+                            className={inputClass(isConfirmPasswordInvalid)}
+                          />
+                          {isConfirmPasswordInvalid && (
+                            <p className="mt-1 text-xs text-red-500 font-medium">As senhas não coincidem.</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label htmlFor="reg-perfil" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                          Perfil Solicitado *
+                        </label>
+                        <select
+                          id="reg-perfil"
+                          value={regPerfil}
+                          onChange={(e) => setRegPerfil(e.target.value)}
+                          className="mt-1 block w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 sm:text-sm"
+                        >
+                          <option value="SECRETARIO_SAUDE">Secretário de Saúde</option>
+                          <option value="GESTOR_ESTOQUE">Gestor de Estoque</option>
+                          <option value="FARMACIA">Farmácia</option>
+                          <option value="POSTO_SAUDE">Posto de Saúde</option>
+                          <option value="MEDICO">Médico</option>
+                          <option value="ENTREGADOR">Entregador</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between items-center">
+                          <label htmlFor="reg-just" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                            Justificativa de Acesso * (mínimo 30 caracteres)
+                          </label>
+                          <span className={`text-[10px] font-bold ${regJustificativa.trim().length >= 30 ? 'text-emerald-600' : 'text-gray-500'}`}>
+                            {regJustificativa.trim().length}/30 caracteres
+                          </span>
+                        </div>
+                        <textarea
+                          id="reg-just"
+                          required
+                          minLength={30}
+                          rows={3}
+                          placeholder="Descreva detalhadamente o motivo de solicitar o acesso ao sistema..."
+                          value={regJustificativa}
+                          onChange={(e) => setRegJustificativa(e.target.value)}
+                          className={inputClass(isJustificativaInvalid)}
+                        />
+                        {isJustificativaInvalid && (
+                          <p className="mt-1 text-xs text-red-500 font-medium">Justificativa precisa ter pelo menos 30 caracteres.</p>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
 
                 <button
                   type="submit"
@@ -456,7 +454,10 @@ export default function LoginPage() {
 
               <div className="text-center pt-1">
                 <button
-                  onClick={() => setIsRegistering(false)}
+                  onClick={() => {
+                    setIsRegistering(false);
+                    setShowRegValidation(false);
+                  }}
                   className="text-sm font-semibold text-gray-500 hover:text-gray-700 transition-colors"
                 >
                   Voltar para o Login

@@ -27,7 +27,7 @@ const perfilEnum = z.enum([
 const solicitarAcessoSchema = z.object({
   nome: z.string().min(2),
   cpf: z.string().length(11),
-  email: z.string().email().optional().or(z.literal('')),
+  email: z.string().email('E-mail inválido ou obrigatório'),
   role: z.enum(['COMPRADOR', 'FORNECEDOR']).default('COMPRADOR'),
   perfil: perfilEnum.optional(),
   justificativa: z.string().optional(),
@@ -35,7 +35,7 @@ const solicitarAcessoSchema = z.object({
   password: z.string().min(8),
 }).refine(data => {
   if (data.role === 'COMPRADOR') {
-    return !!data.perfil && !!data.justificativa && data.justificativa.length >= 10;
+    return !!data.perfil && !!data.justificativa && data.justificativa.length >= 30;
   }
   if (data.role === 'FORNECEDOR') {
     return !!data.fornecedorId;
