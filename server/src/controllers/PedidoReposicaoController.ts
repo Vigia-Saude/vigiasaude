@@ -2,6 +2,7 @@ import { Response } from 'express';
 import prisma from '../config/prisma';
 import { AuthRequest } from '../middlewares/auth';
 import { Prisma } from '@prisma/client';
+import { getPrismaForSchema } from '../lib/prismaFactory';
 
 export class PedidoReposicaoController {
   // GET /api/cd/pedidos-reposicao
@@ -407,7 +408,6 @@ export class PedidoReposicaoController {
       return;
     }
 
-    const { getPrismaForSchema } = await import('../lib/prismaFactory.js');
     const tenant = getPrismaForSchema(tenantSchema);
 
     for (const item of itens) {

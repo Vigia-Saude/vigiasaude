@@ -38,6 +38,7 @@ app.use(helmet())
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
+  'http://localhost:3002',
 ]
 if (process.env.CORS_ORIGIN) {
   process.env.CORS_ORIGIN.split(',').forEach(o => allowedOrigins.push(o.trim()))
@@ -112,7 +113,7 @@ const server = app.listen(PORT, () => {
 async function gracefulShutdown(signal: string) {
   console.log(`\n${signal} recebido — encerrando servidor...`)
   server.close(async () => {
-    const { disposeAllPrismaClients } = await import('./lib/prismaFactory.js')
+    const { disposeAllPrismaClients } = await import('./lib/prismaFactory')
     await disposeAllPrismaClients()
     process.exit(0)
   })
