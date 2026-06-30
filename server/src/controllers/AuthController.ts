@@ -1,10 +1,12 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import prisma from '../config/prisma';
 import type { AuthRequest } from '../middlewares/auth';
+import { enviarCodigoRecuperacao } from '../services/emailService';
 
 if (!process.env.JWT_SECRET) {
   throw new Error('FATAL: JWT_SECRET environment variable is not defined.');
@@ -28,6 +30,7 @@ const solicitarAcessoSchema = z.object({
   nome: z.string().min(2),
   cpf: z.string().length(11),
   email: z.string().email('E-mail inválido ou obrigatório'),
+  telefone: z.string().optional(),
   role: z.enum(['COMPRADOR', 'FORNECEDOR']).default('COMPRADOR'),
   perfil: perfilEnum.optional(),
   justificativa: z.string().optional(),
@@ -73,6 +76,20 @@ const desativarSchema = z.object({
 
 function firstIssue(err: z.ZodError): string {
   return err.issues[0]?.message ?? 'Dados inválidos';
+}
+
+function maskEmail(email: string): string {
+  const [local, domain] = email.split('@');
+  if (!local || !domain) return '***@***.***';
+  const visible = local.substring(0, Math.min(2, local.length));
+  return `${visible}${'*'.repeat(Math.max(local.length - 2, 3))}@${domain}`;
+}
+
+function maskPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length < 10) return '(**) *****-****';
+  const last4 = digits.slice(-4);
+  return `(**) *****-${last4}`;
 }
 
 export class AuthController {
@@ -147,7 +164,7 @@ export class AuthController {
       return res.status(400).json({ error: firstIssue(parsed.error) });
     }
 
-    const { nome, cpf, email, role, perfil, justificativa, fornecedorId, password } = parsed.data;
+    const { nome, cpf, email, telefone, role, perfil, justificativa, fornecedorId, password } = parsed.data;
 
     try {
       const existing = await prisma.user.findUnique({ where: { cpf } });
@@ -164,6 +181,7 @@ export class AuthController {
           nome,
           cpf,
           email: email || null,
+          telefone: telefone || null,
           senhaHash,
           role,
           perfil: role === 'COMPRADOR' ? perfil : null,
@@ -459,6 +477,133 @@ export class AuthController {
     } catch (err) {
       console.error('Erro ao listar usuários:', err);
       return res.status(500).json({ error: 'Erro interno no servidor' });
+    }
+  }
+
+  // ========== RECUPERAÇÃO DE SENHA ==========
+
+  async esqueceuSenha(req: Request, res: Response) {
+    const schema = z.object({ cpf: z.string().min(11) });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'CPF é obrigatório.' });
+    }
+
+    const cpf = parsed.data.cpf.replace(/\D/g, '');
+
+    try {
+      const user = await prisma.user.findUnique({
+        where: { cpf },
+        select: { id: true, nome: true, email: true, telefone: true, status: true },
+      });
+
+      if (!user || user.status !== 'ATIVO') {
+        // Retorna sucesso genérico para não revelar se CPF existe
+        return res.json({
+          message: 'Se o CPF estiver cadastrado e ativo, um código será enviado.',
+          email: null,
+          telefone: null,
+        });
+      }
+
+      // Gerar código OTP de 6 dígitos
+      const codigo = crypto.randomInt(100000, 999999).toString();
+      const codigoHash = await bcrypt.hash(codigo, 10);
+      const expiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos
+
+      // Salvar hash do código e expiração
+      await prisma.user.update({
+        where: { cpf },
+        data: {
+          resetToken: codigoHash,
+          resetTokenExpiry: expiry,
+        },
+      });
+
+      // Mascarar e-mail e telefone para mostrar ao frontend
+      const maskedEmail = user.email ? maskEmail(user.email) : null;
+      const maskedPhone = user.telefone ? maskPhone(user.telefone) : null;
+
+      // Enviar código por e-mail
+      if (user.email) {
+        await enviarCodigoRecuperacao({
+          to: user.email,
+          nome: user.nome,
+          codigo,
+        });
+      }
+
+      return res.json({
+        message: 'Código de recuperação enviado.',
+        email: maskedEmail,
+        telefone: maskedPhone,
+      });
+    } catch (err) {
+      console.error('Erro ao processar esqueceu senha:', err);
+      return res.status(500).json({ error: 'Erro interno no servidor.' });
+    }
+  }
+
+  async resetarSenha(req: Request, res: Response) {
+    const schema = z.object({
+      cpf: z.string().min(11),
+      codigo: z.string().length(6),
+      novaSenha: z.string().min(8, 'A nova senha deve ter no mínimo 8 caracteres.'),
+    });
+
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: firstIssue(parsed.error) });
+    }
+
+    const cpf = parsed.data.cpf.replace(/\D/g, '');
+    const { codigo, novaSenha } = parsed.data;
+
+    try {
+      const user = await prisma.user.findUnique({
+        where: { cpf },
+        select: { id: true, resetToken: true, resetTokenExpiry: true, status: true },
+      });
+
+      if (!user || user.status !== 'ATIVO') {
+        return res.status(400).json({ error: 'Solicitação inválida.' });
+      }
+
+      if (!user.resetToken || !user.resetTokenExpiry) {
+        return res.status(400).json({ error: 'Nenhuma solicitação de recuperação encontrada. Solicite um novo código.' });
+      }
+
+      // Verificar expiração
+      if (new Date() > user.resetTokenExpiry) {
+        // Limpar token expirado
+        await prisma.user.update({
+          where: { cpf },
+          data: { resetToken: null, resetTokenExpiry: null },
+        });
+        return res.status(400).json({ error: 'Código expirado. Solicite um novo código.' });
+      }
+
+      // Verificar código
+      const codigoValido = await bcrypt.compare(codigo, user.resetToken);
+      if (!codigoValido) {
+        return res.status(400).json({ error: 'Código inválido. Verifique e tente novamente.' });
+      }
+
+      // Atualizar senha e limpar token
+      const novaSenhaHash = await bcrypt.hash(novaSenha, 12);
+      await prisma.user.update({
+        where: { cpf },
+        data: {
+          senhaHash: novaSenhaHash,
+          resetToken: null,
+          resetTokenExpiry: null,
+        },
+      });
+
+      return res.json({ message: 'Senha redefinida com sucesso! Faça login com sua nova senha.' });
+    } catch (err) {
+      console.error('Erro ao resetar senha:', err);
+      return res.status(500).json({ error: 'Erro interno no servidor.' });
     }
   }
 

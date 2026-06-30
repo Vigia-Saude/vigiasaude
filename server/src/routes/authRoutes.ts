@@ -13,10 +13,19 @@ const loginLimiter = rateLimit({
   message: { error: 'Muitas tentativas de login. Tente novamente em 15 minutos.' }
 });
 
+// Limite para recuperação de senha (mais restritivo)
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { error: 'Muitas tentativas. Aguarde 15 minutos.' }
+});
+
 // Públicas
 router.post('/login', loginLimiter, authController.login.bind(authController));
 router.post('/solicitar-acesso', loginLimiter, authController.solicitarAcesso.bind(authController));
 router.get('/fornecedores', authController.listarFornecedoresPublico.bind(authController));
+router.post('/forgot-password', forgotPasswordLimiter, authController.esqueceuSenha.bind(authController));
+router.post('/reset-password', forgotPasswordLimiter, authController.resetarSenha.bind(authController));
 
 // Protegidas — apenas Secretário
 router.get(

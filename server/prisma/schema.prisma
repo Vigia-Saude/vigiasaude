@@ -128,6 +128,9 @@ model User {
   aprovadoEm       DateTime?     @map("aprovado_em")
   fornecedorId     String?       @map("fornecedor_id")
   fornecedor       Fornecedor?   @relation(fields: [fornecedorId], references: [id])
+  telefone         String?
+  resetToken       String?       @map("reset_token")
+  resetTokenExpiry DateTime?     @map("reset_token_expiry")
   criadoEm         DateTime      @default(now()) @map("criado_em")
   atualizadoEm     DateTime      @updatedAt @map("atualizado_em")
   deletedAt        DateTime?     @map("deleted_at")

@@ -40,3 +40,11 @@ export function formatCPF(value: string | null | undefined): string {
   return `${truncated.slice(0, 3)}.${truncated.slice(3, 6)}.${truncated.slice(6, 9)}-${truncated.slice(9, 11)}`;
 }
 
+export function formatPhone(value: string | null | undefined): string {
+  if (!value) return '';
+  const digits = value.replace(/\D/g, '');
+  const truncated = digits.slice(0, 11);
+  if (truncated.length <= 2) return `(${truncated}`;
+  if (truncated.length <= 7) return `(${truncated.slice(0, 2)}) ${truncated.slice(2)}`;
+  return `(${truncated.slice(0, 2)}) ${truncated.slice(2, 7)}-${truncated.slice(7, 11)}`;
+}
