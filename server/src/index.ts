@@ -61,8 +61,9 @@ app.use(cors({
       const isProductionVercel = hostname === 'vigia-saude-git-developer-giancarlo-projects.vercel.app'
       const isPreviewVercel = hostname.startsWith('vigia-saude-') && hostname.endsWith('-giancarlo-projects.vercel.app')
       const isRailwayDeploy = hostname === 'vigiasaude-production.up.railway.app'
+      const isRailwayNewDeploy = hostname === 'vigiasaude-production-a091.up.railway.app'
       
-      if (isProductionVercel || isPreviewVercel || isRailwayDeploy) {
+      if (isProductionVercel || isPreviewVercel || isRailwayDeploy || isRailwayNewDeploy) {
         return callback(null, true)
       }
     } catch {
