@@ -114,7 +114,7 @@ const server = app.listen(PORT, () => {
 async function gracefulShutdown(signal: string) {
   console.log(`\n${signal} recebido — encerrando servidor...`)
   server.close(async () => {
-    const { disposeAllPrismaClients } = await import('./lib/prismaFactory')
+    const { disposeAllPrismaClients } = await import('./lib/prismaFactory.js')
     await disposeAllPrismaClients()
     process.exit(0)
   })
