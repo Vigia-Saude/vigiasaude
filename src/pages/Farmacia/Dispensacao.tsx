@@ -13,9 +13,12 @@ import {
   AlertCircle,
   Clock,
   ArrowDownUp,
+  QrCode,
 } from 'lucide-react';
 import apiClient from '../../services/apiClient';
 import { toast } from 'sonner';
+import { QrScannerModal } from '../../components/Farmacia/QrScannerModal';
+import { EtiquetaFracionada } from '../../components/Farmacia/EtiquetaFracionada';
 
 /* ─── Types ─── */
 interface Lote {
@@ -23,7 +26,14 @@ interface Lote {
   numeroLote: string;
   validade: string;
   quantidadeAtual: number;
+  quantidadeCaixasFechadas: number;
+  quantidadePorCaixa: number;
   fornecedor?: string;
+  embalagemFracionada?: {
+    id: string;
+    codigoQr: string;
+    quantidadeAtual: number;
+  } | null;
 }
 
 interface MedicamentoEstoque {
@@ -82,6 +92,13 @@ export function Dispensacao() {
   const [selectedPatient, setSelectedPatient] = useState<Paciente | null>(null);
   const [showPatientDropdown, setShowPatientDropdown] = useState(false);
   const patientDropdownRef = useRef<HTMLDivElement>(null);
+
+  // QR & Printing states
+  const [qrScannerOpen, setQrScannerOpen] = useState(false);
+  const [etiquetaOpen, setEtiquetaOpen] = useState(false);
+  const [etiquetaDados, setEtiquetaDados] = useState<any>(null);
+  const [scannedQrCode, setScannedQrCode] = useState<string | null>(null);
+  const [bipado, setBipado] = useState(false);
 
   /* ─── Fetch recent dispensations ─── */
   const fetchRecentes = useCallback(async () => {
@@ -173,6 +190,11 @@ export function Dispensacao() {
     const enrichedMed = { ...med, estoqueAtual: totalEstoque };
     setSelected(enrichedMed as MedicamentoEstoque & { estoqueAtual: number });
     setQuantidade(1);
+    
+    // Reset scanner states
+    setScannedQrCode(null);
+    setBipado(false);
+
     // Auto-select the first lot (closest expiry / FEFO)
     if (med.lotes && med.lotes.length > 0) {
       const sortedLotes = [...med.lotes].sort(
@@ -186,10 +208,37 @@ export function Dispensacao() {
     setSearch('');
   };
 
+  /* ─── Handle QR Code Scan Success ─── */
+  const handleScanSuccess = async (codigoQr: string) => {
+    if (!selectedLote) return;
+    
+    try {
+      // Valida QR contra a API
+      const res = await apiClient.post('/api/farmacia/validar-qr', { codigoQr });
+      
+      if (res.data.loteId !== selectedLote.id) {
+        toast.error('Este QR Code pertence a outro lote!');
+        return;
+      }
+      
+      setScannedQrCode(codigoQr);
+      setBipado(true);
+      setQrScannerOpen(false);
+      toast.success('QR Code bipado com sucesso!');
+    } catch (err: any) {
+      const msg = err?.response?.data?.erro || 'QR Code inválido ou já esgotado.';
+      toast.error(msg);
+    }
+  };
+
   /* ─── Dispense medication ─── */
   const handleDispensacao = async () => {
     if (!selected || !selectedLote) {
       toast.error('Selecione um medicamento e lote.');
+      return;
+    }
+    if (selectedLote.embalagemFracionada && !bipado) {
+      toast.error('Bipagem obrigatória: Este lote possui medicamentos avulsos em embalagem fracionada. Favor bipar o QR code.');
       return;
     }
     if (!selectedPatient) {
@@ -207,19 +256,37 @@ export function Dispensacao() {
 
     try {
       setDispensing(true);
-      await apiClient.post('/api/farmacia/dispensar', {
+      const res = await apiClient.post('/api/farmacia/dispensar', {
         medicamentoId: selected.id,
         loteId: selectedLote.id,
         quantidade,
         pacienteId: selectedPatient.id,
+        codigoQr: scannedQrCode || undefined,
       });
-      toast.success('Dispensação realizada com sucesso!');
+
+      // Se gerou nova embalagem fracionada para impressão
+      if (res.data?.novaEmbalagem) {
+        setEtiquetaDados({
+          codigoQr: res.data.novaEmbalagem.codigoQr,
+          quantidadeAtual: res.data.novaEmbalagem.quantidadeAtual,
+          numeroLote: selectedLote.numeroLote,
+          validade: selectedLote.validade,
+          medicamentoNome: selected.nome,
+          unidadeMedida: selected.unidadeMedida || 'UNIDADE',
+          caixasAbertas: res.data.caixasAbertas,
+        });
+        setEtiquetaOpen(true);
+      } else {
+        toast.success('Dispensação realizada com sucesso!');
+      }
 
       // Reset form and refresh
       setSelected(null);
       setSelectedLote(null);
       setSelectedPatient(null);
       setQuantidade(1);
+      setScannedQrCode(null);
+      setBipado(false);
       fetchRecentes();
     } catch (err: any) {
       const msg = err?.response?.data?.erro || 'Erro ao realizar dispensação.';
@@ -343,17 +410,65 @@ export function Dispensacao() {
 
               {/* Lot & Expiry */}
               {selectedLote && (
-                <div className="flex flex-wrap items-center gap-4 text-sm">
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Hash className="h-4 w-4 text-emerald-500" />
-                    <span className="font-semibold">Lote:</span>
-                    <span className="font-bold text-gray-900">{selectedLote.numeroLote}</span>
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-4 text-sm">
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <Hash className="h-4 w-4 text-emerald-500" />
+                      <span className="font-semibold">Lote:</span>
+                      <span className="font-bold text-gray-900">{selectedLote.numeroLote}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <Calendar className="h-4 w-4 text-emerald-500" />
+                      <span className="font-semibold">Validade:</span>
+                      <span className="font-bold text-gray-900">{formatDate(selectedLote.validade)}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Calendar className="h-4 w-4 text-emerald-500" />
-                    <span className="font-semibold">Validade:</span>
-                    <span className="font-bold text-gray-900">{formatDate(selectedLote.validade)}</span>
+
+                  {/* Caixas Fechadas & Unidade Medida */}
+                  <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500">
+                    <div className="flex items-center gap-1.5">
+                      <Package className="h-3.5 w-3.5 text-gray-400" />
+                      <span>Caixas Fechadas:</span>
+                      <span className="font-bold text-gray-700">
+                        {selectedLote.quantidadeCaixasFechadas} caixas (c/ {selectedLote.quantidadePorCaixa} {selected.unidadeMedida}(s) cada)
+                      </span>
+                    </div>
                   </div>
+
+                  {/* Embalagem Fracionada (Saquinho Ziplock) se houver */}
+                  {selectedLote.embalagemFracionada ? (
+                    <div className="p-4 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-between text-xs">
+                      <div>
+                        <div className="flex items-center gap-1.5 text-indigo-700 font-bold">
+                          <QrCode className="h-4 w-4" />
+                          <span>Medicamentos Avulsos no Saquinho</span>
+                        </div>
+                        <p className="text-[10px] text-indigo-500 font-semibold mt-0.5">
+                          Etiqueta: {selectedLote.embalagemFracionada.codigoQr}
+                        </p>
+                        <p className="text-lg font-black text-indigo-900 mt-1">
+                          {selectedLote.embalagemFracionada.quantidadeAtual}
+                          <span className="text-xs font-bold ml-1 text-indigo-600">{selected.unidadeMedida}(s)</span>
+                        </p>
+                      </div>
+                      <div>
+                        {bipado ? (
+                          <span className="px-3 py-1.5 bg-emerald-100 border border-emerald-250 text-emerald-700 rounded-xl font-extrabold text-xs flex items-center gap-1">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                            Bipado!
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setQrScannerOpen(true)}
+                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-md hover:shadow-lg active:scale-95 transition-all text-xs cursor-pointer"
+                          >
+                            Bipar QR Code
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               )}
 
@@ -614,6 +729,22 @@ export function Dispensacao() {
           </div>
         </div>
       </div>
+
+      {/* Modais de Fracionamento */}
+      <QrScannerModal
+        isOpen={qrScannerOpen}
+        onClose={() => setQrScannerOpen(false)}
+        onScanSuccess={handleScanSuccess}
+      />
+
+      <EtiquetaFracionada
+        isOpen={etiquetaOpen}
+        onClose={() => {
+          setEtiquetaOpen(false);
+          setEtiquetaDados(null);
+        }}
+        dados={etiquetaDados}
+      />
     </div>
   );
 }

@@ -9,6 +9,7 @@ const dispensarSchema = z.object({
   quantidade: z.number().int().positive('Quantidade deve ser maior que 0'),
   pacienteId: z.string().min(1, 'Paciente é obrigatório'),
   observacao: z.string().optional(),
+  codigoQr: z.string().optional(),
 });
 
 export class FarmaciaController {
@@ -34,14 +35,21 @@ export class FarmaciaController {
           m.forma_farmaceutica,
           m.concentracao,
           m.unidade_medida,
+          m.quantidade_por_embalagem,
           m.estoque_minimo,
           l.id            AS lote_id,
           l.numero_lote,
           l.quantidade_atual,
+          l.quantidade_caixas_fechadas,
+          l.quantidade_por_caixa,
           l.validade,
-          l.fornecedor
+          l.fornecedor,
+          ef.id           AS embalagem_id,
+          ef.codigo_qr    AS embalagem_codigo_qr,
+          ef.quantidade_atual AS embalagem_quantidade_atual
         FROM medicamentos m
         INNER JOIN lotes l ON l.medicamento_id = m.id AND l.deleted_at IS NULL AND l.quantidade_atual > 0
+        LEFT JOIN embalagens_fracionadas ef ON ef.lote_id = l.id AND ef.status = 'ATIVO'
         WHERE m.deleted_at IS NULL
       `;
 
@@ -70,17 +78,27 @@ export class FarmaciaController {
             formaFarmaceutica: row.forma_farmaceutica,
             concentracao: row.concentracao,
             unidadeMedida: row.unidade_medida,
+            quantidadePorEmbalagem: row.quantidade_por_embalagem,
             estoqueMinimo: row.estoque_minimo,
             lotes: [],
           });
         }
 
+        const embalagemFracionada = row.embalagem_id ? {
+          id: row.embalagem_id,
+          codigoQr: row.embalagem_codigo_qr,
+          quantidadeAtual: row.embalagem_quantidade_atual,
+        } : null;
+
         medicamentosMap.get(medId).lotes.push({
           id: row.lote_id,
           numeroLote: row.numero_lote,
           quantidadeAtual: row.quantidade_atual,
+          quantidadeCaixasFechadas: row.quantidade_caixas_fechadas,
+          quantidadePorCaixa: row.quantidade_por_caixa,
           validade: row.validade,
           fornecedor: row.fornecedor,
+          embalagemFracionada,
         });
       }
 
@@ -105,102 +123,393 @@ export class FarmaciaController {
       return;
     }
 
-    const { medicamentoId, loteId, quantidade, pacienteId, observacao } = parsed.data;
+    const { medicamentoId, loteId, quantidade, pacienteId, observacao, codigoQr } = parsed.data;
     const usuarioId = req.user!.id;
 
     try {
       const tenant = getPrismaForSchema(tenantSchema);
 
-      // Verificar se o lote existe e tem estoque suficiente
-      const lotes: any[] = await tenant.$queryRawUnsafe(
-        `SELECT id, medicamento_id, quantidade_atual, validade FROM lotes WHERE id = $1 AND deleted_at IS NULL`,
-        loteId,
-      );
+      const dispensacaoResult = await tenant.$transaction(async (tx) => {
+        // 1. Obter detalhes do lote e medicamento
+        const lotes: any[] = await tx.$queryRawUnsafe(
+          `SELECT l.id, l.medicamento_id, l.numero_lote, l.quantidade_atual, l.quantidade_caixas_fechadas, l.quantidade_por_caixa, l.validade,
+                  m.nome as medicamento_nome, m.quantidade_por_embalagem, m.unidade_medida
+           FROM lotes l
+           JOIN medicamentos m ON m.id = l.medicamento_id
+           WHERE l.id = $1 AND l.deleted_at IS NULL`,
+          loteId
+        );
 
-      if (lotes.length === 0) {
-        res.status(404).json({ erro: 'Lote não encontrado.' });
-        return;
-      }
+        if (lotes.length === 0) {
+          throw new Error('Lote não encontrado.');
+        }
 
-      const lote = lotes[0];
+        const lote = lotes[0];
 
-      if (lote.medicamento_id !== medicamentoId) {
-        res.status(400).json({ erro: 'Lote não pertence ao medicamento informado.' });
-        return;
-      }
+        if (lote.medicamento_id !== medicamentoId) {
+          throw new Error('Lote não pertence ao medicamento informado.');
+        }
 
-      if (new Date(lote.validade) < new Date()) {
-        res.status(400).json({ erro: 'Lote vencido. Não é possível dispensar.' });
-        return;
-      }
+        if (new Date(lote.validade) < new Date()) {
+          throw new Error('Lote vencido. Não é possível dispensar.');
+        }
 
-      if (quantidade > Number(lote.quantidade_atual)) {
-        res.status(400).json({ erro: `Quantidade insuficiente no lote. Disponível: ${lote.quantidade_atual}` });
-        return;
-      }
+        if (quantidade > Number(lote.quantidade_atual)) {
+          throw new Error(`Quantidade insuficiente no lote. Disponível: ${lote.quantidade_atual}`);
+        }
 
-      // Transação: criar dispensação + item + decrementar lote
-      const result: any[] = await tenant.$queryRawUnsafe(
-        `
-        WITH nova_dispensacao AS (
-          INSERT INTO dispensacoes (paciente_id, prescricao_id, usuario_id, data_dispensacao, observacoes)
-          VALUES ($1, NULL, $2, NOW(), $3)
-          RETURNING id, paciente_id, usuario_id, data_dispensacao, observacoes, criado_em
-        ),
-        novo_item AS (
-          INSERT INTO dispensacao_itens (dispensacao_id, medicamento_id, lote_id, quantidade)
-          VALUES ((SELECT id FROM nova_dispensacao), $4, $5, $6)
-          RETURNING id, dispensacao_id, medicamento_id, lote_id, quantidade
-        ),
-        atualiza_lote AS (
-          UPDATE lotes SET quantidade_atual = quantidade_atual - $6
-          WHERE id = $5
-          RETURNING id, quantidade_atual
-        )
-        SELECT
-          d.id              AS dispensacao_id,
-          d.paciente_id,
-          d.usuario_id,
-          d.data_dispensacao,
-          d.observacoes,
-          d.criado_em,
-          i.id              AS item_id,
-          i.medicamento_id,
-          i.lote_id,
-          i.quantidade,
-          al.quantidade_atual AS lote_quantidade_restante
-        FROM nova_dispensacao d
-        CROSS JOIN novo_item i
-        CROSS JOIN atualiza_lote al
-        `,
-        pacienteId || null,
-        usuarioId,
-        observacao || null,
-        medicamentoId,
-        loteId,
-        quantidade,
-      );
+        // 2. Verificar se existe embalagem fracionada ativa para este lote
+        const embalagens: any[] = await tx.$queryRawUnsafe(
+          `SELECT id, codigo_qr, quantidade_atual, status FROM embalagens_fracionadas
+           WHERE lote_id = $1 AND status = 'ATIVO'`,
+          loteId
+        );
+        const embalagemAtiva = embalagens.length > 0 ? embalagens[0] : null;
 
-      const row = result[0];
+        // Se existe saquinho ativo, bipagem é OBRIGATÓRIA
+        if (embalagemAtiva) {
+          if (!codigoQr) {
+            throw new Error('Bipagem obrigatória: Este lote possui medicamentos avulsos em embalagem fracionada. Favor bipar o QR code.');
+          }
+          if (codigoQr !== embalagemAtiva.codigo_qr) {
+            throw new Error('QR Code inválido para este lote.');
+          }
+        }
+
+        let embalagemConsumidaId: string | null = null;
+        let novaEmbalagemId: string | null = null;
+        let novoCodigoQr: string | null = null;
+        let novoQtdRestante = 0;
+        let caixasAbertas = 0;
+
+        if (embalagemAtiva) {
+          embalagemConsumidaId = embalagemAtiva.id;
+
+          if (embalagemAtiva.quantidade_atual >= quantidade) {
+            // Caso A: O saquinho ativo tem quantidade suficiente
+            const restoSaquinho = embalagemAtiva.quantidade_atual - quantidade;
+
+            if (restoSaquinho > 0) {
+              novoCodigoQr = 'FRAC-' + Math.random().toString(36).substring(2, 8).toUpperCase() + '-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+              novoQtdRestante = restoSaquinho;
+              novaEmbalagemId = embalagemAtiva.id;
+
+              await tx.$executeRawUnsafe(
+                `UPDATE embalagens_fracionadas SET quantidade_atual = $1, codigo_qr = $2, atualizado_em = NOW() WHERE id = $3`,
+                restoSaquinho,
+                novoCodigoQr,
+                embalagemAtiva.id
+              );
+
+              // Log movimentação
+              await tx.$executeRawUnsafe(
+                `INSERT INTO movimentacoes_fracionadas (embalagem_fracionada_id, tipo, quantidade_anterior, quantidade_movimentada, quantidade_resultante, codigo_qr_anterior, codigo_qr_novo, usuario_id)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                embalagemAtiva.id,
+                'DISPENSACAO',
+                embalagemAtiva.quantidade_atual,
+                -quantidade,
+                restoSaquinho,
+                embalagemAtiva.codigo_qr,
+                novoCodigoQr,
+                usuarioId
+              );
+            } else {
+              // Esvaziou completamente o saquinho
+              await tx.$executeRawUnsafe(
+                `UPDATE embalagens_fracionadas SET quantidade_atual = 0, status = 'ESGOTADO', atualizado_em = NOW() WHERE id = $1`,
+                embalagemAtiva.id
+              );
+
+              await tx.$executeRawUnsafe(
+                `INSERT INTO movimentacoes_fracionadas (embalagem_fracionada_id, tipo, quantidade_anterior, quantidade_movimentada, quantidade_resultante, codigo_qr_anterior, codigo_qr_novo, usuario_id)
+                 VALUES ($1, $2, $3, $4, 0, $5, NULL, $6)`,
+                embalagemAtiva.id,
+                'DISPENSACAO',
+                embalagemAtiva.quantidade_atual,
+                -quantidade,
+                embalagemAtiva.codigo_qr,
+                usuarioId
+              );
+            }
+          } else {
+            // Caso B: O saquinho ativo não é suficiente, precisa completar abrindo caixa(s)
+            const qtdDoSaquinho = embalagemAtiva.quantidade_atual;
+            const qtdFaltante = quantidade - qtdDoSaquinho;
+
+            // Esvazia saquinho atual
+            await tx.$executeRawUnsafe(
+              `UPDATE embalagens_fracionadas SET quantidade_atual = 0, status = 'ESGOTADO', atualizado_em = NOW() WHERE id = $1`,
+              embalagemAtiva.id
+            );
+
+            await tx.$executeRawUnsafe(
+              `INSERT INTO movimentacoes_fracionadas (embalagem_fracionada_id, tipo, quantidade_anterior, quantidade_movimentada, quantidade_resultante, codigo_qr_anterior, codigo_qr_novo, usuario_id)
+               VALUES ($1, $2, $3, $4, 0, $5, NULL, $6)`,
+              embalagemAtiva.id,
+              'DISPENSACAO',
+              embalagemAtiva.quantidade_atual,
+              -qtdDoSaquinho,
+              embalagemAtiva.codigo_qr,
+              usuarioId
+            );
+
+            // Abre nova(s) caixa(s) para completar
+            caixasAbertas = Math.ceil(qtdFaltante / lote.quantidade_por_caixa);
+            if (lote.quantidade_caixas_fechadas < caixasAbertas) {
+              throw new Error('Estoque insuficiente de caixas fechadas para abrir no lote.');
+            }
+
+            // Decrementa caixas fechadas no lote
+            await tx.$executeRawUnsafe(
+              `UPDATE lotes SET quantidade_caixas_fechadas = quantidade_caixas_fechadas - $1 WHERE id = $2`,
+              caixasAbertas,
+              loteId
+            );
+
+            const unidadesAbertas = caixasAbertas * lote.quantidade_por_caixa;
+            const restoSaquinho = unidadesAbertas - qtdFaltante;
+
+            if (restoSaquinho > 0) {
+              novoCodigoQr = 'FRAC-' + Math.random().toString(36).substring(2, 8).toUpperCase() + '-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+              novoQtdRestante = restoSaquinho;
+
+              const insertRes: any[] = await tx.$queryRawUnsafe(
+                `INSERT INTO embalagens_fracionadas (lote_id, medicamento_id, codigo_qr, quantidade_atual, status, criado_por)
+                 VALUES ($1, $2, $3, $4, 'ATIVO', $5)
+                 RETURNING id`,
+                loteId,
+                medicamentoId,
+                novoCodigoQr,
+                restoSaquinho,
+                usuarioId
+              );
+              novaEmbalagemId = insertRes[0].id;
+
+              // Log de criação da nova embalagem
+              await tx.$executeRawUnsafe(
+                `INSERT INTO movimentacoes_fracionadas (embalagem_fracionada_id, tipo, quantidade_anterior, quantidade_movimentada, quantidade_resultante, codigo_qr_anterior, codigo_qr_novo, usuario_id, observacao)
+                 VALUES ($1, $2, 0, $3, $4, NULL, $5, $6, $7)`,
+                novaEmbalagemId,
+                'CRIACAO',
+                restoSaquinho,
+                restoSaquinho,
+                novoCodigoQr,
+                usuarioId,
+                `Criado por abertura de ${caixasAbertas} caixa(s) para completar dispensação.`
+              );
+            }
+          }
+        } else {
+          // Caso C: Não existe saquinho ativo. Abre caixas fechadas diretamente.
+          caixasAbertas = Math.ceil(quantidade / lote.quantidade_por_caixa);
+          if (lote.quantidade_caixas_fechadas < caixasAbertas) {
+            throw new Error('Estoque insuficiente de caixas fechadas no lote.');
+          }
+
+          // Decrementa caixas fechadas no lote
+          await tx.$executeRawUnsafe(
+            `UPDATE lotes SET quantidade_caixas_fechadas = quantidade_caixas_fechadas - $1 WHERE id = $2`,
+            caixasAbertas,
+            loteId
+          );
+
+          const unidadesAbertas = caixasAbertas * lote.quantidade_por_caixa;
+          const restoSaquinho = unidadesAbertas - quantidade;
+
+          if (restoSaquinho > 0) {
+            novoCodigoQr = 'FRAC-' + Math.random().toString(36).substring(2, 8).toUpperCase() + '-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+            novoQtdRestante = restoSaquinho;
+
+            const insertRes: any[] = await tx.$queryRawUnsafe(
+              `INSERT INTO embalagens_fracionadas (lote_id, medicamento_id, codigo_qr, quantidade_atual, status, criado_por)
+               VALUES ($1, $2, $3, $4, 'ATIVO', $5)
+               RETURNING id`,
+              loteId,
+              medicamentoId,
+              novoCodigoQr,
+              restoSaquinho,
+              usuarioId
+            );
+            novaEmbalagemId = insertRes[0].id;
+
+            // Log de criação da nova embalagem
+            await tx.$executeRawUnsafe(
+              `INSERT INTO movimentacoes_fracionadas (embalagem_fracionada_id, tipo, quantidade_anterior, quantidade_movimentada, quantidade_resultante, codigo_qr_anterior, codigo_qr_novo, usuario_id, observacao)
+               VALUES ($1, $2, 0, $3, $4, NULL, $5, $6, $7)`,
+              novaEmbalagemId,
+              'CRIACAO',
+              restoSaquinho,
+              restoSaquinho,
+              novoCodigoQr,
+              usuarioId,
+              `Criado por abertura de ${caixasAbertas} caixa(s) para dispensação.`
+            );
+          }
+        }
+
+        // Decrementar a quantidade_atual do lote explicitamente (já que removemos o trigger)
+        await tx.$executeRawUnsafe(
+          `UPDATE lotes SET quantidade_atual = quantidade_atual - $1 WHERE id = $2`,
+          quantidade,
+          loteId
+        );
+
+        // 3. Registrar a dispensação e item (o trigger trg_baixa_estoque cuida do quantidade_atual no lote!)
+        const dispensacaoInsert: any[] = await tx.$queryRawUnsafe(
+          `INSERT INTO dispensacoes (paciente_id, prescricao_id, usuario_id, data_dispensacao, observacoes)
+           VALUES ($1, NULL, $2, NOW(), $3)
+           RETURNING id, paciente_id, usuario_id, data_dispensacao, observacoes, criado_em`,
+          pacienteId || null,
+          usuarioId,
+          observacao || null
+        );
+        const dispensacaoId = dispensacaoInsert[0].id;
+
+        const itemInsert: any[] = await tx.$queryRawUnsafe(
+          `INSERT INTO dispensacao_itens (dispensacao_id, medicamento_id, lote_id, embalagem_fracionada_id, quantidade)
+           VALUES ($1, $2, $3, $4, $5)
+           RETURNING id, dispensacao_id, medicamento_id, lote_id, quantidade`,
+          dispensacaoId,
+          medicamentoId,
+          loteId,
+          embalagemConsumidaId,
+          quantidade
+        );
+
+        // Buscar quantidade restante do lote
+        const lotesRestante: any[] = await tx.$queryRawUnsafe(
+          `SELECT quantidade_atual FROM lotes WHERE id = $1`,
+          loteId
+        );
+
+        return {
+          row: dispensacaoInsert[0],
+          itemRow: itemInsert[0],
+          loteQuantidadeRestante: lotesRestante[0]?.quantidade_atual || 0,
+          novoCodigoQr,
+          novoQtdRestante,
+          novaEmbalagemId,
+          caixasAbertas,
+        };
+      });
 
       res.status(201).json({
-        id: row.dispensacao_id,
-        pacienteId: row.paciente_id,
-        usuarioId: row.usuario_id,
-        dataDispensacao: row.data_dispensacao,
-        observacoes: row.observacoes,
-        criadoEm: row.criado_em,
+        id: dispensacaoResult.row.id,
+        pacienteId: dispensacaoResult.row.paciente_id,
+        usuarioId: dispensacaoResult.row.usuario_id,
+        dataDispensacao: dispensacaoResult.row.data_dispensacao,
+        observacoes: dispensacaoResult.row.observacoes,
+        criadoEm: dispensacaoResult.row.criado_em,
         item: {
-          id: row.item_id,
-          medicamentoId: row.medicamento_id,
-          loteId: row.lote_id,
-          quantidade: row.quantidade,
+          id: dispensacaoResult.itemRow.id,
+          medicamentoId: dispensacaoResult.itemRow.medicamento_id,
+          loteId: dispensacaoResult.itemRow.lote_id,
+          quantidade: dispensacaoResult.itemRow.quantidade,
         },
-        loteQuantidadeRestante: row.lote_quantidade_restante,
+        loteQuantidadeRestante: dispensacaoResult.loteQuantidadeRestante,
+        novaEmbalagem: dispensacaoResult.novoCodigoQr ? {
+          id: dispensacaoResult.novaEmbalagemId,
+          codigoQr: dispensacaoResult.novoCodigoQr,
+          quantidadeAtual: dispensacaoResult.novoQtdRestante,
+        } : null,
+        caixasAbertas: dispensacaoResult.caixasAbertas,
+      });
+    } catch (err: any) {
+      console.error(err);
+      res.status(400).json({ erro: err.message || 'Erro ao registrar dispensação.' });
+    }
+  };
+
+  validarQrCode = async (req: AuthRequest, res: Response) => {
+    const tenantSchema = req.user?.tenantSchema;
+    if (!tenantSchema) {
+      res.status(400).json({ erro: 'Tenant não identificado.' });
+      return;
+    }
+
+    const { codigoQr } = req.body;
+    if (!codigoQr) {
+      res.status(400).json({ erro: 'QR Code é obrigatório.' });
+      return;
+    }
+
+    try {
+      const tenant = getPrismaForSchema(tenantSchema);
+
+      const rows: any[] = await tenant.$queryRawUnsafe(
+        `SELECT ef.id, ef.codigo_qr, ef.quantidade_atual, ef.lote_id, l.numero_lote, l.validade,
+                ef.medicamento_id, m.nome as medicamento_nome, m.unidade_medida
+         FROM embalagens_fracionadas ef
+         JOIN lotes l ON l.id = ef.lote_id
+         JOIN medicamentos m ON m.id = ef.medicamento_id
+         WHERE ef.codigo_qr = $1 AND ef.status = 'ATIVO' AND l.deleted_at IS NULL AND m.deleted_at IS NULL`,
+        codigoQr
+      );
+
+      if (rows.length === 0) {
+        res.status(404).json({ erro: 'QR Code não encontrado ou já esgotado.' });
+        return;
+      }
+
+      const row = rows[0];
+      res.json({
+        id: row.id,
+        codigoQr: row.codigo_qr,
+        quantidadeAtual: row.quantidade_atual,
+        loteId: row.lote_id,
+        numeroLote: row.numero_lote,
+        validade: row.validade,
+        medicamentoId: row.medicamento_id,
+        medicamentoNome: row.medicamento_nome,
+        unidadeMedida: row.unidade_medida,
       });
     } catch (err) {
       console.error(err);
-      res.status(500).json({ erro: 'Erro ao registrar dispensação.' });
+      res.status(500).json({ erro: 'Erro ao validar QR Code.' });
+    }
+  };
+
+  gerarEtiqueta = async (req: AuthRequest, res: Response) => {
+    const tenantSchema = req.user?.tenantSchema;
+    if (!tenantSchema) {
+      res.status(400).json({ erro: 'Tenant não identificado.' });
+      return;
+    }
+
+    const { id } = req.params;
+
+    try {
+      const tenant = getPrismaForSchema(tenantSchema);
+
+      const rows: any[] = await tenant.$queryRawUnsafe(
+        `SELECT ef.id, ef.codigo_qr, ef.quantidade_atual, l.numero_lote, l.validade,
+                m.nome as medicamento_nome, m.unidade_medida
+         FROM embalagens_fracionadas ef
+         JOIN lotes l ON l.id = ef.lote_id
+         JOIN medicamentos m ON m.id = ef.medicamento_id
+         WHERE ef.id = $1`,
+        id
+      );
+
+      if (rows.length === 0) {
+        res.status(404).json({ erro: 'Embalagem não encontrada.' });
+        return;
+      }
+
+      const row = rows[0];
+      res.json({
+        id: row.id,
+        codigoQr: row.codigo_qr,
+        quantidadeAtual: row.quantidade_atual,
+        numeroLote: row.numero_lote,
+        validade: row.validade,
+        medicamentoNome: row.medicamento_nome,
+        unidadeMedida: row.unidade_medida,
+      });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ erro: 'Erro ao obter dados da etiqueta.' });
     }
   };
 

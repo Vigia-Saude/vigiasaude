@@ -101,6 +101,8 @@ router.get('/farmacia/estoque', farmaciaController.buscarEstoque);
 router.post('/farmacia/dispensar', roleMiddleware(['FARMACIA', 'POSTO_SAUDE']), farmaciaController.dispensar);
 router.get('/farmacia/dispensacoes/recentes', farmaciaController.dispensacoesRecentes);
 router.get('/farmacia/pacientes', farmaciaController.buscarPacientes);
+router.post('/farmacia/validar-qr', roleMiddleware(['FARMACIA', 'POSTO_SAUDE']), farmaciaController.validarQrCode);
+router.get('/farmacia/embalagem/:id/etiqueta', roleMiddleware(['FARMACIA', 'POSTO_SAUDE']), farmaciaController.gerarEtiqueta);
 
 // Rotas da Farmácia (Entregas Domiciliares)
 router.get('/farmacia/entregas', farmaciaController.listarEntregas);

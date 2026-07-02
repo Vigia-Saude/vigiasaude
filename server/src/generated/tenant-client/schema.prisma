@@ -12,17 +12,17 @@ datasource db {
 }
 
 model Medicamento {
-  id                     String               @id @default(cuid())
+  id                     String    @id @default(cuid())
   catmatCodigo           String?
   nome                   String
   principioAtivo         String?
   formaFarmaceutica      String?
   concentracao           String?
-  unidadeMedida          String               @default("UNIDADE")
-  quantidadePorEmbalagem Int                  @default(1) @map("quantidade_por_embalagem")
-  estoqueMinimo          Int                  @default(0)
-  criadoEm               DateTime             @default(now())
-  atualizadoEm           DateTime             @updatedAt
+  unidadeMedida          String    @default("UNIDADE")
+  quantidadePorEmbalagem Int       @default(1) @map("quantidade_por_embalagem")
+  estoqueMinimo          Int       @default(0)
+  criadoEm               DateTime  @default(now())
+  atualizadoEm           DateTime  @updatedAt
   deletedAt              DateTime?
 
   lotes                 Lote[]
@@ -33,18 +33,18 @@ model Medicamento {
 }
 
 model Lote {
-  id                       String               @id @default(cuid())
+  id                       String      @id @default(cuid())
   medicamentoId            String
-  medicamento              Medicamento          @relation(fields: [medicamentoId], references: [id])
+  medicamento              Medicamento @relation(fields: [medicamentoId], references: [id])
   numeroLote               String
   quantidade               Int
   quantidadeAtual          Int
-  quantidadeCaixasFechadas Int                  @default(0) @map("quantidade_caixas_fechadas")
-  quantidadePorCaixa       Int                  @default(1) @map("quantidade_por_caixa")
-  validade                 DateTime             @db.Date
+  quantidadeCaixasFechadas Int         @default(0) @map("quantidade_caixas_fechadas")
+  quantidadePorCaixa       Int         @default(1) @map("quantidade_por_caixa")
+  validade                 DateTime    @db.Date
   fornecedor               String?
   notaFiscal               String?
-  criadoEm                 DateTime             @default(now())
+  criadoEm                 DateTime    @default(now())
   deletedAt                DateTime?
 
   dispensacaoItens      DispensacaoItem[]
@@ -85,23 +85,23 @@ model Prescricao {
   criadoEm      DateTime  @default(now())
   deletedAt     DateTime?
 
-  dispensacoes  Dispensacao[]
+  dispensacoes Dispensacao[]
 
   @@map("prescricoes")
 }
 
 model Dispensacao {
-  id               String      @id @default(cuid())
-  pacienteId       String
-  paciente         Paciente    @relation(fields: [pacienteId], references: [id])
-  prescricaoId     String?
-  prescricao       Prescricao? @relation(fields: [prescricaoId], references: [id])
-  usuarioId        String
-  dataDispensacao  DateTime    @default(now())
-  observacoes      String?
-  criadoEm         DateTime    @default(now())
+  id              String      @id @default(cuid())
+  pacienteId      String
+  paciente        Paciente    @relation(fields: [pacienteId], references: [id])
+  prescricaoId    String?
+  prescricao      Prescricao? @relation(fields: [prescricaoId], references: [id])
+  usuarioId       String
+  dataDispensacao DateTime    @default(now())
+  observacoes     String?
+  criadoEm        DateTime    @default(now())
 
-  itens            DispensacaoItem[]
+  itens DispensacaoItem[]
 
   @@map("dispensacoes")
 }
@@ -123,17 +123,17 @@ model DispensacaoItem {
 }
 
 model EmbalageFracionada {
-  id              String   @id @default(cuid())
-  loteId          String   @map("lote_id")
-  lote            Lote     @relation(fields: [loteId], references: [id])
-  medicamentoId   String   @map("medicamento_id")
+  id              String      @id @default(cuid())
+  loteId          String      @map("lote_id")
+  lote            Lote        @relation(fields: [loteId], references: [id])
+  medicamentoId   String      @map("medicamento_id")
   medicamento     Medicamento @relation(fields: [medicamentoId], references: [id])
-  codigoQr        String   @unique @map("codigo_qr")
-  quantidadeAtual Int      @map("quantidade_atual")
-  status          String   @default("ATIVO")  // ATIVO, ESGOTADO
-  criadoEm        DateTime @default(now()) @map("criado_em")
-  atualizadoEm    DateTime @updatedAt @map("atualizado_em")
-  criadoPor       String   @map("criado_por")
+  codigoQr        String      @unique @map("codigo_qr")
+  quantidadeAtual Int         @map("quantidade_atual")
+  status          String      @default("ATIVO") // ATIVO, ESGOTADO
+  criadoEm        DateTime    @default(now()) @map("criado_em")
+  atualizadoEm    DateTime    @updatedAt @map("atualizado_em")
+  criadoPor       String      @map("criado_por")
 
   dispensacaoItens DispensacaoItem[]
   movimentacoes    MovimentacaoFracionada[]
@@ -142,18 +142,18 @@ model EmbalageFracionada {
 }
 
 model MovimentacaoFracionada {
-  id                    String   @id @default(cuid())
-  embalagemFracionadaId String   @map("embalagem_fracionada_id")
+  id                    String             @id @default(cuid())
+  embalagemFracionadaId String             @map("embalagem_fracionada_id")
   embalagem             EmbalageFracionada @relation(fields: [embalagemFracionadaId], references: [id])
-  tipo                  String   // CRIACAO, DISPENSACAO, REPOSICAO, INVENTARIO, AJUSTE
-  quantidadeAnterior    Int      @map("quantidade_anterior")
-  quantidadeMovimentada Int      @map("quantidade_movimentada")
-  quantidadeResultante  Int      @map("quantidade_resultante")
-  codigoQrAnterior      String?  @map("codigo_qr_anterior")
-  codigoQrNovo          String?  @map("codigo_qr_novo")
-  usuarioId             String   @map("usuario_id")
+  tipo                  String // CRIACAO, DISPENSACAO, REPOSICAO, INVENTARIO, AJUSTE
+  quantidadeAnterior    Int                @map("quantidade_anterior")
+  quantidadeMovimentada Int                @map("quantidade_movimentada")
+  quantidadeResultante  Int                @map("quantidade_resultante")
+  codigoQrAnterior      String?            @map("codigo_qr_anterior")
+  codigoQrNovo          String?            @map("codigo_qr_novo")
+  usuarioId             String             @map("usuario_id")
   observacao            String?
-  criadoEm              DateTime @default(now()) @map("criado_em")
+  criadoEm              DateTime           @default(now()) @map("criado_em")
 
   @@map("movimentacoes_fracionadas")
 }
