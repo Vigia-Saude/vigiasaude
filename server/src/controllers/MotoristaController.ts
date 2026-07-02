@@ -52,6 +52,61 @@ export class MotoristaController {
     }
   };
 
+  // GET /api/motorista/dashboard/grafico
+  dashboardGrafico = async (req: AuthRequest, res: Response) => {
+    const motoristaId = req.user!.id;
+
+    try {
+      // Get the date 6 months ago, start of the month
+      const hoje = new Date();
+      const seisMesesAtras = new Date(hoje.getFullYear(), hoje.getMonth() - 5, 1);
+
+      const pedidos = await prisma.pedidoReposicao.findMany({
+        where: {
+          motoristaId,
+          status: { in: ['CONCLUIDO', 'REJEITADO'] },
+          atualizadoEm: { gte: seisMesesAtras },
+          deletedAt: null
+        },
+        select: {
+          status: true,
+          atualizadoEm: true
+        }
+      });
+
+      // Group by month
+      const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+      const map: Record<string, { mes: string; concluidas: number; rejeitadas: number }> = {};
+
+      // Initialize the last 6 months
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+        const key = `${d.getFullYear()}-${d.getMonth()}`;
+        map[key] = {
+          mes: `${meses[d.getMonth()]}/${d.getFullYear().toString().substring(2)}`,
+          concluidas: 0,
+          rejeitadas: 0
+        };
+      }
+
+      for (const p of pedidos) {
+        const d = new Date(p.atualizadoEm);
+        const key = `${d.getFullYear()}-${d.getMonth()}`;
+        if (map[key]) {
+          if (p.status === 'CONCLUIDO') map[key].concluidas++;
+          else if (p.status === 'REJEITADO') map[key].rejeitadas++;
+        }
+      }
+
+      const dados = Object.values(map);
+
+      res.json(dados);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ erro: 'Erro ao buscar dados do gráfico.' });
+    }
+  };
+
   // GET /api/motorista/coletas
   coletasPendentes = async (req: AuthRequest, res: Response) => {
     const motoristaId = req.user!.id;
@@ -216,7 +271,15 @@ export class MotoristaController {
 
       const dados = pedidos.map(p => ({
         ...p,
-        unidadeNome: unitsMap[p.unidadeId] || 'Unidade Desconhecida'
+        unidadeNome: unitsMap[p.unidadeId] || 'Unidade Desconhecida',
+        dataConclusao: p.atualizadoEm,
+        totalItens: p.itens.length,
+        itens: p.itens.map(i => ({
+          id: i.id,
+          medicamentoNome: i.medicamentoNome,
+          quantidade: i.quantidade,
+          catmatCodigo: i.catmatCodigo
+        }))
       }));
 
       res.json({ total, pagina: Number(page), dados });

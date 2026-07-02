@@ -111,6 +111,7 @@ router.patch('/farmacia/entregas/:id/status', roleMiddleware(['ENTREGADOR', 'FAR
 
 // Rotas do Motorista (Entregador)
 router.get('/motorista/dashboard', roleMiddleware(['ENTREGADOR']), motoristaController.dashboard);
+router.get('/motorista/dashboard/grafico', roleMiddleware(['ENTREGADOR']), motoristaController.dashboardGrafico);
 router.get('/motorista/coletas', roleMiddleware(['ENTREGADOR']), motoristaController.coletasPendentes);
 router.get('/motorista/entregas', roleMiddleware(['ENTREGADOR']), motoristaController.entregasAtivas);
 router.get('/motorista/historico', roleMiddleware(['ENTREGADOR']), motoristaController.historico);

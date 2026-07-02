@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { History, Loader2, PackageOpen, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { History, Loader2, PackageOpen, Search, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import apiClient from '../../services/apiClient';
 
 interface HistoricoItem {
@@ -9,6 +9,12 @@ interface HistoricoItem {
   status: 'CONCLUIDO' | 'REJEITADO';
   dataConclusao: string;
   totalItens: number;
+  motivoRejeicao?: string;
+  itens?: {
+    id: string;
+    medicamentoNome: string;
+    quantidade: number;
+  }[];
 }
 
 const statusBadge = (status: string) => {
@@ -27,6 +33,16 @@ export function HistoricoMotorista() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  const toggleRow = (id: string) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   // Filters
   const [dataInicio, setDataInicio] = useState('');
@@ -151,15 +167,43 @@ export function HistoricoMotorista() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {historico.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-6 py-4 text-sm font-semibold text-gray-900">{item.numero}</td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{item.unidadeNome}</td>
-                    <td className="px-6 py-4">{statusBadge(item.status)}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      {new Date(item.dataConclusao).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500 text-right font-medium">{item.totalItens}</td>
-                  </tr>
+                  <React.Fragment key={item.id}>
+                    <tr onClick={() => toggleRow(item.id)} className="hover:bg-gray-50/50 transition-colors cursor-pointer">
+                      <td className="px-6 py-4 text-sm font-semibold text-gray-900 flex items-center gap-2">
+                        {expandedRows.has(item.id) ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+                        {item.numero}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-700">{item.unidadeNome}</td>
+                      <td className="px-6 py-4">{statusBadge(item.status)}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {item.dataConclusao ? new Date(item.dataConclusao).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500 text-right font-medium">{item.totalItens}</td>
+                    </tr>
+                    {expandedRows.has(item.id) && (
+                      <tr className="bg-gray-50/50">
+                        <td colSpan={5} className="px-14 py-4">
+                          <div className="space-y-4">
+                            {item.status === 'REJEITADO' && item.motivoRejeicao && (
+                              <div className="bg-red-50 border border-red-100 rounded-lg p-3">
+                                <p className="text-xs font-bold text-red-800 uppercase tracking-wider mb-1">Motivo da Rejeição</p>
+                                <p className="text-sm text-red-700">{item.motivoRejeicao}</p>
+                              </div>
+                            )}
+                            <div className="bg-white rounded-lg border border-gray-200 p-3 space-y-1.5 shadow-sm max-w-2xl">
+                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Itens Entregues</p>
+                              {item.itens && item.itens.map((med, idx) => (
+                                <div key={idx} className="flex items-center justify-between text-sm py-1 border-b border-gray-50 last:border-0">
+                                  <span className="text-gray-700">{med.medicamentoNome}</span>
+                                  <span className="text-gray-500 font-medium ml-4">x{med.quantidade}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>
@@ -168,18 +212,46 @@ export function HistoricoMotorista() {
           {/* Mobile Cards */}
           <div className="md:hidden space-y-3">
             {historico.map((item) => (
-              <div key={item.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 space-y-2">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{item.numero}</p>
-                    <p className="text-sm font-bold text-gray-900 mt-0.5">{item.unidadeNome}</p>
+              <div key={item.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div 
+                  className="p-4 space-y-2 cursor-pointer hover:bg-gray-50/50 transition-colors"
+                  onClick={() => toggleRow(item.id)}
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{item.numero}</p>
+                      <p className="text-sm font-bold text-gray-900 mt-0.5">{item.unidadeNome}</p>
+                    </div>
+                    {statusBadge(item.status)}
                   </div>
-                  {statusBadge(item.status)}
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <span>{item.dataConclusao ? new Date(item.dataConclusao).toLocaleDateString('pt-BR') : '-'}</span>
+                    <div className="flex items-center gap-1">
+                      <span>{item.totalItens} {item.totalItens === 1 ? 'item' : 'itens'}</span>
+                      {expandedRows.has(item.id) ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                  <span>{new Date(item.dataConclusao).toLocaleDateString('pt-BR')}</span>
-                  <span>{item.totalItens} {item.totalItens === 1 ? 'item' : 'itens'}</span>
-                </div>
+
+                {expandedRows.has(item.id) && (
+                  <div className="p-4 bg-gray-50 border-t border-gray-100 space-y-4">
+                    {item.status === 'REJEITADO' && item.motivoRejeicao && (
+                      <div className="bg-red-50 border border-red-100 rounded-lg p-3">
+                        <p className="text-xs font-bold text-red-800 uppercase tracking-wider mb-1">Motivo da Rejeição</p>
+                        <p className="text-sm text-red-700">{item.motivoRejeicao}</p>
+                      </div>
+                    )}
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Itens</p>
+                      {item.itens && item.itens.map((med, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-sm py-1 border-b border-gray-200 last:border-0">
+                          <span className="text-gray-700">{med.medicamentoNome}</span>
+                          <span className="text-gray-500 font-medium ml-2">x{med.quantidade}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

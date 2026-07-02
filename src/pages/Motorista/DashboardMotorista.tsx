@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router';
 import { Home, ClipboardList, Truck, CheckCircle2, BarChart3, RefreshCw, Loader2, PackageOpen, ArrowRight } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
 import apiClient from '../../services/apiClient';
 
 interface DashboardStats {
@@ -37,20 +38,23 @@ export function DashboardMotorista() {
   const [coletas, setColetas] = useState<ColetaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [graficoData, setGraficoData] = useState<any[]>([]);
 
   const fetchData = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
 
     try {
-      const [statsRes, coletasRes] = await Promise.all([
+      const [statsRes, coletasRes, graficoRes] = await Promise.all([
         apiClient.get('/api/motorista/dashboard'),
         apiClient.get('/api/motorista/coletas', { params: { page: 1, limit: 5 } }),
+        apiClient.get('/api/motorista/dashboard/grafico'),
       ]);
       setStats(statsRes.data);
       const coletasData = coletasRes.data;
       const coletasArray = Array.isArray(coletasData) ? coletasData : (Array.isArray(coletasData?.dados) ? coletasData.dados : (Array.isArray(coletasData?.data) ? coletasData.data : []));
       setColetas(coletasArray);
+      setGraficoData(graficoRes.data);
     } catch (err) {
       console.error('Erro ao carregar dados do dashboard:', err);
     } finally {
@@ -143,6 +147,67 @@ export function DashboardMotorista() {
           })}
         </div>
       )}
+
+      {/* Gráfico de Entregas Realizadas */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+        <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+          <BarChart3 className="h-5 w-5 text-amber-500" />
+          Entregas Realizadas (Últimos 6 meses)
+        </h3>
+        
+        {loading ? (
+          <div className="h-[300px] flex items-center justify-center bg-gray-50 rounded-xl border border-gray-100">
+            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+          </div>
+        ) : graficoData.length === 0 ? (
+          <div className="h-[300px] flex flex-col items-center justify-center bg-gray-50 rounded-xl border border-gray-100 text-gray-400">
+            <PackageOpen className="h-10 w-10 mb-2 stroke-[1.5]" />
+            <p className="text-sm font-medium">Sem dados no período</p>
+          </div>
+        ) : (
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={graficoData}
+                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                <XAxis 
+                  dataKey="mes" 
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: '#6b7280' }}
+                  dy={10}
+                />
+                <YAxis 
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: '#6b7280' }}
+                />
+                <RechartsTooltip
+                  cursor={{ fill: '#f9fafb' }}
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)' }}
+                />
+                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
+                <Bar 
+                  dataKey="concluidas" 
+                  name="Concluídas" 
+                  fill="#10b981" 
+                  radius={[4, 4, 0, 0]} 
+                  barSize={40}
+                />
+                <Bar 
+                  dataKey="rejeitadas" 
+                  name="Rejeitadas" 
+                  fill="#ef4444" 
+                  radius={[4, 4, 0, 0]} 
+                  barSize={40}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
 
       {/* Próximas Coletas */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
