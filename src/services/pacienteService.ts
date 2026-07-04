@@ -1,20 +1,7 @@
 import apiClient from './apiClient';
 import type { Paciente } from '../types';
 
-export interface CriarPacienteInput {
-  cpf: string;
-  cartaoSus?: string | null;
-  nomeCompleto: string;
-  dataNascimento: string;
-  sexo: string;
-  nomeMae?: string | null;
-  telefone: string;
-  cep: string;
-  logradouro: string;
-  numero: string;
-  bairro: string;
-  municipio: string;
-}
+export type CriarPacienteInput = Omit<Paciente, 'id' | 'prontuario' | 'criadoEm' | 'atualizadoEm' | 'unidadeOrigemNome'>;
 
 export async function criarPaciente(data: CriarPacienteInput): Promise<Paciente> {
   const response = await apiClient.post('/api/pacientes', data);

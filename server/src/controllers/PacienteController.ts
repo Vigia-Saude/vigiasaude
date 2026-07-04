@@ -15,17 +15,61 @@ export class PacienteController {
         nomeCompleto,
         dataNascimento,
         sexo,
-        nomeMae,
+        orientacaoSexual,
+        identidadeGenero,
+        nomeSocial,
+        municipioNascimento,
+        nacionalidade,
+        paisNascimento,
+        corRaca,
+        etnia,
+        tipoSanguineo,
+        prontuariosAntigos,
+        alergias,
+        familia,
+        area,
+        subarea,
+        escolaridade,
+        
+        celular,
         telefone,
+        email,
+        nomeMae,
+        maeDesconhecida,
+        nomePai,
+        paiDesconhecido,
+        
+        rg,
+        orgaoEmissor,
+        ufRg,
+        dataExpedicaoRg,
+        nis,
+        certidaoNascimento,
+        dataObito,
+        tituloEleitor,
+        estadoCivil,
+        funcionarioExterno,
+        observacao,
+        profissaoCbo,
+        localTrabalho,
+        
+        situacaoRua,
         cep,
+        tipoLogradouro,
         logradouro,
         numero,
         bairro,
+        complemento,
         municipio,
+        localizacao,
       } = req.body;
 
       // Validação de campos obrigatórios
-      if (!cpf || !nomeCompleto || !dataNascimento || !sexo || !telefone || !cep || !logradouro || !numero || !bairro || !municipio) {
+      if (
+        !cpf || !nomeCompleto || !dataNascimento || !sexo || !nacionalidade || 
+        !paisNascimento || !corRaca || !celular || !cep || 
+        !tipoLogradouro || !logradouro || !numero || !bairro || !municipio
+      ) {
         return res.status(400).json({ error: 'Preencha todos os campos obrigatórios (*).' });
       }
 
@@ -35,10 +79,16 @@ export class PacienteController {
         return res.status(400).json({ error: 'CPF em formato inválido. Formato: 000.000.000-00' });
       }
 
-      // Validação de formato de Telefone
+      // Validação de formato de Celular
       const phoneRegex = /^\(\d{2}\) 9\d{4}-\d{4}$/;
-      if (!phoneRegex.test(telefone)) {
-        return res.status(400).json({ error: 'Telefone em formato inválido. Formato: (XX) 9XXXX-XXXX' });
+      if (!phoneRegex.test(celular)) {
+        return res.status(400).json({ error: 'Celular em formato inválido. Formato: (XX) 9XXXX-XXXX' });
+      }
+
+      // Validação de formato de CEP
+      const cepRegex = /^\d{5}-\d{3}$/;
+      if (!cepRegex.test(cep)) {
+        return res.status(400).json({ error: 'CEP em formato inválido. Formato: 00000-000' });
       }
 
       // Validar sexo enum
@@ -96,14 +146,54 @@ export class PacienteController {
           nomeCompleto,
           dataNascimento: new Date(dataNascimento),
           sexo: sexo as Sexo,
-          nomeMae: nomeMae || null,
-          telefone,
-          unidadeOrigemId,
+          orientacaoSexual: orientacaoSexual || null,
+          identidadeGenero: identidadeGenero || null,
+          nomeSocial: nomeSocial || null,
+          municipioNascimento: municipioNascimento || null,
+          nacionalidade: nacionalidade || 'BRASILEIRA',
+          paisNascimento: paisNascimento || 'BRASIL',
+          corRaca: corRaca || 'Não informada',
+          etnia: etnia || null,
+          tipoSanguineo: tipoSanguineo || null,
+          prontuariosAntigos: prontuariosAntigos || null,
+          alergias: alergias || null,
+          familia: familia || null,
+          area: area || null,
+          subarea: subarea || null,
+          escolaridade: escolaridade || null,
+          
+          celular,
+          telefone: telefone || null,
+          email: email || null,
+          nomeMae: maeDesconhecida === true || maeDesconhecida === 'true' ? 'Desconhecida' : (nomeMae || null),
+          maeDesconhecida: maeDesconhecida === true || maeDesconhecida === 'true',
+          nomePai: paiDesconhecido === true || paiDesconhecido === 'true' ? 'Desconhecido' : (nomePai || null),
+          paiDesconhecido: paiDesconhecido === true || paiDesconhecido === 'true',
+          
+          rg: rg || null,
+          orgaoEmissor: orgaoEmissor || null,
+          ufRg: ufRg || null,
+          dataExpedicaoRg: dataExpedicaoRg ? new Date(dataExpedicaoRg) : null,
+          nis: nis || null,
+          certidaoNascimento: certidaoNascimento || null,
+          dataObito: dataObito ? new Date(dataObito) : null,
+          tituloEleitor: tituloEleitor || null,
+          estadoCivil: estadoCivil || null,
+          funcionarioExterno: funcionarioExterno === true || funcionarioExterno === 'true',
+          observacao: observacao || null,
+          profissaoCbo: profissaoCbo || null,
+          localTrabalho: localTrabalho || null,
+          
+          situacaoRua: situacaoRua === true || situacaoRua === 'true',
           cep,
+          tipoLogradouro: tipoLogradouro || 'RUA',
           logradouro,
           numero,
           bairro,
+          complemento: complemento || null,
           municipio,
+          localizacao: localizacao || 'URBANA',
+          unidadeOrigemId,
         },
       });
 
@@ -123,7 +213,7 @@ export class PacienteController {
       const page = Math.max(1, parseInt(req.query.page as string) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
       const skip = (page - 1) * limit;
-      const busca = (req.query.busca as string || '').trim();
+      const busca = String(req.query.busca || '').trim();
 
       let whereClause: Prisma.PacienteWhereInput = {};
 
@@ -194,7 +284,7 @@ export class PacienteController {
    */
   async buscar(req: AuthRequest, res: Response) {
     try {
-      const busca = (req.query.busca as string || '').trim();
+      const busca = String(req.query.busca || '').trim();
       if (!busca) {
         return res.json([]);
       }
@@ -279,13 +369,53 @@ export class PacienteController {
         nomeCompleto,
         dataNascimento,
         sexo,
-        nomeMae,
+        orientacaoSexual,
+        identidadeGenero,
+        nomeSocial,
+        municipioNascimento,
+        nacionalidade,
+        paisNascimento,
+        corRaca,
+        etnia,
+        tipoSanguineo,
+        prontuariosAntigos,
+        alergias,
+        familia,
+        area,
+        subarea,
+        escolaridade,
+        
+        celular,
         telefone,
+        email,
+        nomeMae,
+        maeDesconhecida,
+        nomePai,
+        paiDesconhecido,
+        
+        rg,
+        orgaoEmissor,
+        ufRg,
+        dataExpedicaoRg,
+        nis,
+        certidaoNascimento,
+        dataObito,
+        tituloEleitor,
+        estadoCivil,
+        funcionarioExterno,
+        observacao,
+        profissaoCbo,
+        localTrabalho,
+        
+        situacaoRua,
         cep,
+        tipoLogradouro,
         logradouro,
         numero,
         bairro,
+        complemento,
         municipio,
+        localizacao,
       } = req.body;
 
       const paciente = await prisma.paciente.findUnique({
@@ -296,17 +426,25 @@ export class PacienteController {
         return res.status(404).json({ error: 'Paciente não encontrado.' });
       }
 
-      // Validar telefone se enviado
-      if (telefone) {
+      // Validar celular se enviado
+      if (celular) {
         const phoneRegex = /^\(\d{2}\) 9\d{4}-\d{4}$/;
-        if (!phoneRegex.test(telefone)) {
-          return res.status(400).json({ error: 'Telefone em formato inválido. Formato: (XX) 9XXXX-XXXX' });
+        if (!phoneRegex.test(celular)) {
+          return res.status(400).json({ error: 'Celular em formato inválido. Formato: (XX) 9XXXX-XXXX' });
         }
       }
 
       // Validar sexo se enviado
       if (sexo && !Object.values(Sexo).includes(sexo as Sexo)) {
         return res.status(400).json({ error: 'Gênero/Sexo selecionado é inválido.' });
+      }
+
+      // Validar CEP se enviado
+      if (cep) {
+        const cepRegex = /^\d{5}-\d{3}$/;
+        if (!cepRegex.test(cep)) {
+          return res.status(400).json({ error: 'CEP em formato inválido. Formato: 00000-000' });
+        }
       }
 
       const pacienteAtualizado = await prisma.paciente.update({
@@ -316,13 +454,53 @@ export class PacienteController {
           nomeCompleto: nomeCompleto || paciente.nomeCompleto,
           dataNascimento: dataNascimento ? new Date(dataNascimento) : paciente.dataNascimento,
           sexo: (sexo as Sexo) || paciente.sexo,
-          nomeMae: nomeMae !== undefined ? nomeMae : paciente.nomeMae,
-          telefone: telefone || paciente.telefone,
+          orientacaoSexual: orientacaoSexual !== undefined ? orientacaoSexual : paciente.orientacaoSexual,
+          identidadeGenero: identidadeGenero !== undefined ? identidadeGenero : paciente.identidadeGenero,
+          nomeSocial: nomeSocial !== undefined ? nomeSocial : paciente.nomeSocial,
+          municipioNascimento: municipioNascimento !== undefined ? municipioNascimento : paciente.municipioNascimento,
+          nacionalidade: nacionalidade || paciente.nacionalidade,
+          paisNascimento: paisNascimento || paciente.paisNascimento,
+          corRaca: corRaca || paciente.corRaca,
+          etnia: etnia !== undefined ? etnia : paciente.etnia,
+          tipoSanguineo: tipoSanguineo !== undefined ? tipoSanguineo : paciente.tipoSanguineo,
+          prontuariosAntigos: prontuariosAntigos !== undefined ? prontuariosAntigos : paciente.prontuariosAntigos,
+          alergias: alergias !== undefined ? alergias : paciente.alergias,
+          familia: familia !== undefined ? familia : paciente.familia,
+          area: area !== undefined ? area : paciente.area,
+          subarea: subarea !== undefined ? subarea : paciente.subarea,
+          escolaridade: escolaridade !== undefined ? escolaridade : paciente.escolaridade,
+          
+          celular: celular || paciente.celular,
+          telefone: telefone !== undefined ? telefone : paciente.telefone,
+          email: email !== undefined ? email : paciente.email,
+          nomeMae: maeDesconhecida === true ? 'Desconhecida' : (nomeMae !== undefined ? nomeMae : paciente.nomeMae),
+          maeDesconhecida: maeDesconhecida !== undefined ? Boolean(maeDesconhecida) : paciente.maeDesconhecida,
+          nomePai: paiDesconhecido === true ? 'Desconhecido' : (nomePai !== undefined ? nomePai : paciente.nomePai),
+          paiDesconhecido: paiDesconhecido !== undefined ? Boolean(paiDesconhecido) : paciente.paiDesconhecido,
+          
+          rg: rg !== undefined ? rg : paciente.rg,
+          orgaoEmissor: orgaoEmissor !== undefined ? orgaoEmissor : paciente.orgaoEmissor,
+          ufRg: ufRg !== undefined ? ufRg : paciente.ufRg,
+          dataExpedicaoRg: dataExpedicaoRg !== undefined ? (dataExpedicaoRg ? new Date(dataExpedicaoRg) : null) : paciente.dataExpedicaoRg,
+          nis: nis !== undefined ? nis : paciente.nis,
+          certidaoNascimento: certidaoNascimento !== undefined ? certidaoNascimento : paciente.certidaoNascimento,
+          dataObito: dataObito !== undefined ? (dataObito ? new Date(dataObito) : null) : paciente.dataObito,
+          tituloEleitor: tituloEleitor !== undefined ? tituloEleitor : paciente.tituloEleitor,
+          estadoCivil: estadoCivil !== undefined ? estadoCivil : paciente.estadoCivil,
+          funcionarioExterno: funcionarioExterno !== undefined ? Boolean(funcionarioExterno) : paciente.funcionarioExterno,
+          observacao: observacao !== undefined ? observacao : paciente.observacao,
+          profissaoCbo: profissaoCbo !== undefined ? profissaoCbo : paciente.profissaoCbo,
+          localTrabalho: localTrabalho !== undefined ? localTrabalho : paciente.localTrabalho,
+          
+          situacaoRua: situacaoRua !== undefined ? Boolean(situacaoRua) : paciente.situacaoRua,
           cep: cep || paciente.cep,
+          tipoLogradouro: tipoLogradouro || paciente.tipoLogradouro,
           logradouro: logradouro || paciente.logradouro,
           numero: numero || paciente.numero,
           bairro: bairro || paciente.bairro,
+          complemento: complemento !== undefined ? complemento : paciente.complemento,
           municipio: municipio || paciente.municipio,
+          localizacao: localizacao || paciente.localizacao,
         }
       });
 

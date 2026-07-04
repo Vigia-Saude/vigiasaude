@@ -83,7 +83,7 @@ export function PacientesGrid() {
     },
     {
       header: 'Telefone',
-      cell: (row) => <span className="text-sm text-gray-600 font-mono">{row.telefone}</span>,
+      cell: (row) => <span className="text-sm text-gray-600 font-mono">{row.celular || row.telefone || '—'}</span>,
     },
     {
       header: 'Data de Nascimento',

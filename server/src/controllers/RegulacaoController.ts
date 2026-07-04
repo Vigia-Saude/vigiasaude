@@ -266,8 +266,8 @@ export class RegulacaoController {
         include: { paciente: true }
       });
 
-      // Gerar payload do webhook (telefone somente dígitos)
-      const telefoneDigitos = ficha.paciente.telefone.replace(/\D/g, '');
+      // Gerar payload do webhook (celular somente dígitos)
+      const telefoneDigitos = (ficha.paciente.celular || '').replace(/\D/g, '');
 
       const webhookPayload = {
         id: ficha.id,

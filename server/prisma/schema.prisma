@@ -507,27 +507,68 @@ model PedidoReposicaoItem {
 }
 
 model Paciente {
-  id               String          @id @default(uuid())
-  prontuario       String          @unique
-  cpf              String          @unique
-  cartaoSus        String?         @map("cartao_sus")
-  nomeCompleto     String          @map("nome_completo")
-  dataNascimento   DateTime        @db.Date @map("data_nascimento")
-  sexo             Sexo
-  nomeMae          String?         @map("nome_mae")
-  telefone         String
-  unidadeOrigemId  String?         @map("unidade_origem_id")
-  unidadeOrigem    Unidade?        @relation(fields: [unidadeOrigemId], references: [id])
-  cep              String
-  logradouro       String
-  numero           String
-  bairro           String
-  municipio        String
+  id                  String          @id @default(uuid())
+  prontuario          String          @unique
+  cpf                 String          @unique
+  cartaoSus           String?         @map("cartao_sus")
+  nomeCompleto        String          @map("nome_completo")
+  dataNascimento      DateTime        @db.Date @map("data_nascimento")
+  sexo                Sexo
+  orientacaoSexual    String?         @map("orientacao_sexual")
+  identidadeGenero    String?         @map("identidade_genero")
+  nomeSocial          String?         @map("nome_social")
+  municipioNascimento String?         @map("municipio_nascimento")
+  nacionalidade       String          @default("BRASILEIRA")
+  paisNascimento      String          @default("BRASIL") @map("pais_nascimento")
+  corRaca             String          @default("Não informada") @map("cor_raca")
+  etnia               String?
+  tipoSanguineo       String?         @map("tipo_sanguineo")
+  prontuariosAntigos  String?         @map("prontuarios_antigos")
+  alergias            String?
+  familia             String?
+  area                String?
+  subarea             String?
+  escolaridade        String?
+
+  celular             String          @default("")
+  telefone            String?
+  email               String?
+  nomeMae             String?         @map("nome_mae")
+  maeDesconhecida     Boolean         @default(false) @map("mae_desconhecida")
+  nomePai             String?         @map("nome_pai")
+  paiDesconhecido     Boolean         @default(false) @map("pai_desconhecido")
   
-  criadoEm         DateTime        @default(now()) @map("criado_em")
-  atualizadoEm     DateTime        @updatedAt @map("atualizado_em")
+  rg                  String?
+  orgaoEmissor        String?         @map("orgao_emissor")
+  ufRg                String?         @map("uf_rg")
+  dataExpedicaoRg     DateTime?       @db.Date @map("data_expedicao_rg")
+  nis                 String?
+  certidaoNascimento  String?         @map("certidao_nascimento")
+  dataObito           DateTime?       @db.Date @map("data_obito")
+  tituloEleitor       String?         @map("titulo_eleitor")
+  estadoCivil         String?         @map("estado_civil")
+  funcionarioExterno  Boolean         @default(false) @map("funcionario_externo")
+  observacao          String?
+  profissaoCbo        String?         @map("profissao_cbo")
+  localTrabalho       String?         @map("local_trabalho")
+
+  situacaoRua         Boolean         @default(false) @map("situacao_rua")
+  cep                 String
+  tipoLogradouro      String          @default("RUA") @map("tipo_logradouro")
+  logradouro          String
+  numero              String
+  bairro              String
+  complemento         String?
+  municipio           String
+  localizacao         String          @default("URBANA")
+
+  unidadeOrigemId     String?         @map("unidade_origem_id")
+  unidadeOrigem       Unidade?        @relation(fields: [unidadeOrigemId], references: [id])
   
-  fichasRegulacao  FilaRegulacao[]
+  criadoEm            DateTime        @default(now()) @map("criado_em")
+  atualizadoEm        DateTime        @updatedAt @map("atualizado_em")
+  
+  fichasRegulacao     FilaRegulacao[]
 
   @@index([unidadeOrigemId])
   @@map("pacientes")

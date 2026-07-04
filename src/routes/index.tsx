@@ -541,6 +541,19 @@ export const router = createBrowserRouter([
           };
         }
       },
+      {
+        path: 'posto/pacientes/editar/:id',
+        lazy: async () => {
+          const { CadastrarPaciente } = await import('../pages/Pacientes/CadastrarPaciente');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+                <CadastrarPaciente />
+              </ProtectedRoute>
+            )
+          };
+        }
+      },
 
       // Posto de Saude - Regulação Routes
       {

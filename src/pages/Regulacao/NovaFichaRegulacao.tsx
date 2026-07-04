@@ -17,15 +17,22 @@ import {
   X,
   Calendar,
   Phone,
-  FileText
+  Smartphone,
+  MapPin,
+  Edit3,
+  Check,
+  FileText,
+  Home,
+  Info
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
 import { criarFichaRegulacao } from '../../services/regulacaoService';
-import { buscarPacientes } from '../../services/pacienteService';
+import { buscarPacientes, atualizarPaciente } from '../../services/pacienteService';
 import { FileUpload } from '../../components/ui/FileUpload';
 import { CadastrarPaciente } from '../Pacientes/CadastrarPaciente';
 import type { Paciente } from '../../types';
+import { formatPhone, cn } from '../../lib/utils';
 
 const fichaSchema = z.object({
   responsavelEncaminhamento: z.string().min(3, 'Nome do responsável é obrigatório (mín. 3 caracteres)'),
@@ -54,6 +61,20 @@ export function NovaFichaRegulacao() {
   
   // State para o modal de cadastro inline
   const [modalOpen, setModalOpen] = useState(false);
+
+  // States para edição do paciente selecionado
+  const [isEditingPaciente, setIsEditingPaciente] = useState(false);
+  const [editCelular, setEditCelular] = useState('');
+  const [editTelefone, setEditTelefone] = useState('');
+  const [editCep, setEditCep] = useState('');
+  const [editTipoLogradouro, setEditTipoLogradouro] = useState('RUA');
+  const [editLogradouro, setEditLogradouro] = useState('');
+  const [editNumero, setEditNumero] = useState('');
+  const [editBairro, setEditBairro] = useState('');
+  const [editComplemento, setEditComplemento] = useState('');
+  const [editMunicipio, setEditMunicipio] = useState('');
+  const [editLocalizacao, setEditLocalizacao] = useState('URBANA');
+  const [isLoadingCep, setIsLoadingCep] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -111,16 +132,85 @@ export function NovaFichaRegulacao() {
     setSearchQuery('');
     setSearchResults([]);
     setShowDropdown(false);
+    
+    // Inicializar os campos de edição
+    setEditCelular(paciente.celular || '');
+    setEditTelefone(paciente.telefone || '');
+    setEditCep(paciente.cep || '');
+    setEditTipoLogradouro(paciente.tipoLogradouro || 'RUA');
+    setEditLogradouro(paciente.logradouro || '');
+    setEditNumero(paciente.numero || '');
+    setEditBairro(paciente.bairro || '');
+    setEditComplemento(paciente.complemento || '');
+    setEditMunicipio(paciente.municipio || '');
+    setEditLocalizacao(paciente.localizacao || 'URBANA');
+    setIsEditingPaciente(false);
   };
 
   const handleRemovePaciente = () => {
     setSelectedPaciente(null);
     setValue('pacienteId', '', { shouldValidate: true });
+    setIsEditingPaciente(false);
   };
 
   const handleCreateSuccess = (novoPaciente: Paciente) => {
     handleSelectPaciente(novoPaciente);
     setModalOpen(false);
+  };
+
+  const handleEditCelularChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditCelular(formatPhone(e.target.value));
+  };
+
+  const handleEditTelefoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 10) value = value.substring(0, 10);
+    if (value.length > 2) {
+      value = `(${value.substring(0, 2)}) ${value.substring(2, 6)}-${value.substring(6)}`;
+    }
+    setEditTelefone(value);
+  };
+
+  // CEP Lookup inside editing mode
+  const handleEditCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 8) value = value.substring(0, 8);
+    
+    let formattedCep = value;
+    if (value.length > 5) {
+      formattedCep = `${value.substring(0, 5)}-${value.substring(5)}`;
+    }
+    setEditCep(formattedCep);
+
+    if (value.length === 8) {
+      setIsLoadingCep(true);
+      try {
+        const response = await fetch(`https://viacep.com.br/ws/${value}/json/`);
+        const data = await response.json();
+        if (!data.erro) {
+          setEditLogradouro(data.logradouro || '');
+          setEditBairro(data.bairro || '');
+          setEditMunicipio(`${data.localidade} - ${data.uf}`);
+          
+          if (data.logradouro) {
+            const firstWord = data.logradouro.split(' ')[0].toUpperCase();
+            const tiposValidos = ['RUA', 'AVENIDA', 'TRAVESSA', 'PRACA', 'RODOVIA', 'ALAMEDA', 'BECO'];
+            const matched = tiposValidos.find(t => firstWord.includes(t) || t.includes(firstWord));
+            if (matched) {
+              setEditTipoLogradouro(matched);
+            }
+          }
+          toast.success('Endereço auto-preenchido pelo CEP!');
+        } else {
+          toast.warning('CEP não encontrado.');
+        }
+      } catch (err) {
+        console.error(err);
+        toast.error('Erro ao buscar CEP.');
+      } finally {
+        setIsLoadingCep(false);
+      }
+    }
   };
 
   const onSubmit = async (data: FichaFormData) => {
@@ -131,6 +221,44 @@ export function NovaFichaRegulacao() {
 
     try {
       setSubmitting(true);
+
+      // Se editou os dados do paciente, atualizar primeiro
+      if (isEditingPaciente && selectedPaciente) {
+        // Validações básicas
+        if (!editCelular || !editCep || !editLogradouro || !editNumero || !editBairro || !editMunicipio) {
+          toast.error('Preencha todos os campos obrigatórios do paciente (*).');
+          setSubmitting(false);
+          return;
+        }
+
+        const phoneRegex = /^\(\d{2}\) 9\d{4}-\d{4}$/;
+        if (!phoneRegex.test(editCelular)) {
+          toast.error('Celular em formato inválido. Formato: (XX) 9XXXX-XXXX');
+          setSubmitting(false);
+          return;
+        }
+
+        const cepRegex = /^\d{5}-\d{3}$/;
+        if (!cepRegex.test(editCep)) {
+          toast.error('CEP em formato inválido. Formato: 00000-000');
+          setSubmitting(false);
+          return;
+        }
+
+        await atualizarPaciente(selectedPaciente.id, {
+          celular: editCelular,
+          telefone: editTelefone,
+          cep: editCep,
+          tipoLogradouro: editTipoLogradouro,
+          logradouro: editLogradouro,
+          numero: editNumero,
+          bairro: editBairro,
+          complemento: editComplemento,
+          municipio: editMunicipio,
+          localizacao: editLocalizacao
+        });
+        toast.success('Dados cadastrais do paciente atualizados!');
+      }
 
       const formData = new FormData();
       Object.entries(data).forEach(([key, value]) => {
@@ -151,6 +279,10 @@ export function NovaFichaRegulacao() {
       setSubmitting(false);
     }
   };
+
+  const addressPreview = selectedPaciente 
+    ? `${editTipoLogradouro} ${editLogradouro}, ${editNumero} ${editComplemento ? `(${editComplemento})` : ''} - ${editBairro}, ${editMunicipio} - CEP ${editCep}`
+    : '';
 
   return (
     <div className="space-y-6 pb-8 animate-in fade-in duration-300 relative">
@@ -176,9 +308,9 @@ export function NovaFichaRegulacao() {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         
-        {/* Section 1: Seleção de Paciente */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50/50 to-transparent">
+        {/* Section 1: Seleção de Paciente (Sem overflow-hidden para não esconder o dropdown) */}
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-xs">
+          <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50/50 to-transparent rounded-t-2xl">
             <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
               <User className="h-4.5 w-4.5 text-blue-600" />
               Seleção do Paciente
@@ -222,9 +354,9 @@ export function NovaFichaRegulacao() {
                   <span className="text-xs font-medium text-red-500 mt-1">{errors.pacienteId.message}</span>
                 )}
 
-                {/* Dropdown Autocomplete */}
+                {/* Dropdown Autocomplete (posicionado de forma absoluta) */}
                 {showDropdown && searchResults.length > 0 && (
-                  <div className="absolute top-[70px] left-0 right-0 z-50 max-h-60 overflow-y-auto rounded-lg border border-gray-250 bg-white shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="absolute top-[70px] left-0 right-0 z-50 max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
                     {searchResults.map((paciente) => (
                       <div
                         key={paciente.id}
@@ -249,41 +381,242 @@ export function NovaFichaRegulacao() {
                 )}
               </div>
             ) : (
-              /* Card do Paciente Selecionado (Read-Only) */
-              <div className="bg-blue-50/40 rounded-xl border border-blue-150 p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-in zoom-in-95 duration-200">
-                <div className="flex items-start gap-4">
-                  <div className="bg-blue-600 text-white rounded-full p-2.5 shrink-0 mt-0.5">
-                    <User className="h-5 w-5" />
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="font-bold text-gray-900 leading-none">{selectedPaciente.nomeCompleto}</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-1 pt-1 text-xs text-gray-500 font-medium">
-                      <span className="flex items-center gap-1">
-                        <FileText className="h-3.5 w-3.5" /> CPF: {selectedPaciente.cpf}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3.5 w-3.5" /> Nasc: {new Date(selectedPaciente.dataNascimento).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Phone className="h-3.5 w-3.5" /> Tel: {selectedPaciente.telefone}
-                      </span>
-                      {selectedPaciente.cartaoSus && (
-                        <span className="flex items-center gap-1 sm:col-span-3 mt-0.5">
-                          SUS: {selectedPaciente.cartaoSus}
+              /* Card do Paciente Selecionado com Opção de Visualizar/Editar Dados */
+              <div className="bg-blue-50/40 rounded-xl border border-blue-150 p-5 space-y-4 animate-in zoom-in-95 duration-200">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div className="flex items-start gap-4">
+                    <div className="bg-blue-600 text-white rounded-full p-2.5 shrink-0 mt-0.5">
+                      <User className="h-5 w-5" />
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="font-bold text-gray-900 leading-none">{selectedPaciente.nomeCompleto}</h3>
+                      <div className="flex flex-wrap gap-x-6 gap-y-1 pt-1 text-xs text-gray-500 font-medium">
+                        <span className="flex items-center gap-1">
+                          <FileText className="h-3.5 w-3.5" /> CPF: {selectedPaciente.cpf}
                         </span>
-                      )}
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3.5 w-3.5" /> Nasc: {new Date(selectedPaciente.dataNascimento).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+                        </span>
+                        {selectedPaciente.cartaoSus && (
+                          <span>SUS: {selectedPaciente.cartaoSus}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
+                  
+                  <div className="flex items-center gap-2 self-stretch sm:self-center shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingPaciente(!isEditingPaciente)}
+                      className={cn(
+                        "flex items-center gap-1 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all shadow-xs cursor-pointer",
+                        isEditingPaciente 
+                          ? "bg-teal-600 border-teal-600 text-white hover:bg-teal-700"
+                          : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                      )}
+                    >
+                      {isEditingPaciente ? (
+                        <>
+                          <Check className="h-3.5 w-3.5" />
+                          Confirmar Edição
+                        </>
+                      ) : (
+                        <>
+                          <Edit3 className="h-3.5 w-3.5" />
+                          Editar Dados
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRemovePaciente}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-red-200 text-xs font-bold text-red-650 bg-white hover:bg-red-50 hover:text-red-700 active:scale-95 transition-all shadow-xs cursor-pointer"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      Trocar
+                    </button>
+                  </div>
                 </div>
-                
-                <button
-                  type="button"
-                  onClick={handleRemovePaciente}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-xs font-bold text-red-650 bg-white hover:bg-red-50 hover:text-red-700 active:scale-95 transition-all shadow-xs cursor-pointer self-end md:self-center shrink-0"
-                >
-                  <X className="h-3.5 w-3.5" />
-                  Trocar Paciente
-                </button>
+
+                {/* Pré-Visualização / Formulário de Edição */}
+                <div className="border-t border-blue-100/60 pt-4">
+                  {!isEditingPaciente ? (
+                    // Read-only info layout with address preview
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-semibold text-gray-700">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Smartphone className="h-4 w-4 text-gray-400 shrink-0" />
+                          <span>Celular: <span className="font-bold text-gray-950">{editCelular || '—'}</span></span>
+                        </div>
+                        {editTelefone && (
+                          <div className="flex items-center gap-2">
+                            <Phone className="h-4 w-4 text-gray-400 shrink-0" />
+                            <span>Telefone Fixo: <span className="font-bold text-gray-950">{editTelefone}</span></span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-start gap-2 bg-blue-100/30 p-3 rounded-lg border border-blue-100/40">
+                        <MapPin className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] text-gray-400 uppercase tracking-wider block">Endereço (Pré-visualização)</span>
+                          <p className="text-gray-800 font-medium leading-snug">{addressPreview}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    // Inline Edit Form Panel
+                    <div className="space-y-4 animate-in fade-in duration-200">
+                      <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg flex items-center gap-2 text-yellow-800 text-xs font-semibold mb-2">
+                        <Info className="h-4 w-4 text-yellow-600 shrink-0" />
+                        <span>Preencha as informações atualizadas. As correções serão salvas no cadastro ao enviar.</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {/* Celular */}
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-bold text-gray-500 uppercase">Celular *</label>
+                          <input
+                            type="text"
+                            value={editCelular}
+                            onChange={handleEditCelularChange}
+                            placeholder="(XX) 9XXXX-XXXX"
+                            maxLength={15}
+                            className="flex h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-600"
+                          />
+                        </div>
+
+                        {/* Telefone */}
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] font-bold text-gray-500 uppercase">Telefone Fixo</label>
+                          <input
+                            type="text"
+                            value={editTelefone}
+                            onChange={handleEditTelefoneChange}
+                            placeholder="(XX) 0000-0000"
+                            maxLength={14}
+                            className="flex h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-600"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="border-t border-dashed border-blue-100/60 pt-3">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-2">Endereço do Paciente</span>
+                        <div className="grid grid-cols-1 sm:grid-cols-6 gap-3">
+                          {/* CEP */}
+                          <div className="flex flex-col gap-1 sm:col-span-1">
+                            <label className="text-[10px] font-bold text-gray-500 uppercase">CEP *</label>
+                            <div className="relative">
+                              <input
+                                type="text"
+                                value={editCep}
+                                onChange={handleEditCepChange}
+                                placeholder="00000-000"
+                                maxLength={9}
+                                className="flex h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs placeholder:text-gray-400"
+                              />
+                              {isLoadingCep && (
+                                <div className="absolute right-2 top-2.5">
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Tipo Logradouro */}
+                          <div className="flex flex-col gap-1 sm:col-span-1">
+                            <label className="text-[10px] font-bold text-gray-500 uppercase">Tipo *</label>
+                            <select
+                              value={editTipoLogradouro}
+                              onChange={(e) => setEditTipoLogradouro(e.target.value)}
+                              className="flex h-9 w-full rounded-md border border-gray-300 bg-white px-2 py-1 text-xs"
+                            >
+                              <option value="RUA">Rua</option>
+                              <option value="AVENIDA">Avenida</option>
+                              <option value="TRAVESSA">Travessa</option>
+                              <option value="ALAMEDA">Alameda</option>
+                              <option value="RODOVIA">Rodovia</option>
+                              <option value="PRACA">Praça</option>
+                              <option value="BECO">Beco</option>
+                            </select>
+                          </div>
+
+                          {/* Logradouro */}
+                          <div className="flex flex-col gap-1 sm:col-span-3">
+                            <label className="text-[10px] font-bold text-gray-500 uppercase">Logradouro *</label>
+                            <input
+                              type="text"
+                              value={editLogradouro}
+                              onChange={(e) => setEditLogradouro(e.target.value)}
+                              placeholder="Nome da rua/avenida"
+                              className="flex h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs"
+                            />
+                          </div>
+
+                          {/* Número */}
+                          <div className="flex flex-col gap-1 sm:col-span-1">
+                            <label className="text-[10px] font-bold text-gray-500 uppercase">N° *</label>
+                            <input
+                              type="text"
+                              value={editNumero}
+                              onChange={(e) => setEditNumero(e.target.value)}
+                              placeholder="N°"
+                              className="flex h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs"
+                            />
+                          </div>
+
+                          {/* Bairro */}
+                          <div className="flex flex-col gap-1 sm:col-span-2">
+                            <label className="text-[10px] font-bold text-gray-500 uppercase">Bairro *</label>
+                            <input
+                              type="text"
+                              value={editBairro}
+                              onChange={(e) => setEditBairro(e.target.value)}
+                              placeholder="Bairro"
+                              className="flex h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs"
+                            />
+                          </div>
+
+                          {/* Complemento */}
+                          <div className="flex flex-col gap-1 sm:col-span-1">
+                            <label className="text-[10px] font-bold text-gray-500 uppercase">Complemento</label>
+                            <input
+                              type="text"
+                              value={editComplemento}
+                              onChange={(e) => setEditComplemento(e.target.value)}
+                              placeholder="Apto, Bloco..."
+                              className="flex h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs"
+                            />
+                          </div>
+
+                          {/* Município */}
+                          <div className="flex flex-col gap-1 sm:col-span-2">
+                            <label className="text-[10px] font-bold text-gray-500 uppercase">Município *</label>
+                            <input
+                              type="text"
+                              value={editMunicipio}
+                              onChange={(e) => setEditMunicipio(e.target.value)}
+                              placeholder="Município - UF"
+                              className="flex h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs"
+                            />
+                          </div>
+
+                          {/* Localização */}
+                          <div className="flex flex-col gap-1 sm:col-span-1">
+                            <label className="text-[10px] font-bold text-gray-500 uppercase">Localização</label>
+                            <select
+                              value={editLocalizacao}
+                              onChange={(e) => setEditLocalizacao(e.target.value)}
+                              className="flex h-9 w-full rounded-md border border-gray-300 bg-white px-2 py-1 text-xs"
+                            >
+                              <option value="URBANA">Urbana</option>
+                              <option value="RURAL">Rural</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>

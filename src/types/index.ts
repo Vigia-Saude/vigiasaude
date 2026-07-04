@@ -178,15 +178,56 @@ export interface Paciente {
   nomeCompleto: string;
   dataNascimento: string; // ISO date string
   sexo: SexoPaciente;
+  orientacaoSexual?: string | null;
+  identidadeGenero?: string | null;
+  nomeSocial?: string | null;
+  municipioNascimento?: string | null;
+  nacionalidade: string;
+  paisNascimento: string;
+  corRaca: string;
+  etnia?: string | null;
+  tipoSanguineo?: string | null;
+  prontuariosAntigos?: string | null;
+  alergias?: string | null;
+  familia?: string | null;
+  area?: string | null;
+  subarea?: string | null;
+  escolaridade?: string | null;
+
+  celular: string;
+  telefone?: string | null;
+  email?: string | null;
   nomeMae?: string | null;
-  telefone: string;
-  unidadeOrigemId?: string | null;
-  unidadeOrigemNome?: string;
+  maeDesconhecida: boolean;
+  nomePai?: string | null;
+  paiDesconhecido: boolean;
+
+  rg?: string | null;
+  orgaoEmissor?: string | null;
+  ufRg?: string | null;
+  dataExpedicaoRg?: string | null;
+  nis?: string | null;
+  certidaoNascimento?: string | null;
+  dataObito?: string | null;
+  tituloEleitor?: string | null;
+  estadoCivil?: string | null;
+  funcionarioExterno: boolean;
+  observacao?: string | null;
+  profissaoCbo?: string | null;
+  localTrabalho?: string | null;
+
+  situacaoRua: boolean;
   cep: string;
+  tipoLogradouro: string;
   logradouro: string;
   numero: string;
   bairro: string;
+  complemento?: string | null;
   municipio: string;
+  localizacao: string;
+
+  unidadeOrigemId?: string | null;
+  unidadeOrigemNome?: string;
   criadoEm: string;
   atualizadoEm: string;
 }
