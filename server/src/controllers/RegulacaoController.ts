@@ -109,7 +109,7 @@ export class RegulacaoController {
 
   // GET /api/regulacao
   listar = async (req: AuthRequest, res: Response) => {
-    const { status, page = '1', limit = '20' } = req.query;
+    const { status, page = '1', limit = '20', pacienteId } = req.query;
     const skip = (Math.max(1, Number(page)) - 1) * Math.min(100, Number(limit));
     const take = Math.min(100, Number(limit));
 
@@ -125,6 +125,11 @@ export class RegulacaoController {
       // Filtro por status
       if (status) {
         where.statusAgendamento = status as any;
+      }
+
+      // Filtro por paciente (para histórico)
+      if (pacienteId) {
+        where.pacienteId = String(pacienteId);
       }
 
       const [total, fichas] = await Promise.all([
@@ -210,6 +215,15 @@ export class RegulacaoController {
 
       if (!ficha) {
         res.status(404).json({ erro: 'Ficha de regulação não encontrada.' });
+        return;
+      }
+
+      // Bloquear re-agendamento se já está agendado/confirmado/aguardando resposta
+      const statusBloqueados = ['PRE_AGENDADO', 'AGUARDANDO_RESPOSTA_PACIENTE', 'CONFIRMADO'];
+      if (statusBloqueados.includes(ficha.statusAgendamento)) {
+        res.status(409).json({
+          erro: `Este paciente já possui agendamento ativo com status "${ficha.statusAgendamento}". Cancele o agendamento atual antes de criar um novo.`,
+        });
         return;
       }
 
@@ -301,20 +315,32 @@ export class RegulacaoController {
     const termo = String(busca).trim();
 
     try {
-      const where: Prisma.FilaRegulacaoWhereInput = {
-        paciente: {}
-      };
+      const where: Prisma.FilaRegulacaoWhereInput = {};
 
       // POSTO_SAUDE filtra pela unidade
       if (req.user?.perfil === 'POSTO_SAUDE' && req.user?.unidadeId) {
         where.unidadeEsfId = req.user.unidadeId;
       }
 
-      // Verificar se é CPF (contém pontos ou traços) ou nome
-      const cpfRegex = /^\d{3}\.\d{3}\.\d{3}-\d{2}$/;
-      if (cpfRegex.test(termo)) {
+      // CPF formatado: 000.000.000-00
+      const cpfFormatadoRegex = /^\d{3}\.\d{3}\.\d{3}-\d{2}$/;
+      // CPF apenas dígitos: 11 números
+      const cpfDigitosRegex = /^\d{11}$/;
+      // Cartão SUS: 15 dígitos
+      const cartaoSusRegex = /^\d{15}$/;
+
+      if (cpfFormatadoRegex.test(termo)) {
+        // CPF formatado → busca exata
         where.paciente = { cpf: termo };
+      } else if (cpfDigitosRegex.test(termo)) {
+        // CPF sem formatação → formata e busca exata
+        const cpfFormatado = `${termo.slice(0,3)}.${termo.slice(3,6)}.${termo.slice(6,9)}-${termo.slice(9,11)}`;
+        where.paciente = { cpf: cpfFormatado };
+      } else if (cartaoSusRegex.test(termo)) {
+        // Cartão SUS (15 dígitos)
+        where.paciente = { cartaoSus: termo };
       } else {
+        // Nome (busca parcial insensível)
         where.paciente = { nomeCompleto: { contains: termo, mode: 'insensitive' } };
       }
 
@@ -323,8 +349,15 @@ export class RegulacaoController {
         include: {
           paciente: {
             select: {
+              id: true,
               nomeCompleto: true,
               cpf: true,
+              cartaoSus: true,
+              celular: true,
+              telefone: true,
+              dataNascimento: true,
+              sexo: true,
+              municipio: true,
             }
           }
         },
@@ -336,14 +369,23 @@ export class RegulacaoController {
         id: f.id,
         pacienteId: f.pacienteId,
         paciente: {
+          id: f.paciente.id,
           nomeCompleto: f.paciente.nomeCompleto,
           cpf: f.paciente.cpf,
+          cartaoSus: f.paciente.cartaoSus,
+          celular: f.paciente.celular,
+          telefone: f.paciente.telefone,
+          dataNascimento: f.paciente.dataNascimento,
+          sexo: f.paciente.sexo,
+          municipio: f.paciente.municipio,
         },
         procedimentoSolicitado: f.procedimentoSolicitado,
         statusAgendamento: f.statusAgendamento,
         dataAgendada: f.dataAgendada,
         horaAgendada: f.horaAgendada,
         localAgendamento: f.localAgendamento,
+        criadoEm: f.criadoEm,
+        atualizadoEm: f.atualizadoEm,
       }));
 
       res.json(resultado);

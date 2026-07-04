@@ -12,6 +12,7 @@ import {
   Stethoscope,
   Clock,
   Image as ImageIcon,
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { detalhesFichaRegulacao, agendarFichaRegulacao } from '../../services/regulacaoService';
@@ -42,6 +43,7 @@ export function AgendamentoRegulacao() {
   const [dataAgendada, setDataAgendada] = useState('');
   const [horaAgendada, setHoraAgendada] = useState('');
   const [localAgendamento, setLocalAgendamento] = useState('');
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
 
   const { data: ficha, isLoading, isError } = useQuery({
     queryKey: ['regulacao-detalhe', id],
@@ -71,7 +73,7 @@ export function AgendamentoRegulacao() {
       return;
     }
 
-    agendarMutation.mutate();
+    setIsConfirmModalOpen(true);
   };
 
   // Build anexo URL
@@ -287,9 +289,18 @@ export function AgendamentoRegulacao() {
                   type="date"
                   value={dataAgendada}
                   onChange={(e) => setDataAgendada(e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 transition-all"
+                  onClick={(e) => { try { (e.target as any).showPicker(); } catch (err) {} }}
+                  className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 transition-all cursor-pointer"
                   required
                 />
+                {dataAgendada && new Date(dataAgendada).getFullYear() > new Date().getFullYear() && (
+                  <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold p-3 rounded-lg animate-in fade-in duration-200">
+                    <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold">Atenção:</span> Você está selecionando uma data para o ano que vem ({new Date(dataAgendada).getFullYear()}). Certifique-se de que o ano está correto.
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -327,6 +338,98 @@ export function AgendamentoRegulacao() {
           </div>
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {isConfirmModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-gray-250 flex flex-col animate-in zoom-in-95 duration-200 overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+              <h3 className="font-bold text-gray-900 text-base flex items-center gap-2">
+                <CalendarCheck className="h-5 w-5 text-indigo-600" />
+                Confirmar Dados do Agendamento
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsConfirmModalOpen(false)}
+                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            {/* Body */}
+            <div className="p-6 space-y-4 text-sm text-gray-600">
+              <p className="font-medium text-gray-800">
+                Revise os detalhes antes de confirmar o agendamento na regulação:
+              </p>
+              
+              <div className="bg-indigo-50/40 rounded-xl border border-indigo-100 p-4 space-y-3">
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Paciente</span>
+                  <span className="font-bold text-gray-900">{ficha.paciente?.nomeCompleto}</span>
+                  <span className="text-xs text-gray-500 block">CPF: {formatCPF(ficha.paciente?.cpf || '')}</span>
+                </div>
+                
+                <div className="border-t border-indigo-100/50 pt-2">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Procedimento</span>
+                  <span className="font-semibold text-indigo-700">{ficha.procedimentoSolicitado}</span>
+                </div>
+                
+                <div className="border-t border-indigo-100/50 pt-2 grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Data</span>
+                    <span className="font-bold text-gray-955">
+                      {dataAgendada ? new Date(dataAgendada + 'T00:00:00').toLocaleDateString('pt-BR') : ''}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Horário</span>
+                    <span className="font-bold text-gray-955">{horaAgendada}</span>
+                  </div>
+                </div>
+                
+                <div className="border-t border-indigo-100/50 pt-2">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Local de Atendimento</span>
+                  <span className="font-bold text-gray-955">{localAgendamento}</span>
+                </div>
+              </div>
+
+              {dataAgendada && new Date(dataAgendada).getFullYear() > new Date().getFullYear() && (
+                <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold p-3 rounded-lg">
+                  <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">Atenção:</span> Este agendamento está programado para o ano seguinte ({new Date(dataAgendada).getFullYear()}).
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsConfirmModalOpen(false)}
+                className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-xs font-bold text-gray-700 hover:bg-gray-50 transition-all cursor-pointer"
+              >
+                Voltar e Revisar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  agendarMutation.mutate();
+                  setIsConfirmModalOpen(false);
+                }}
+                disabled={agendarMutation.isPending}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white shadow-sm active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {agendarMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                Confirmar Agendamento
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
