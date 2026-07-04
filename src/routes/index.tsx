@@ -514,6 +514,101 @@ export const router = createBrowserRouter([
         }
       },
 
+      // Posto de Saude - Regulação Routes
+      {
+        path: 'posto/regulacao/nova',
+        lazy: async () => {
+          const { NovaFichaRegulacao } = await import('../pages/Regulacao/NovaFichaRegulacao');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+                <NovaFichaRegulacao />
+              </ProtectedRoute>
+            )
+          };
+        }
+      },
+      {
+        path: 'posto/regulacao/acoes',
+        lazy: async () => {
+          const { PainelAcoesRegulacao } = await import('../pages/Regulacao/PainelAcoesRegulacao');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+                <PainelAcoesRegulacao />
+              </ProtectedRoute>
+            )
+          };
+        }
+      },
+      {
+        path: 'posto/regulacao/consulta',
+        lazy: async () => {
+          const { ConsultaRapidaRegulacao } = await import('../pages/Regulacao/ConsultaRapidaRegulacao');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+                <ConsultaRapidaRegulacao />
+              </ProtectedRoute>
+            )
+          };
+        }
+      },
+      {
+        path: 'posto/regulacao/:id',
+        lazy: async () => {
+          const { DetalhesFichaRegulacao } = await import('../pages/Regulacao/DetalhesFichaRegulacao');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+                <DetalhesFichaRegulacao />
+              </ProtectedRoute>
+            )
+          };
+        }
+      },
+
+      // Regulador (Secretaria) Protected Routes
+      {
+        path: 'regulador/fila',
+        lazy: async () => {
+          const { FilaRegulacaoSecretaria } = await import('../pages/Regulacao/FilaRegulacaoSecretaria');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['REGULADOR']}>
+                <FilaRegulacaoSecretaria />
+              </ProtectedRoute>
+            )
+          };
+        }
+      },
+      {
+        path: 'regulador/agendamento/:id',
+        lazy: async () => {
+          const { AgendamentoRegulacao } = await import('../pages/Regulacao/AgendamentoRegulacao');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['REGULADOR']}>
+                <AgendamentoRegulacao />
+              </ProtectedRoute>
+            )
+          };
+        }
+      },
+      {
+        path: 'regulador/:id',
+        lazy: async () => {
+          const { DetalhesFichaRegulacao } = await import('../pages/Regulacao/DetalhesFichaRegulacao');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['REGULADOR']}>
+                <DetalhesFichaRegulacao />
+              </ProtectedRoute>
+            )
+          };
+        }
+      },
+
       // Motorista Protected Routes
       {
         path: 'motorista/dashboard',

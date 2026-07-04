@@ -151,8 +151,47 @@ export interface User {
   role: UserRole;
   email?: string;
   cpf?: string;
-  perfil?: 'SECRETARIO_SAUDE' | 'GESTOR_ESTOQUE' | 'FARMACIA' | 'MEDICO' | 'ENTREGADOR' | 'POSTO_SAUDE' | null;
+  perfil?: 'SECRETARIO_SAUDE' | 'GESTOR_ESTOQUE' | 'FARMACIA' | 'MEDICO' | 'ENTREGADOR' | 'POSTO_SAUDE' | 'REGULADOR' | null;
   tenantSchema?: string | null;
   unidadeId?: string | null;
   unidadeNome?: string;
+}
+
+// ─── Módulo Regulação ───────────────────────────────────────────────────────────
+
+export type StatusAgendamento = 
+  | 'AGUARDANDO_REGULACAO'
+  | 'PRE_AGENDADO' 
+  | 'AGUARDANDO_RESPOSTA_PACIENTE'
+  | 'CONFIRMADO'
+  | 'CANCELADO';
+
+export type TipoAtendimento = 'SUS' | 'PARCERIA';
+
+export interface FilaRegulacao {
+  id: string;
+  unidadeEsfId: string;
+  unidadeEsfNome?: string;
+  responsavelEncaminhamento: string;
+  acsResponsavel: string;
+  pacienteNome: string;
+  pacienteCpf: string;
+  pacienteDataNascimento: string;
+  pacienteTelefone: string;
+  pacienteCartaoSus?: string;
+  pacienteEndereco?: string;
+  tipoAtendimento: TipoAtendimento;
+  procedimentoSolicitado: string;
+  observacaoClinica?: string;
+  anexoUrl?: string;
+  dataAgendada?: string;
+  horaAgendada?: string;
+  localAgendamento?: string;
+  statusAgendamento: StatusAgendamento;
+  criadoPorUsuarioId: string;
+  criadoPorNome?: string;
+  agendadoPorUsuarioId?: string;
+  agendadoPorNome?: string;
+  criadoEm: string;
+  atualizadoEm: string;
 }

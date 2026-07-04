@@ -8,7 +8,10 @@ import {
   Bell, 
   Settings,
   ChevronLeft,
-  Shield
+  Shield,
+  FilePlus2,
+  Send,
+  Search
 } from 'lucide-react';
 
 interface SidebarPostoProps {
@@ -23,8 +26,10 @@ export default function SidebarPosto({ isOpen, setIsOpen }: SidebarPostoProps) {
     { name: 'Dashboard', path: '/posto/dashboard', icon: Home },
     { name: 'Meu Estoque', path: '/posto/meu-estoque', icon: Package },
     { name: 'Pedidos de Recomposição', path: '/posto/pedidos-recomposicao', icon: ShoppingCart },
-    { name: 'Dispensação', path: '/posto/dispensacao', icon: Pill },
     { name: 'Entregas de Reposição', path: '/posto/entregas', icon: Truck },
+    { name: 'Nova Ficha (Regulação)', path: '/posto/regulacao/nova', icon: FilePlus2 },
+    { name: 'Painel de Ações', path: '/posto/regulacao/acoes', icon: Send },
+    { name: 'Consulta Rápida', path: '/posto/regulacao/consulta', icon: Search },
     { name: 'Notificações', path: '/posto/notificacoes', icon: Bell },
     { name: 'Configurações', path: '/posto/configuracoes', icon: Settings },
   ];

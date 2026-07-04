@@ -21,6 +21,7 @@ enum Perfil {
   MEDICO
   ENTREGADOR
   POSTO_SAUDE
+  REGULADOR
 }
 
 enum UsuarioStatus {
@@ -72,6 +73,19 @@ enum AlertaCdStatus {
   NOVO
   LIDO
   RESOLVIDO
+}
+
+enum StatusAgendamento {
+  AGUARDANDO_REGULACAO
+  PRE_AGENDADO
+  AGUARDANDO_RESPOSTA_PACIENTE
+  CONFIRMADO
+  CANCELADO
+}
+
+enum TipoAtendimento {
+  SUS
+  PARCERIA
 }
 
 model CatmatMedicamento {
@@ -137,6 +151,8 @@ model User {
   auditorias       Auditoria[]
   pedidosSolicitados PedidoReposicao[] @relation("SolicitadoPor")
   pedidosEntregar    PedidoReposicao[] @relation("MotoristaPedidos")
+  filaCriadaPor      FilaRegulacao[]   @relation("FilaCriadaPor")
+  filaAgendadaPor    FilaRegulacao[]   @relation("FilaAgendadaPor")
 
   @@index([fornecedorId])
   @@index([status])
@@ -432,6 +448,7 @@ model Unidade {
   
   usuarios     User[]
   pedidos      PedidoReposicao[]
+  filasRegulacao FilaRegulacao[]
 
   @@map("unidades")
 }
@@ -479,6 +496,53 @@ model PedidoReposicaoItem {
   @@index([pedidoId])
   @@index([catmatCodigo])
   @@map("pedido_reposicao_itens")
+}
+
+model FilaRegulacao {
+  id                        String              @id @default(uuid())
+  
+  // Dados da Unidade e Responsáveis
+  unidadeEsfId              String              @map("unidade_esf_id")
+  unidadeEsf                Unidade             @relation(fields: [unidadeEsfId], references: [id])
+  responsavelEncaminhamento String              @map("responsavel_encaminhamento")
+  acsResponsavel            String              @map("acs_responsavel")
+  
+  // Dados do Paciente
+  pacienteNome              String              @map("paciente_nome")
+  pacienteCpf               String              @map("paciente_cpf")
+  pacienteDataNascimento    DateTime            @db.Date @map("paciente_data_nascimento")
+  pacienteTelefone          String              @map("paciente_telefone")
+  pacienteCartaoSus         String?             @map("paciente_cartao_sus")
+  pacienteEndereco          String?             @map("paciente_endereco")
+  tipoAtendimento           TipoAtendimento     @default(SUS) @map("tipo_atendimento")
+  
+  // Dados Clínicos e Anexos
+  procedimentoSolicitado    String              @map("procedimento_solicitado")
+  observacaoClinica         String?             @map("observacao_clinica")
+  anexoUrl                  String?             @map("anexo_url")
+  
+  // Dados de Agendamento (Secretaria)
+  dataAgendada              DateTime?           @db.Date @map("data_agendada")
+  horaAgendada              String?             @map("hora_agendada")
+  localAgendamento          String?             @map("local_agendamento")
+  
+  // Controle de Fluxo
+  statusAgendamento         StatusAgendamento   @default(AGUARDANDO_REGULACAO) @map("status_agendamento")
+  
+  // Auditoria
+  criadoPorUsuarioId        String              @map("criado_por_usuario_id")
+  criadoPor                 User                @relation("FilaCriadaPor", fields: [criadoPorUsuarioId], references: [id])
+  agendadoPorUsuarioId      String?             @map("agendado_por_usuario_id")
+  agendadoPor               User?               @relation("FilaAgendadaPor", fields: [agendadoPorUsuarioId], references: [id])
+  
+  criadoEm                  DateTime            @default(now()) @map("criado_em")
+  atualizadoEm              DateTime            @updatedAt @map("atualizado_em")
+  
+  @@index([unidadeEsfId])
+  @@index([statusAgendamento])
+  @@index([pacienteCpf])
+  @@index([criadoPorUsuarioId])
+  @@map("fila_regulacao")
 }
 
 model PermissoesPerfil {

@@ -12,6 +12,7 @@ import { listarUnidades } from '../services/tenantService';
 import { PedidoReposicaoController } from '../controllers/PedidoReposicaoController';
 import { FarmaciaController } from '../controllers/FarmaciaController';
 import { MotoristaController } from '../controllers/MotoristaController';
+import { RegulacaoController, uploadRegulacaoConfig } from '../controllers/RegulacaoController';
 
 const router = Router();
 const pedidoController = new PedidoController();
@@ -25,6 +26,7 @@ const cdController = new CdController();
 const pedidoReposicaoController = new PedidoReposicaoController();
 const farmaciaController = new FarmaciaController();
 const motoristaController = new MotoristaController();
+const regulacaoController = new RegulacaoController();
 
 // Todas as rotas da API requerem autenticação
 router.use(authMiddleware);
@@ -120,5 +122,14 @@ router.get('/motorista/historico', roleMiddleware(['ENTREGADOR']), motoristaCont
 router.patch('/motorista/coletas/:id/aceitar', roleMiddleware(['ENTREGADOR']), motoristaController.aceitarColeta);
 router.patch('/motorista/entregas/:id/confirmar', roleMiddleware(['ENTREGADOR']), motoristaController.confirmarEntrega);
 router.patch('/motorista/entregas/:id/devolver', roleMiddleware(['ENTREGADOR']), motoristaController.devolverEntrega);
+
+// Rotas da Regulação
+router.post('/regulacao', roleMiddleware(['POSTO_SAUDE']), uploadRegulacaoConfig.single('anexo'), regulacaoController.criar);
+router.get('/regulacao', roleMiddleware(['POSTO_SAUDE', 'REGULADOR']), regulacaoController.listar);
+router.get('/regulacao/consulta-rapida', roleMiddleware(['POSTO_SAUDE']), regulacaoController.consultaRapida);
+router.get('/regulacao/:id', roleMiddleware(['POSTO_SAUDE', 'REGULADOR']), regulacaoController.detalhes);
+router.patch('/regulacao/:id/agendar', roleMiddleware(['REGULADOR']), regulacaoController.agendar);
+router.patch('/regulacao/:id/avisar-paciente', roleMiddleware(['POSTO_SAUDE']), regulacaoController.avisarPaciente);
+router.patch('/regulacao/:id/status', regulacaoController.atualizarStatus);
 
 export default router;
