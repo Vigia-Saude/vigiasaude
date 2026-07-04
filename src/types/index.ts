@@ -168,18 +168,37 @@ export type StatusAgendamento =
 
 export type TipoAtendimento = 'SUS' | 'PARCERIA';
 
+export type SexoPaciente = 'MASCULINO' | 'FEMININO' | 'OUTRO' | 'PREFIRO_NAO_INFORMAR';
+
+export interface Paciente {
+  id: string;
+  prontuario: string;
+  cpf: string;
+  cartaoSus?: string | null;
+  nomeCompleto: string;
+  dataNascimento: string; // ISO date string
+  sexo: SexoPaciente;
+  nomeMae?: string | null;
+  telefone: string;
+  unidadeOrigemId?: string | null;
+  unidadeOrigemNome?: string;
+  cep: string;
+  logradouro: string;
+  numero: string;
+  bairro: string;
+  municipio: string;
+  criadoEm: string;
+  atualizadoEm: string;
+}
+
 export interface FilaRegulacao {
   id: string;
   unidadeEsfId: string;
   unidadeEsfNome?: string;
   responsavelEncaminhamento: string;
   acsResponsavel: string;
-  pacienteNome: string;
-  pacienteCpf: string;
-  pacienteDataNascimento: string;
-  pacienteTelefone: string;
-  pacienteCartaoSus?: string;
-  pacienteEndereco?: string;
+  pacienteId: string;
+  paciente?: Paciente;
   tipoAtendimento: TipoAtendimento;
   procedimentoSolicitado: string;
   observacaoClinica?: string;

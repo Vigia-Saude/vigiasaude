@@ -148,14 +148,14 @@ export function AgendamentoRegulacao() {
                 <User className="h-4 w-4 text-gray-400 mt-0.5" />
                 <div>
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Paciente</span>
-                  <span className="text-sm font-bold text-gray-900">{ficha.pacienteNome}</span>
+                  <span className="text-sm font-bold text-gray-900">{ficha.paciente?.nomeCompleto}</span>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <FileText className="h-4 w-4 text-gray-400 mt-0.5" />
                 <div>
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">CPF</span>
-                  <span className="text-sm font-semibold text-gray-700">{formatCPF(ficha.pacienteCpf)}</span>
+                  <span className="text-sm font-semibold text-gray-700">{formatCPF(ficha.paciente?.cpf || '')}</span>
                 </div>
               </div>
               <div className="flex items-start gap-3">

@@ -141,8 +141,8 @@ export function ConsultaRapidaRegulacao() {
                     <User className="h-5 w-5 text-gray-500" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-gray-900">{ficha.pacienteNome}</h3>
-                    <p className="text-xs text-gray-500 font-medium">CPF: {formatCPF(ficha.pacienteCpf)}</p>
+                    <h3 className="text-base font-bold text-gray-900">{ficha.paciente?.nomeCompleto}</h3>
+                    <p className="text-xs text-gray-500 font-medium">CPF: {formatCPF(ficha.paciente?.cpf || '')}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">

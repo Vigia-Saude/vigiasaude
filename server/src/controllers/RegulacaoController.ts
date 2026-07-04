@@ -31,12 +31,7 @@ export class RegulacaoController {
       unidadeEsfId,
       responsavelEncaminhamento,
       acsResponsavel,
-      pacienteNome,
-      pacienteCpf,
-      pacienteDataNascimento,
-      pacienteTelefone,
-      pacienteCartaoSus,
-      pacienteEndereco,
+      pacienteId,
       tipoAtendimento,
       procedimentoSolicitado,
       observacaoClinica,
@@ -46,31 +41,24 @@ export class RegulacaoController {
     if (
       !responsavelEncaminhamento ||
       !acsResponsavel ||
-      !pacienteNome ||
-      !pacienteCpf ||
-      !pacienteDataNascimento ||
-      !pacienteTelefone ||
+      !pacienteId ||
       !procedimentoSolicitado
     ) {
-      res.status(400).json({ erro: 'Campos obrigatórios: responsavelEncaminhamento, acsResponsavel, pacienteNome, pacienteCpf, pacienteDataNascimento, pacienteTelefone, procedimentoSolicitado.' });
-      return;
-    }
-
-    // Validar formato do telefone
-    const telefoneRegex = /^\(\d{2}\) 9\d{4}-\d{4}$/;
-    if (!telefoneRegex.test(pacienteTelefone)) {
-      res.status(400).json({ erro: 'Formato de telefone inválido. Use: (XX) 9XXXX-XXXX' });
-      return;
-    }
-
-    // Validar formato do CPF
-    const cpfRegex = /^\d{3}\.\d{3}\.\d{3}-\d{2}$/;
-    if (!cpfRegex.test(pacienteCpf)) {
-      res.status(400).json({ erro: 'Formato de CPF inválido. Use: XXX.XXX.XXX-XX' });
+      res.status(400).json({ erro: 'Campos obrigatórios: responsavelEncaminhamento, acsResponsavel, pacienteId, procedimentoSolicitado.' });
       return;
     }
 
     try {
+      // Verificar se o paciente existe
+      const paciente = await prisma.paciente.findUnique({
+        where: { id: pacienteId }
+      });
+
+      if (!paciente) {
+        res.status(400).json({ erro: 'Paciente selecionado não encontrado no sistema.' });
+        return;
+      }
+
       // Determinar unidadeEsfId: POSTO_SAUDE usa req.user.unidadeId automaticamente
       let finalUnidadeEsfId = unidadeEsfId;
       if (req.user?.perfil === 'POSTO_SAUDE' && req.user?.unidadeId) {
@@ -98,12 +86,7 @@ export class RegulacaoController {
           unidadeEsfId: finalUnidadeEsfId,
           responsavelEncaminhamento,
           acsResponsavel,
-          pacienteNome,
-          pacienteCpf,
-          pacienteDataNascimento: new Date(pacienteDataNascimento),
-          pacienteTelefone,
-          pacienteCartaoSus: pacienteCartaoSus || null,
-          pacienteEndereco: pacienteEndereco || null,
+          pacienteId,
           tipoAtendimento: tipoAtendimento || 'SUS',
           procedimentoSolicitado,
           observacaoClinica: observacaoClinica || null,
@@ -111,6 +94,10 @@ export class RegulacaoController {
           statusAgendamento: 'AGUARDANDO_REGULACAO',
           criadoPorUsuarioId: req.user!.id,
         },
+        include: {
+          paciente: true,
+          unidadeEsf: { select: { id: true, nome: true } }
+        }
       });
 
       res.status(201).json(ficha);
@@ -150,6 +137,7 @@ export class RegulacaoController {
           include: {
             unidadeEsf: { select: { id: true, nome: true } },
             criadoPor: { select: { id: true, nome: true } },
+            paciente: { select: { id: true, nomeCompleto: true, cpf: true, telefone: true } }
           },
         }),
       ]);
@@ -176,6 +164,7 @@ export class RegulacaoController {
           unidadeEsf: { select: { id: true, nome: true, endereco: true, telefone: true } },
           criadoPor: { select: { id: true, nome: true, email: true } },
           agendadoPor: { select: { id: true, nome: true, email: true } },
+          paciente: true
         },
       });
 
@@ -237,6 +226,7 @@ export class RegulacaoController {
           unidadeEsf: { select: { id: true, nome: true } },
           criadoPor: { select: { id: true, nome: true } },
           agendadoPor: { select: { id: true, nome: true } },
+          paciente: true
         },
       });
 
@@ -252,7 +242,10 @@ export class RegulacaoController {
     const id = String(req.params.id);
 
     try {
-      const ficha = await prisma.filaRegulacao.findUnique({ where: { id } });
+      const ficha = await prisma.filaRegulacao.findUnique({
+        where: { id },
+        include: { paciente: true }
+      });
 
       if (!ficha) {
         res.status(404).json({ erro: 'Ficha de regulação não encontrada.' });
@@ -270,14 +263,15 @@ export class RegulacaoController {
         data: {
           statusAgendamento: 'AGUARDANDO_RESPOSTA_PACIENTE',
         },
+        include: { paciente: true }
       });
 
       // Gerar payload do webhook (telefone somente dígitos)
-      const telefoneDigitos = ficha.pacienteTelefone.replace(/\D/g, '');
+      const telefoneDigitos = ficha.paciente.telefone.replace(/\D/g, '');
 
       const webhookPayload = {
         id: ficha.id,
-        nome: ficha.pacienteNome,
+        nome: ficha.paciente.nomeCompleto,
         telefone: telefoneDigitos,
         procedimento: ficha.procedimentoSolicitado,
         data: ficha.dataAgendada,
@@ -307,7 +301,9 @@ export class RegulacaoController {
     const termo = String(busca).trim();
 
     try {
-      const where: Prisma.FilaRegulacaoWhereInput = {};
+      const where: Prisma.FilaRegulacaoWhereInput = {
+        paciente: {}
+      };
 
       // POSTO_SAUDE filtra pela unidade
       if (req.user?.perfil === 'POSTO_SAUDE' && req.user?.unidadeId) {
@@ -317,28 +313,40 @@ export class RegulacaoController {
       // Verificar se é CPF (contém pontos ou traços) ou nome
       const cpfRegex = /^\d{3}\.\d{3}\.\d{3}-\d{2}$/;
       if (cpfRegex.test(termo)) {
-        where.pacienteCpf = termo;
+        where.paciente = { cpf: termo };
       } else {
-        where.pacienteNome = { contains: termo, mode: 'insensitive' };
+        where.paciente = { nomeCompleto: { contains: termo, mode: 'insensitive' } };
       }
 
       const fichas = await prisma.filaRegulacao.findMany({
         where,
-        select: {
-          id: true,
-          pacienteNome: true,
-          pacienteCpf: true,
-          procedimentoSolicitado: true,
-          statusAgendamento: true,
-          dataAgendada: true,
-          horaAgendada: true,
-          localAgendamento: true,
+        include: {
+          paciente: {
+            select: {
+              nomeCompleto: true,
+              cpf: true,
+            }
+          }
         },
         orderBy: { criadoEm: 'desc' },
         take: 20,
       });
 
-      res.json(fichas);
+      const resultado = fichas.map(f => ({
+        id: f.id,
+        pacienteId: f.pacienteId,
+        paciente: {
+          nomeCompleto: f.paciente.nomeCompleto,
+          cpf: f.paciente.cpf,
+        },
+        procedimentoSolicitado: f.procedimentoSolicitado,
+        statusAgendamento: f.statusAgendamento,
+        dataAgendada: f.dataAgendada,
+        horaAgendada: f.horaAgendada,
+        localAgendamento: f.localAgendamento,
+      }));
+
+      res.json(resultado);
     } catch (err) {
       console.error(err);
       res.status(500).json({ erro: 'Erro na consulta rápida.' });

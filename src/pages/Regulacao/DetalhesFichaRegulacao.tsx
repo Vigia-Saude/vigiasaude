@@ -166,7 +166,7 @@ export function DetalhesFichaRegulacao() {
             Detalhes da Ficha
           </h1>
           <p className="text-sm text-gray-500 font-medium mt-1">
-            Ficha de regulação — {ficha.pacienteNome}
+            Ficha de regulação — {ficha.paciente?.nomeCompleto}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -239,29 +239,29 @@ export function DetalhesFichaRegulacao() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Nome Completo</span>
-                <span className="text-sm font-bold text-gray-900">{ficha.pacienteNome}</span>
+                <span className="text-sm font-bold text-gray-900">{ficha.paciente?.nomeCompleto}</span>
               </div>
               <div>
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">CPF</span>
-                <span className="text-sm font-semibold text-gray-700">{formatCPF(ficha.pacienteCpf)}</span>
+                <span className="text-sm font-semibold text-gray-700">{formatCPF(ficha.paciente?.cpf || '')}</span>
               </div>
               <div>
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Data de Nascimento</span>
-                <span className="text-sm font-semibold text-gray-700">{formatDateBR(ficha.pacienteDataNascimento)}</span>
+                <span className="text-sm font-semibold text-gray-700">{formatDateBR(ficha.paciente?.dataNascimento || '')}</span>
               </div>
               <div className="flex items-start gap-1.5">
                 <Phone className="h-3.5 w-3.5 text-gray-400 mt-1" />
                 <div>
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Telefone</span>
-                  <span className="text-sm font-semibold text-gray-700">{formatPhone(ficha.pacienteTelefone)}</span>
+                  <span className="text-sm font-semibold text-gray-700">{formatPhone(ficha.paciente?.telefone || '')}</span>
                 </div>
               </div>
-              {ficha.pacienteCartaoSus && (
+              {ficha.paciente?.cartaoSus && (
                 <div className="flex items-start gap-1.5">
                   <CreditCard className="h-3.5 w-3.5 text-gray-400 mt-1" />
                   <div>
                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Cartão SUS</span>
-                    <span className="text-sm font-semibold text-gray-700">{ficha.pacienteCartaoSus}</span>
+                    <span className="text-sm font-semibold text-gray-700">{ficha.paciente.cartaoSus}</span>
                   </div>
                 </div>
               )}
@@ -276,12 +276,14 @@ export function DetalhesFichaRegulacao() {
                 </span>
               </div>
             </div>
-            {ficha.pacienteEndereco && (
+            {ficha.paciente && (
               <div className="flex items-start gap-1.5">
                 <MapPin className="h-3.5 w-3.5 text-gray-400 mt-1" />
                 <div>
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Endereço</span>
-                  <span className="text-sm font-semibold text-gray-700">{ficha.pacienteEndereco}</span>
+                  <span className="text-sm font-semibold text-gray-700">
+                    {ficha.paciente.logradouro}, {ficha.paciente.numero} - {ficha.paciente.bairro}, {ficha.paciente.municipio} - CEP {ficha.paciente.cep}
+                  </span>
                 </div>
               </div>
             )}

@@ -13,6 +13,7 @@ import { PedidoReposicaoController } from '../controllers/PedidoReposicaoControl
 import { FarmaciaController } from '../controllers/FarmaciaController';
 import { MotoristaController } from '../controllers/MotoristaController';
 import { RegulacaoController, uploadRegulacaoConfig } from '../controllers/RegulacaoController';
+import { PacienteController } from '../controllers/PacienteController';
 
 const router = Router();
 const pedidoController = new PedidoController();
@@ -27,6 +28,7 @@ const pedidoReposicaoController = new PedidoReposicaoController();
 const farmaciaController = new FarmaciaController();
 const motoristaController = new MotoristaController();
 const regulacaoController = new RegulacaoController();
+const pacienteController = new PacienteController();
 
 // Todas as rotas da API requerem autenticação
 router.use(authMiddleware);
@@ -131,5 +133,12 @@ router.get('/regulacao/:id', roleMiddleware(['POSTO_SAUDE', 'REGULADOR']), regul
 router.patch('/regulacao/:id/agendar', roleMiddleware(['REGULADOR']), regulacaoController.agendar);
 router.patch('/regulacao/:id/avisar-paciente', roleMiddleware(['POSTO_SAUDE']), regulacaoController.avisarPaciente);
 router.patch('/regulacao/:id/status', regulacaoController.atualizarStatus);
+
+// Rotas de Pacientes
+router.post('/pacientes', roleMiddleware(['POSTO_SAUDE']), pacienteController.criar);
+router.get('/pacientes', roleMiddleware(['POSTO_SAUDE', 'REGULADOR']), pacienteController.listar);
+router.get('/pacientes/busca', roleMiddleware(['POSTO_SAUDE']), pacienteController.buscar);
+router.get('/pacientes/:id', roleMiddleware(['POSTO_SAUDE', 'REGULADOR']), pacienteController.detalhes);
+router.patch('/pacientes/:id', roleMiddleware(['POSTO_SAUDE']), pacienteController.atualizar);
 
 export default router;

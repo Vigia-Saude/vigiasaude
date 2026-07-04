@@ -87,8 +87,8 @@ export function FilaRegulacaoSecretaria() {
   // Client-side search filter
   const filteredFichas = busca.trim()
     ? fichas.filter(f =>
-        f.pacienteNome.toLowerCase().includes(busca.toLowerCase()) ||
-        f.pacienteCpf.includes(busca.replace(/\D/g, ''))
+        f.paciente?.nomeCompleto.toLowerCase().includes(busca.toLowerCase()) ||
+        f.paciente?.cpf.replace(/\D/g, '').includes(busca.replace(/\D/g, ''))
       )
     : fichas;
 
@@ -257,8 +257,8 @@ export function FilaRegulacaoSecretaria() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
-                          <span className="text-xs font-bold text-gray-900">{ficha.pacienteNome}</span>
-                          <span className="text-[10px] text-gray-500">{ficha.pacienteCpf}</span>
+                          <span className="text-xs font-bold text-gray-900">{ficha.paciente?.nomeCompleto}</span>
+                          <span className="text-[10px] text-gray-500">{ficha.paciente?.cpf}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4">

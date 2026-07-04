@@ -91,7 +91,7 @@ export function PainelAcoesRegulacao() {
 
   const handleAvisarPaciente = (ficha: FilaRegulacao) => {
     setSelectedFichaId(ficha.id);
-    setSelectedPacienteNome(ficha.pacienteNome);
+    setSelectedPacienteNome(ficha.paciente?.nomeCompleto || '');
     setConfirmModalOpen(true);
   };
 
@@ -106,8 +106,8 @@ export function PainelAcoesRegulacao() {
       header: 'Paciente',
       cell: (row) => (
         <div className="flex flex-col">
-          <span className="text-xs font-bold text-gray-900">{row.pacienteNome}</span>
-          <span className="text-[10px] text-gray-500">{row.pacienteTelefone}</span>
+          <span className="text-xs font-bold text-gray-900">{row.paciente?.nomeCompleto}</span>
+          <span className="text-[10px] text-gray-500">{row.paciente?.telefone}</span>
         </div>
       ),
     },
@@ -144,8 +144,8 @@ export function PainelAcoesRegulacao() {
       header: 'Paciente',
       cell: (row) => (
         <div className="flex flex-col">
-          <span className="text-xs font-bold text-gray-900">{row.pacienteNome}</span>
-          <span className="text-[10px] text-gray-500">{row.pacienteCpf}</span>
+          <span className="text-xs font-bold text-gray-900">{row.paciente?.nomeCompleto}</span>
+          <span className="text-[10px] text-gray-500">{row.paciente?.cpf}</span>
         </div>
       ),
     },
