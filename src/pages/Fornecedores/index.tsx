@@ -8,6 +8,7 @@ import {
   AlertCircle, ShieldAlert, Award, FileText, ClipboardList, Ban, CheckCircle,
   Loader2
 } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
   getFornecedores, getFornecedorDetalhes, createFornecedor, 
   updateFornecedor, toggleFornecedorStatus, FornecedorDetails 
@@ -59,9 +60,7 @@ const fornecedorSchema = z.object({
 type FornecedorFormData = z.infer<typeof fornecedorSchema>;
 
 export function FornecedoresLista() {
-  const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   // Filters
   const [query, setQuery] = useState('');
@@ -89,6 +88,20 @@ export function FornecedoresLista() {
   const [drawerDetails, setDrawerDetails] = useState<FornecedorDetails | null>(null);
   const [isDrawerLoading, setIsDrawerLoading] = useState(false);
 
+  // Fetch Data using React Query
+  const { data: fornecedores = [], isLoading, isError, refetch } = useQuery({
+    queryKey: ['fornecedores', debouncedQuery, statusFilter, categoryFilter],
+    queryFn: () => getFornecedores({
+      query: debouncedQuery || undefined,
+      status: statusFilter || undefined,
+      categoria: categoryFilter || undefined
+    })
+  });
+
+  const fetchFornecedoresData = () => {
+    queryClient.invalidateQueries({ queryKey: ['fornecedores'] });
+  };
+
   // Stats
   const stats = useMemo(() => {
     const total = fornecedores.length;
@@ -99,32 +112,6 @@ export function FornecedoresLista() {
       : 100;
     return { total, ativos, inativos, mediaTaxa };
   }, [fornecedores]);
-
-  // Fetch Data Function
-  const fetchFornecedoresData = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const params = {
-        query: debouncedQuery || undefined,
-        status: statusFilter || undefined,
-        categoria: categoryFilter || undefined
-      };
-      const result = await getFornecedores(params);
-      setFornecedores(result);
-    } catch (err) {
-      console.error('Erro ao buscar fornecedores:', err);
-      setError('Ocorreu um erro ao carregar a lista de fornecedores.');
-      toast.error('Erro ao carregar fornecedores');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Trigger fetch on filter change
-  useEffect(() => {
-    fetchFornecedoresData();
-  }, [debouncedQuery, statusFilter, categoryFilter]);
 
   // Handle toggle status
   const handleToggleStatus = async (id: string) => {
@@ -481,14 +468,14 @@ export function FornecedoresLista() {
       {/* Main Table */}
       {isLoading ? (
         <TableSkeleton columns={6} rows={5} />
-      ) : error ? (
+      ) : isError ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center">
           <AlertCircle className="mx-auto h-12 w-12 text-red-400" />
           <h3 className="mt-2 text-sm font-semibold text-red-900">Erro no carregamento</h3>
-          <p className="mt-1 text-sm text-red-500">{error}</p>
+          <p className="mt-1 text-sm text-red-500">Ocorreu um erro ao carregar a lista de fornecedores.</p>
           <button 
-            onClick={fetchFornecedoresData}
-            className="mt-4 inline-flex items-center text-sm font-semibold text-red-600 hover:text-red-500"
+            onClick={() => refetch()}
+            className="mt-4 inline-flex items-center text-sm font-semibold text-red-650 hover:text-red-500"
           >
             Tentar novamente
           </button>

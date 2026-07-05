@@ -20,7 +20,12 @@ export function getPrismaForSchema(schema: string): PrismaClient {
   const url = new URL(baseUrl);
   url.searchParams.set('options', `--search_path=${schema},public`);
 
-  const pool = new Pool({ connectionString: url.toString() });
+  const pool = new Pool({
+    connectionString: url.toString(),
+    max: 5,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000,
+  });
   const adapter = new PrismaPg(pool);
 
   const client = new PrismaClient({

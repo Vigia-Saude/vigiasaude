@@ -4,6 +4,7 @@ import * as dotenv from 'dotenv'
 import helmet from 'helmet'
 import path from 'path'
 import { rateLimit } from 'express-rate-limit'
+import compression from 'compression'
 
 import authRoutes from './routes/authRoutes'
 import apiRoutes from './routes/apiRoutes'
@@ -12,6 +13,7 @@ import { authMiddleware, roleMiddleware } from './middlewares/auth'
 dotenv.config()
 
 const app = express()
+app.use(compression())
 const PORT = process.env.PORT || 3001
 
 // Confiar no proxy reverso para o rate limiter funcionar

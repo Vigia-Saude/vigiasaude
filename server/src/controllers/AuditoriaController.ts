@@ -9,11 +9,12 @@ export class AuditoriaController {
 
     try {
       if (!page && !limit) {
-        // Comportamento original sem paginação para compatibilidade retroativa com o frontend
+        // Comportamento original limitado a 200 logs de auditoria recentes para performance e compatibilidade retroativa com o frontend
         const logs = await prisma.auditoria.findMany({
           orderBy: {
             dataHora: 'desc',
           },
+          take: 200,
           include: {
             usuario: {
               select: {

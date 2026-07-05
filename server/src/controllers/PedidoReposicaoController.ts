@@ -146,8 +146,8 @@ export class PedidoReposicaoController {
           const lotesDisponiveis = await prisma.cdEstoqueLote.findMany({
             where: {
               OR: [
-                { catmatCodigo: item.catmatCodigo },
-                { medicamentoNome: { contains: item.medicamentoNome, mode: 'insensitive' } }
+                ...(item.catmatCodigo ? [{ catmatCodigo: item.catmatCodigo }] : []),
+                { medicamentoNome: { contains: item.medicamentoNome, mode: 'insensitive' as const } }
               ],
               status: 'DISPONIVEL',
               quantidadeAtual: { gt: 0 },

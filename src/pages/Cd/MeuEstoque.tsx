@@ -22,111 +22,7 @@ interface MedicamentoGrupo {
   lotes: LoteDetail[];
 }
 
-const MEDICAMENTO_CONFIGS: { [key: string]: { minimo: number; consumoDiario: number } } = {
-  "Amoxicilina": { minimo: 500, consumoDiario: 20 },
-  "Paracetamol": { minimo: 50, consumoDiario: 6.5 },
-  "Insulina": { minimo: 50, consumoDiario: 4 },
-  "Losartana": { minimo: 1000, consumoDiario: 20 },
-  "Metformina": { minimo: 100, consumoDiario: 8 },
-  "Dipirona": { minimo: 80, consumoDiario: 4 },
-  "Ibuprofeno": { minimo: 300, consumoDiario: 15 },
-  "Omeprazol": { minimo: 400, consumoDiario: 14.4 },
-};
 
-function getConfigForNome(nome: string) {
-  const key = Object.keys(MEDICAMENTO_CONFIGS).find(k => nome.toLowerCase().includes(k.toLowerCase()));
-  return key ? MEDICAMENTO_CONFIGS[key] : { minimo: 100, consumoDiario: 5 };
-}
-
-const MOCK_FALLBACK_ITEMS: MedicamentoGrupo[] = [
-  {
-    id: "mock-1",
-    medicamentoNome: "Amoxicilina 500mg Cápsula",
-    catmatCodigo: "BR0274321",
-    minimo: 500,
-    consumoDiario: 20,
-    lotes: [
-      { id: "l-1", numeroLote: "LOT2026A", dataValidade: "2027-03-15T00:00:00.000Z", quantidadeAtual: 450, status: "DISPONIVEL" },
-      { id: "l-2", numeroLote: "LOT2026B", dataValidade: "2027-04-20T00:00:00.000Z", quantidadeAtual: 400, status: "DISPONIVEL" }
-    ]
-  },
-  {
-    id: "mock-2",
-    medicamentoNome: "Paracetamol 500mg Comprimido",
-    catmatCodigo: "BR0321456",
-    minimo: 50,
-    consumoDiario: 6.5,
-    lotes: [
-      { id: "l-3", numeroLote: "LOT2026C", dataValidade: "2026-12-10T00:00:00.000Z", quantidadeAtual: 52, status: "DISPONIVEL" }
-    ]
-  },
-  {
-    id: "mock-3",
-    medicamentoNome: "Insulina NPH 100UI/mL Frasco 10mL",
-    catmatCodigo: "BR0112233",
-    minimo: 50,
-    consumoDiario: 4,
-    lotes: [
-      { id: "l-4", numeroLote: "LOT2026D", dataValidade: "2026-08-01T00:00:00.000Z", quantidadeAtual: 4, status: "DISPONIVEL" },
-      { id: "l-5", numeroLote: "LOT2026E", dataValidade: "2026-08-15T00:00:00.000Z", quantidadeAtual: 5, status: "DISPONIVEL" },
-      { id: "l-6", numeroLote: "LOT2026F", dataValidade: "2026-09-02T00:00:00.000Z", quantidadeAtual: 3, status: "DISPONIVEL" }
-    ]
-  },
-  {
-    id: "mock-4",
-    medicamentoNome: "Losartana Potássica 50mg Comprimido",
-    catmatCodigo: "BR0998877",
-    minimo: 1000,
-    consumoDiario: 20,
-    lotes: [
-      { id: "l-7", numeroLote: "LOT2026G", dataValidade: "2026-10-18T00:00:00.000Z", quantidadeAtual: 600, status: "DISPONIVEL" },
-      { id: "l-8", numeroLote: "LOT2026H", dataValidade: "2026-11-05T00:00:00.000Z", quantidadeAtual: 600, status: "DISPONIVEL" }
-    ]
-  },
-  {
-    id: "mock-5",
-    medicamentoNome: "Metformina 850mg Comprimido",
-    catmatCodigo: "BR0445566",
-    minimo: 100,
-    consumoDiario: 8,
-    lotes: [
-      { id: "l-9", numeroLote: "LOT2026I", dataValidade: "2026-06-30T00:00:00.000Z", quantidadeAtual: 45, status: "DISPONIVEL" },
-      { id: "l-10", numeroLote: "LOT2026J", dataValidade: "2026-07-15T00:00:00.000Z", quantidadeAtual: 50, status: "DISPONIVEL" }
-    ]
-  },
-  {
-    id: "mock-6",
-    medicamentoNome: "Dipirona Sódica 500mg Comprimido",
-    catmatCodigo: "BR0778899",
-    minimo: 80,
-    consumoDiario: 4,
-    lotes: [
-      { id: "l-11", numeroLote: "LOT2026K", dataValidade: "2026-05-12T00:00:00.000Z", quantidadeAtual: 8, status: "DISPONIVEL" }
-    ]
-  },
-  {
-    id: "mock-7",
-    medicamentoNome: "Ibuprofeno 600mg Comprimido",
-    catmatCodigo: "BR0556677",
-    minimo: 300,
-    consumoDiario: 15,
-    lotes: [
-      { id: "l-12", numeroLote: "LOT2026L", dataValidade: "2025-08-25T00:00:00.000Z", quantidadeAtual: 150, status: "DISPONIVEL" },
-      { id: "l-13", numeroLote: "LOT2026M", dataValidade: "2025-09-10T00:00:00.000Z", quantidadeAtual: 150, status: "DISPONIVEL" }
-    ]
-  },
-  {
-    id: "mock-8",
-    medicamentoNome: "Omeprazol 20mg Cápsula",
-    catmatCodigo: "BR0667788",
-    minimo: 400,
-    consumoDiario: 14.4,
-    lotes: [
-      { id: "l-14", numeroLote: "LOT2026N", dataValidade: "2026-09-05T00:00:00.000Z", quantidadeAtual: 300, status: "DISPONIVEL" },
-      { id: "l-15", numeroLote: "LOT2026O", dataValidade: "2026-10-12T00:00:00.000Z", quantidadeAtual: 350, status: "DISPONIVEL" }
-    ]
-  }
-];
 
 export function MeuEstoque() {
   const { user } = useAuth();
@@ -190,21 +86,24 @@ export function MeuEstoque() {
 
   // Grouping process
   const getMergedData = (): MedicamentoGrupo[] => {
-    // 1. Group DB lotes by medicine name
+    // Group DB lotes by medicine name
     const groupedDb: { [key: string]: MedicamentoGrupo } = {};
     
     dbLotes.forEach((lote: any) => {
       const nome = lote.medicamentoNome;
       const catmat = lote.catmatCodigo;
-      const config = getConfigForNome(nome);
+      
+      // Use values from backend if present, else safe defaults
+      const minimo = lote.estoqueMinimo || 100;
+      const consumoDiario = lote.consumoDiario || 5;
       
       if (!groupedDb[nome]) {
         groupedDb[nome] = {
           id: `db-${nome}-${catmat || ''}`,
           medicamentoNome: nome,
           catmatCodigo: catmat,
-          minimo: config.minimo,
-          consumoDiario: config.consumoDiario,
+          minimo,
+          consumoDiario,
           lotes: []
         };
       }
@@ -218,20 +117,7 @@ export function MeuEstoque() {
       });
     });
 
-    const dbArray = Object.values(groupedDb);
-
-    // Merge fallback mock data for names not present in db to reach 100% fidelity
-    const merged = [...dbArray];
-    MOCK_FALLBACK_ITEMS.forEach(mockItem => {
-      const exists = merged.some(item => 
-        item.medicamentoNome.toLowerCase().includes(mockItem.medicamentoNome.split(' ')[0].toLowerCase())
-      );
-      if (!exists) {
-        merged.push(mockItem);
-      }
-    });
-
-    return merged;
+    return Object.values(groupedDb);
   };
 
   const allItems = getMergedData();

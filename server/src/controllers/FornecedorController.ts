@@ -24,7 +24,7 @@ const atualizarFornecedorSchema = z.object({
 export class FornecedorController {
   // GET /api/fornecedores
   async listar(req: AuthRequest, res: Response) {
-    const { query, status, categoria } = req.query;
+    const { query, status, categoria, page, limit } = req.query;
 
     try {
       const whereClause: Prisma.FornecedorWhereInput = { deletedAt: null };
@@ -48,9 +48,34 @@ export class FornecedorController {
         ];
       }
 
+      if (page || limit) {
+        const pageNum = Math.max(1, Number(page) || 1);
+        const limitNum = Math.min(100, Math.max(1, Number(limit) || 50));
+        const skip = (pageNum - 1) * limitNum;
+
+        const [total, fornecedores] = await Promise.all([
+          prisma.fornecedor.count({ where: whereClause }),
+          prisma.fornecedor.findMany({
+            where: whereClause,
+            orderBy: { criadoEm: 'desc' },
+            skip,
+            take: limitNum
+          })
+        ]);
+
+        return res.json({
+          total,
+          pagina: pageNum,
+          limite: limitNum,
+          paginas: Math.ceil(total / limitNum),
+          dados: fornecedores
+        });
+      }
+
       const fornecedores = await prisma.fornecedor.findMany({
         where: whereClause,
-        orderBy: { criadoEm: 'desc' }
+        orderBy: { criadoEm: 'desc' },
+        take: 200
       });
 
       return res.json(fornecedores);

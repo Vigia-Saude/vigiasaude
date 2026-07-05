@@ -3,6 +3,7 @@ import prisma from '../config/prisma';
 import { AuthRequest } from '../middlewares/auth';
 import { Prisma } from '@prisma/client';
 import { parseNfeXml } from '../utils/nfeXmlParser';
+import { getPrismaForSchema } from '../lib/prismaFactory';
 
 interface ItemNfInput {
   catmatCodigo?: string;
@@ -320,69 +321,39 @@ export class CdController {
     try {
       const isUnidade = req.user?.perfil === 'FARMACIA' || req.user?.perfil === 'POSTO_SAUDE';
       if (isUnidade && req.user?.unidadeId) {
-        // Buscar pedidos concluídos da unidade
-        const pedidos = await prisma.pedidoReposicao.findMany({
-          where: {
-            unidadeId: req.user.unidadeId,
-            status: 'CONCLUIDO',
-            deletedAt: null
-          },
-          include: { itens: true }
-        });
-
-        // Somar os itens por medicamento
-        const estoqueMap = new Map<string, {
-          medicamentoNome: string;
-          catmatCodigo: string | null;
-          quantidade: number;
-        }>();
-
-        pedidos.forEach(p => {
-          p.itens.forEach(item => {
-            const key = item.medicamentoNome;
-            const existing = estoqueMap.get(key);
-            if (existing) {
-              existing.quantidade += item.quantidade;
-            } else {
-              estoqueMap.set(key, {
-                medicamentoNome: item.medicamentoNome,
-                catmatCodigo: item.catmatCodigo,
-                quantidade: item.quantidade
-              });
-            }
-          });
-        });
-
-        const dadosLotes: any[] = [];
-        
-        // Se não houver estoque na unidade, retorna array vazio em produção
-        if (estoqueMap.size > 0) {
-          let idx = 0;
-          estoqueMap.forEach((val, key) => {
-            dadosLotes.push({
-              id: `lote-farm-real-${idx++}`,
-              medicamentoNome: val.medicamentoNome,
-              numeroLote: `LOT-UNIT-${idx}`,
-              dataValidade: new Date('2027-05-15'),
-              quantidadeInicial: val.quantidade * 1.2,
-              quantidadeAtual: val.quantidade,
-              status: 'DISPONIVEL',
-              catmatCodigo: val.catmatCodigo
-            });
-          });
+        const tenantSchema = req.user.tenantSchema;
+        if (!tenantSchema) {
+          res.status(400).json({ erro: 'Tenant não identificado para esta unidade.' });
+          return;
         }
 
-        // Filtro de busca se houver
-        let filteredLotes = dadosLotes;
+        const tenant = getPrismaForSchema(tenantSchema);
+        let query = `
+          SELECT
+            m.nome            AS "medicamentoNome",
+            m.catmat_codigo   AS "catmatCodigo",
+            m.estoque_minimo  AS "estoqueMinimo",
+            l.id,
+            l.numero_lote     AS "numeroLote",
+            l.validade        AS "dataValidade",
+            l.quantidade_atual AS "quantidadeAtual",
+            'DISPONIVEL'      AS "status"
+          FROM medicamentos m
+          INNER JOIN lotes l ON l.medicamento_id = m.id AND l.deleted_at IS NULL AND l.quantidade_atual > 0
+          WHERE m.deleted_at IS NULL
+        `;
+
+        const params: unknown[] = [];
         if (busca) {
-          filteredLotes = dadosLotes.filter(l => 
-            l.medicamentoNome.toLowerCase().includes(String(busca).toLowerCase()) ||
-            l.numeroLote.toLowerCase().includes(String(busca).toLowerCase()) ||
-            l.catmatCodigo?.toLowerCase().includes(String(busca).toLowerCase())
-          );
+          params.push(`%${busca}%`, `%${busca}%`, `%${busca}%`);
+          query += ` AND (m.nome ILIKE $1 OR m.catmat_codigo ILIKE $2 OR l.numero_lote ILIKE $3)`;
         }
+        
+        query += ` ORDER BY m.nome, l.validade ASC`;
 
-        res.json({ total: filteredLotes.length, pagina: 1, dados: filteredLotes });
+        const lotes: any[] = await tenant.$queryRawUnsafe(query, ...params);
+
+        res.json({ total: lotes.length, pagina: 1, dados: lotes });
         return;
       }
 
@@ -724,79 +695,111 @@ export class CdController {
     try {
       const isUnidade = req.user?.perfil === 'FARMACIA' || req.user?.perfil === 'POSTO_SAUDE';
       if (isUnidade && req.user?.unidadeId) {
-        // Buscar se existe algum lote real vindo de pedidos entregues para este medicamento
-        const pedidos = await prisma.pedidoReposicao.findMany({
-          where: {
-            unidadeId: req.user.unidadeId,
-            status: 'CONCLUIDO',
-            deletedAt: null,
-            itens: {
-              some: { medicamentoNome: { contains: medicamentoNome, mode: 'insensitive' } }
-            }
-          },
-          include: { itens: true }
-        });
-
-        let estoqueTotal = 0;
-        pedidos.forEach(p => {
-          const item = p.itens.find(i => i.medicamentoNome.toLowerCase().includes(medicamentoNome.toLowerCase()));
-          if (item) estoqueTotal += item.quantidade;
-        });
-
-        if (estoqueTotal === 0) {
-          res.json({
-            medicamentoNome,
-            cards: {
-              estoqueTotal: 0,
-              reservado: 0,
-              disponivel: 0,
-              consumoMedio: 0,
-              leadTimeMedio: 7,
-              status: 'SEM_ESTOQUE'
-            },
-            lotes: [],
-            movimentacoes: [],
-            graficoConsumo: []
-          });
+        const tenantSchema = req.user.tenantSchema;
+        if (!tenantSchema) {
+          res.status(400).json({ erro: 'Tenant não identificado para esta unidade.' });
           return;
         }
 
-        let loteNum = 'LOT-UNIT-01';
-        let dataVal = new Date('2027-05-15');
+        const tenant = getPrismaForSchema(tenantSchema);
 
-        const lotesReservas = [
-          {
-            id: 'lote-farm-det-1',
-            lote: loteNum,
-            validade: dataVal.toISOString().split('T')[0],
-            estoque: estoqueTotal,
-            reservado: 0,
-            disponivel: estoqueTotal,
-            prioridade: '1º a usar'
-          }
-        ];
+        // Buscar todos os lotes ativos do medicamento no estoque do tenant
+        const lotes = await tenant.$queryRawUnsafe<{ id: string, numero_lote: string, validade: any, quantidade: number, quantidade_atual: number, criado_em: any, nota_fiscal: string }[]>(
+          `SELECT l.id, l.numero_lote, l.validade, l.quantidade, l.quantidade_atual, l.criado_em, l.nota_fiscal
+           FROM lotes l
+           INNER JOIN medicamentos m ON l.medicamento_id = m.id
+           WHERE m.nome ILIKE $1 AND l.deleted_at IS NULL AND m.deleted_at IS NULL
+           ORDER BY l.validade ASC`,
+          `%${medicamentoNome}%`
+        );
 
-        const historicoMovimentacoes = [
-          {
-            id: 'mov-farm-1',
-            origemDestino: 'Centro de Distribuição',
-            dataHora: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 dias atrás
-            lote: loteNum,
+        const lotesReservas = lotes.map((l, idx) => ({
+          id: l.id,
+          lote: l.numero_lote,
+          validade: l.validade ? new Date(l.validade).toISOString().split('T')[0] : '',
+          estoque: l.quantidade_atual,
+          reservado: 0,
+          disponivel: l.quantidade_atual,
+          prioridade: `${idx + 1}º a usar`
+        }));
+
+        const movimentacoes: any[] = [];
+        lotes.forEach(l => {
+          movimentacoes.push({
+            id: `entrada-${l.id}`,
+            origemDestino: l.nota_fiscal || 'Recebimento de Reposição',
+            dataHora: l.criado_em,
+            lote: l.numero_lote,
             tipo: 'Entrada',
-            quantidade: estoqueTotal,
-            saldo: estoqueTotal
-          }
-        ];
+            quantidade: l.quantidade
+          });
+        });
 
-        const graficoConsumo = [
-          { month: 'Nov', volume: Math.round(estoqueTotal * 0.4) },
-          { month: 'Dez', volume: Math.round(estoqueTotal * 0.5) },
-          { month: 'Jan', volume: Math.round(estoqueTotal * 0.45) },
-          { month: 'Fev', volume: Math.round(estoqueTotal * 0.52) },
-          { month: 'Mar', volume: Math.round(estoqueTotal * 0.6) },
-          { month: 'Abr', volume: Math.round(estoqueTotal * 0.58) },
-          { month: 'Mai', volume: Math.round(estoqueTotal * 0.7) }
-        ];
+        // Buscar dispensações (saídas) do medicamento
+        const dispensados = await tenant.$queryRawUnsafe<{ id: string, data_dispensacao: any, numero_lote: string, quantidade: number }[]>(
+          `SELECT di.id, d.data_dispensacao, l.numero_lote, di.quantidade
+           FROM dispensacao_itens di
+           INNER JOIN dispensacoes d ON di.dispensacao_id = d.id
+           INNER JOIN lotes l ON di.lote_id = l.id
+           INNER JOIN medicamentos m ON di.medicamento_id = m.id
+           WHERE m.nome ILIKE $1 AND m.deleted_at IS NULL AND l.deleted_at IS NULL
+           ORDER BY d.data_dispensacao ASC`,
+          `%${medicamentoNome}%`
+        );
+
+        dispensados.forEach(d => {
+          movimentacoes.push({
+            id: `saida-${d.id}`,
+            origemDestino: 'Dispensação ao Paciente',
+            dataHora: d.data_dispensacao,
+            lote: d.numero_lote,
+            tipo: 'Saída',
+            quantidade: -d.quantidade
+          });
+        });
+
+        // Ordenar movimentações de forma cronológica para calcular saldo acumulado
+        movimentacoes.sort((a, b) => new Date(a.dataHora).getTime() - new Date(b.dataHora).getTime());
+        
+        let saldoAcumulado = 0;
+        movimentacoes.forEach(m => {
+          saldoAcumulado += m.quantidade;
+          m.saldo = saldoAcumulado;
+        });
+
+        movimentacoes.reverse();
+
+        // Calcular consumo médio diário baseado nas dispensações dos últimos 30 dias
+        const saidas30d = dispensados.filter(d => {
+          const diffMs = Date.now() - new Date(d.data_dispensacao).getTime();
+          return diffMs <= 30 * 24 * 60 * 60 * 1000;
+        });
+        const totalDispensado30d = saidas30d.reduce((sum, d) => sum + d.quantidade, 0);
+        const consumoMedio = Number((totalDispensado30d / 30).toFixed(1));
+
+        // Calcular gráfico de consumo dos últimos 7 meses
+        const meses = ['Nov', 'Dez', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out'];
+        const hoje = new Date();
+        const graficoConsumo: { month: string; volume: number }[] = [];
+
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+          const mesNome = meses[d.getMonth() % 12];
+          
+          const volume = movimentacoes
+            .filter(m => {
+              const mDate = new Date(m.dataHora);
+              return m.tipo === 'Saída' && mDate.getMonth() === d.getMonth() && mDate.getFullYear() === d.getFullYear();
+            })
+            .reduce((sum, m) => sum + Math.abs(m.quantidade), 0);
+
+          graficoConsumo.push({
+            month: mesNome,
+            volume
+          });
+        }
+
+        const estoqueTotal = lotes.reduce((sum, l) => sum + l.quantidade_atual, 0);
 
         res.json({
           medicamentoNome,
@@ -804,12 +807,12 @@ export class CdController {
             estoqueTotal,
             reservado: 0,
             disponivel: estoqueTotal,
-            consumoMedio: Math.max(1, Math.round(estoqueTotal * 0.05)),
-            leadTimeMedio: 7,
+            consumoMedio,
+            leadTimeMedio: 0,
           },
           lotesReservas,
           graficoConsumo,
-          historicoMovimentacoes,
+          historicoMovimentacoes: movimentacoes,
         });
         return;
       }
@@ -958,58 +961,35 @@ export class CdController {
       const somaReservas = lotesReservas.reduce((sum, r) => sum + r.reservado, 0);
       const disponivelReserva = estoqueTotal - somaReservas;
 
-      // Configs específicas de mock base para cada medicamento se não houver registros suficientes
-      let consumoDiario = 5;
-      let leadTimeMedio = 15;
-      if (medicamentoNome.toLowerCase().includes('insulina')) {
-        consumoDiario = 8;
-        leadTimeMedio = 22;
-      } else if (medicamentoNome.toLowerCase().includes('amoxicilina')) {
-        consumoDiario = 20;
-        leadTimeMedio = 10;
-      } else if (medicamentoNome.toLowerCase().includes('paracetamol')) {
-        consumoDiario = 6.5;
-        leadTimeMedio = 7;
-      }
+      // Calcular consumo médio diário baseado nas saídas dos últimos 30 dias no CD
+      const saidasCD30d = movimentacoes.filter(m => {
+        const diffMs = Date.now() - new Date(m.dataHora).getTime();
+        return m.tipo === 'Saída' && diffMs <= 30 * 24 * 60 * 60 * 1000;
+      });
+      const totalSaidasCD30d = saidasCD30d.reduce((sum, m) => sum + Math.abs(m.quantidade), 0);
+      const consumoDiario = Number((totalSaidasCD30d / 30).toFixed(1));
+      const leadTimeMedio = 0; // Calculável futuramente a partir de logs reais de transição de status
 
       // 6. Configurar gráfico de consumo dos últimos 7 meses
       const meses = ['Nov', 'Dez', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out'];
       const hoje = new Date();
       const graficoConsumo: { month: string; volume: number }[] = [];
 
-      // Se for Insulina NPH e a soma de volumes der 0 (ou seja, só temos os dados de Maio),
-      // fornecemos os valores reais do mockup para o gráfico ficar idêntico ao modelo
-      const volumeMovimentacoes = movimentacoes
-        .filter(m => m.tipo === 'Saída')
-        .reduce((sum, m) => sum + Math.abs(m.quantidade), 0);
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+        const mesNome = meses[d.getMonth() % 12];
+        
+        const volume = movimentacoes
+          .filter(m => {
+            const mDate = new Date(m.dataHora);
+            return m.tipo === 'Saída' && mDate.getMonth() === d.getMonth() && mDate.getFullYear() === d.getFullYear();
+          })
+          .reduce((sum, m) => sum + Math.abs(m.quantidade), 0);
 
-      if (volumeMovimentacoes === 0 || medicamentoNome.toLowerCase().includes('insulina')) {
-        graficoConsumo.push(
-          { month: 'Nov', volume: 195 },
-          { month: 'Dez', volume: 220 },
-          { month: 'Jan', volume: 180 },
-          { month: 'Fev', volume: 195 },
-          { month: 'Mar', volume: 230 },
-          { month: 'Abr', volume: 210 },
-          { month: 'Mai', volume: 250 }
-        );
-      } else {
-        for (let i = 6; i >= 0; i--) {
-          const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
-          const mesNome = meses[d.getMonth() % 12];
-          
-          const volume = movimentacoes
-            .filter(m => {
-              const mDate = new Date(m.dataHora);
-              return m.tipo === 'Saída' && mDate.getMonth() === d.getMonth() && mDate.getFullYear() === d.getFullYear();
-            })
-            .reduce((sum, m) => sum + Math.abs(m.quantidade), 0);
-
-          graficoConsumo.push({
-            month: mesNome,
-            volume
-          });
-        }
+        graficoConsumo.push({
+          month: mesNome,
+          volume
+        });
       }
 
       res.json({

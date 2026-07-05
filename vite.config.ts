@@ -9,6 +9,32 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react/') || id.includes('react-dom/') || id.includes('react-router')) {
+              return 'vendor';
+            }
+            if (id.includes('@tanstack')) {
+              return 'query';
+            }
+            if (id.includes('recharts')) {
+              return 'charts';
+            }
+            if (id.includes('lucide-react')) {
+              return 'icons';
+            }
+            if (id.includes('zod') || id.includes('react-hook-form') || id.includes('@hookform')) {
+              return 'forms';
+            }
+            return 'vendor-libs';
+          }
+        }
+      }
+    }
+  },
   server: {
     host: true, // Listen on all local IPs
     port: 3000,

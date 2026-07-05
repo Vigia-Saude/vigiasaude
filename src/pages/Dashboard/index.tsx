@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
-import { getDashboardStats, DashboardStats } from '../../services/dashboardService';
+import { getDashboardStats } from '../../services/dashboardService';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { 
   FileText, 
@@ -11,30 +11,12 @@ import {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (user?.role !== 'COMPRADOR') {
-      setLoading(false);
-      return;
-    }
-
-    async function loadStats() {
-      try {
-        const data = await getDashboardStats();
-        setStats(data);
-      } catch (err) {
-        console.error('Erro ao buscar dados do dashboard:', err);
-        setError('Não foi possível carregar as informações do painel.');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadStats();
-  }, [user]);
+  const { data: stats, isLoading, isError } = useQuery({
+    queryKey: ['dashboardStats'],
+    queryFn: getDashboardStats,
+    enabled: user?.role === 'COMPRADOR',
+  });
 
   if (user?.role === 'FORNECEDOR') {
     return (
@@ -53,7 +35,7 @@ export default function Dashboard() {
     );
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex h-96 items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
@@ -61,10 +43,10 @@ export default function Dashboard() {
     );
   }
 
-  if (error || !stats) {
+  if (isError || !stats) {
     return (
       <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
-        {error || 'Ocorreu um erro ao carregar o dashboard.'}
+        Não foi possível carregar as informações do painel.
       </div>
     );
   }

@@ -61,14 +61,46 @@ export class AtaController {
           where: whereAta,
           include: {
             fornecedor: true,
-            medicamentos: true,
-            pedidos: {
-              include: { itens: true }
-            }
+            medicamentos: true
           },
           orderBy: { criadoEm: 'desc' },
           skip,
           take: limit
+        })
+      ]);
+
+      const ataIds = atas.map(a => a.id);
+      const medIds = atas.flatMap(a => a.medicamentos.map(m => m.id));
+
+      // Busca dados mínimos dos pedidos e itens associados em paralelo
+      const [pedidosRes, itensRes] = await Promise.all([
+        prisma.pedidoCompra.findMany({
+          where: {
+            ataId: { in: ataIds },
+            deletedAt: null
+          },
+          select: {
+            ataId: true,
+            status: true,
+            valorTotal: true
+          }
+        }),
+        prisma.pedidoCompraItem.findMany({
+          where: {
+            ataItemId: { in: medIds },
+            pedido: {
+              deletedAt: null
+            }
+          },
+          select: {
+            ataItemId: true,
+            quantidade: true,
+            pedido: {
+              select: {
+                status: true
+              }
+            }
+          }
         })
       ]);
       
@@ -78,7 +110,8 @@ export class AtaController {
         let valorConsumido = 0;
         let valorComprometido = 0;
 
-        ata.pedidos.forEach(pedido => {
+        const ataPedidos = pedidosRes.filter(p => p.ataId === ata.id);
+        ataPedidos.forEach(pedido => {
           const val = Number(pedido.valorTotal);
           if (pedido.status === 'PENDENTE') {
             valorComprometido += val;
@@ -106,17 +139,15 @@ export class AtaController {
           let qtdeConsumida = 0;
           let qtdeComprometida = 0;
 
-          ata.pedidos.forEach(pedido => {
-            pedido.itens.forEach(item => {
-              if (item.ataItemId === med.id) {
-                const qty = Number(item.quantidade);
-                if (pedido.status === 'PENDENTE') {
-                  qtdeComprometida += qty;
-                } else if (['APROVADO', 'EM_TRANSITO', 'ENTREGUE', 'ACEITO'].includes(pedido.status)) {
-                  qtdeConsumida += qty;
-                }
-              }
-            });
+          const medItens = itensRes.filter(item => item.ataItemId === med.id);
+          medItens.forEach(item => {
+            const qty = Number(item.quantidade);
+            const status = item.pedido.status;
+            if (status === 'PENDENTE') {
+              qtdeComprometida += qty;
+            } else if (['APROVADO', 'EM_TRANSITO', 'ENTREGUE', 'ACEITO'].includes(status)) {
+              qtdeConsumida += qty;
+            }
           });
 
           const qtdeInicial = med.qtdeInicial;

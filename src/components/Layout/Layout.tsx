@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { Outlet } from 'react-router';
-import Sidebar from './Sidebar';
-import SidebarCD from './SidebarCD';
-import SidebarFarmacia from './SidebarFarmacia';
-import SidebarPosto from './SidebarPosto';
-import SidebarMotorista from './SidebarMotorista';
-import SidebarRegulador from './SidebarRegulador';
 import Header from './Header';
 import { useAuth } from '../../context/AuthContext';
 import ErrorBoundary from './ErrorBoundary';
+
+const Sidebar = lazy(() => import('./Sidebar'));
+const SidebarCD = lazy(() => import('./SidebarCD'));
+const SidebarFarmacia = lazy(() => import('./SidebarFarmacia'));
+const SidebarPosto = lazy(() => import('./SidebarPosto'));
+const SidebarMotorista = lazy(() => import('./SidebarMotorista'));
+const SidebarRegulador = lazy(() => import('./SidebarRegulador'));
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -31,9 +32,13 @@ export default function Layout() {
     }
   };
 
+  const sidebarFallback = <div className="hidden lg:block w-64 bg-white border-r border-gray-200 h-full shrink-0" />;
+
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
-      {renderSidebar()}
+      <Suspense fallback={sidebarFallback}>
+        {renderSidebar()}
+      </Suspense>
       
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />

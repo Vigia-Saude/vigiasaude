@@ -3,13 +3,24 @@ import { Menu, Bell, LogOut, Clock } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import apiClient from '../../services/apiClient';
 import { useNavigate } from 'react-router';
+import { useQuery } from '@tanstack/react-query';
 
 export default function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [pendentes, setPendentes] = useState<any[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Buscar solicitações pendentes se for secretário usando React Query
+  const { data: pendentes = [] } = useQuery({
+    queryKey: ['solicitacoesPendentes'],
+    queryFn: async () => {
+      const res = await apiClient.get<any[]>('/auth/pendentes');
+      return res.data;
+    },
+    refetchInterval: 30000,
+    enabled: user?.perfil === 'SECRETARIO_SAUDE',
+  });
 
   const getPerfilDisplayName = () => {
     if (user?.role === 'FORNECEDOR') return 'FORNECEDOR';
@@ -40,25 +51,7 @@ export default function Header({ toggleSidebar }: { toggleSidebar: () => void })
     };
   }, []);
 
-  // Buscar solicitações pendentes se for secretário
-  useEffect(() => {
-    if (user?.perfil !== 'SECRETARIO_SAUDE') return;
 
-    async function fetchPendentes() {
-      try {
-        const res = await apiClient.get('/auth/pendentes');
-        setPendentes(res.data);
-      } catch (err) {
-        console.error('Erro ao buscar notificações pendentes:', err);
-      }
-    }
-
-    fetchPendentes();
-
-    // Poll a cada 30 segundos
-    const interval = setInterval(fetchPendentes, 30000);
-    return () => clearInterval(interval);
-  }, [user]);
 
   const handleNotificationClick = (userId: string) => {
     setIsDropdownOpen(false);

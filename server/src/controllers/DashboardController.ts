@@ -8,41 +8,71 @@ export class DashboardController {
       const date45DaysFromNow = new Date();
       date45DaysFromNow.setDate(today.getDate() + 45);
 
-      // 1. Contagem de ATAs vencendo em menos de 45 dias
-      const expiringAtasCount = await prisma.ata.count({
-        where: {
-          status: 'ATIVA',
-          vigenciaFim: {
-            gte: today,
-            lte: date45DaysFromNow,
+      // Executa as queries em paralelo
+      const [
+        expiringAtasCount,
+        activeAtasCount,
+        pendingPdcsCount,
+        recentPdcsRaw,
+        totalSum,
+        consumedSum,
+        committedSum
+      ] = await Promise.all([
+        prisma.ata.count({
+          where: {
+            status: 'ATIVA',
+            vigenciaFim: {
+              gte: today,
+              lte: date45DaysFromNow,
+            },
           },
-        },
-      });
-
-      // 2. Contagem de ATAs Ativas
-      const activeAtasCount = await prisma.ata.count({
-        where: {
-          status: 'ATIVA',
-        },
-      });
-
-      // 3. Contagem de PdCs Pendentes
-      const pendingPdcsCount = await prisma.pedidoCompra.count({
-        where: {
-          status: 'PENDENTE',
-        },
-      });
-
-      // 4. Pedidos de Compra Recentes (últimos 5)
-      const recentPdcsRaw = await prisma.pedidoCompra.findMany({
-        take: 5,
-        orderBy: {
-          criadoEm: 'desc',
-        },
-        include: {
-          itens: true,
-        },
-      });
+        }),
+        prisma.ata.count({
+          where: {
+            status: 'ATIVA',
+          },
+        }),
+        prisma.pedidoCompra.count({
+          where: {
+            status: 'PENDENTE',
+          },
+        }),
+        prisma.pedidoCompra.findMany({
+          take: 5,
+          orderBy: {
+            criadoEm: 'desc',
+          },
+          include: {
+            itens: true,
+          },
+        }),
+        prisma.ata.aggregate({
+          _sum: {
+            valorTeto: true,
+          },
+          where: {
+            status: 'ATIVA',
+          },
+        }),
+        prisma.pedidoCompra.aggregate({
+          _sum: {
+            valorTotal: true,
+          },
+          where: {
+            status: 'ENTREGUE',
+          },
+        }),
+        prisma.pedidoCompra.aggregate({
+          _sum: {
+            valorTotal: true,
+          },
+          where: {
+            status: {
+              in: ['PENDENTE', 'APROVADO'],
+            },
+          },
+        }),
+      ]);
 
       const recentPdcs = recentPdcsRaw.map((pedido) => {
         let descricao = 'Sem itens';
@@ -67,40 +97,8 @@ export class DashboardController {
         };
       });
 
-      // 5. Saldos e Distribuição Orçamentária
-      // Total (100%): Soma do valor_teto de todas as ATAs ativas
-      const totalSum = await prisma.ata.aggregate({
-        _sum: {
-          valorTeto: true,
-        },
-        where: {
-          status: 'ATIVA',
-        },
-      });
       const total = Number(totalSum._sum.valorTeto || 0);
-
-      // Consumido: Soma do valorTotal dos pedidos ENTREGUE
-      const consumedSum = await prisma.pedidoCompra.aggregate({
-        _sum: {
-          valorTotal: true,
-        },
-        where: {
-          status: 'ENTREGUE',
-        },
-      });
       const consumido = Number(consumedSum._sum.valorTotal || 0);
-
-      // Comprometido: Soma do valorTotal dos pedidos PENDENTE ou APROVADO
-      const committedSum = await prisma.pedidoCompra.aggregate({
-        _sum: {
-          valorTotal: true,
-        },
-        where: {
-          status: {
-            in: ['PENDENTE', 'APROVADO'],
-          },
-        },
-      });
       const comprometido = Number(committedSum._sum.valorTotal || 0);
 
       // Disponível: Sobra do orçamento
