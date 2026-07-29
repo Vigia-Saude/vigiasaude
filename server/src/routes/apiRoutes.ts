@@ -140,16 +140,17 @@ router.patch('/regulacao/:id/agendar', roleMiddleware(['REGULADOR']), regulacaoC
 router.patch('/regulacao/:id/avisar-paciente', roleMiddleware(['POSTO_SAUDE']), regulacaoController.avisarPaciente);
 router.patch('/regulacao/:id/status', regulacaoController.atualizarStatus);
 
-// Rotas de Importação de PDF (SES-MS) e Confirmações WhatsApp
-router.post('/regulacao/imports/upload', uploadRegulacaoConfig.single('file'), importPdfController.uploadPdf);
-router.get('/regulacao/imports', importPdfController.listarImports);
-router.get('/regulacao/imports/:id', importPdfController.obterImport);
-router.patch('/regulacao/imports/:importId/rows/:rowId', importPdfController.atualizarRow);
-router.post('/regulacao/imports/:importId/approve', importPdfController.aprovarImport);
+// Rotas de Importação de PDF (SES-MS) e Confirmações WhatsApp (Apenas REGULADOR)
+router.post('/regulacao/imports/upload', roleMiddleware(['REGULADOR']), uploadRegulacaoConfig.single('file'), importPdfController.uploadPdf);
+router.get('/regulacao/imports', roleMiddleware(['REGULADOR']), importPdfController.listarImports);
+router.get('/regulacao/imports/:id', roleMiddleware(['REGULADOR']), importPdfController.obterImport);
+router.patch('/regulacao/imports/:importId/rows/:rowId', roleMiddleware(['REGULADOR']), importPdfController.atualizarRow);
+router.post('/regulacao/imports/:importId/approve', roleMiddleware(['REGULADOR']), importPdfController.aprovarImport);
 
-router.get('/regulacao/whatsapp/filas', filaWhatsappController.obterResumoFilas);
-router.get('/regulacao/whatsapp/filas/detalhes', filaWhatsappController.detalhesFila);
-router.post('/regulacao/whatsapp/filas/disparar-proximo', filaWhatsappController.dispararProximo);
+router.get('/regulacao/whatsapp/filas', roleMiddleware(['REGULADOR']), filaWhatsappController.obterResumoFilas);
+router.get('/regulacao/whatsapp/filas/detalhes', roleMiddleware(['REGULADOR']), filaWhatsappController.detalhesFila);
+router.post('/regulacao/whatsapp/filas/disparar-proximo', roleMiddleware(['REGULADOR']), filaWhatsappController.dispararProximo);
 
 export default router;
+
 
