@@ -15,6 +15,9 @@ import { MotoristaController } from '../controllers/MotoristaController';
 import { RegulacaoController, uploadRegulacaoConfig } from '../controllers/RegulacaoController';
 import { PacienteController } from '../controllers/PacienteController';
 
+import { ImportPdfController } from '../controllers/ImportPdfController';
+import { FilaWhatsappController } from '../controllers/FilaWhatsappController';
+
 const router = Router();
 const pedidoController = new PedidoController();
 const auditoriaController = new AuditoriaController();
@@ -29,6 +32,9 @@ const farmaciaController = new FarmaciaController();
 const motoristaController = new MotoristaController();
 const regulacaoController = new RegulacaoController();
 const pacienteController = new PacienteController();
+const importPdfController = new ImportPdfController();
+const filaWhatsappController = new FilaWhatsappController();
+
 
 // Todas as rotas da API requerem autenticação
 router.use(authMiddleware);
@@ -134,11 +140,16 @@ router.patch('/regulacao/:id/agendar', roleMiddleware(['REGULADOR']), regulacaoC
 router.patch('/regulacao/:id/avisar-paciente', roleMiddleware(['POSTO_SAUDE']), regulacaoController.avisarPaciente);
 router.patch('/regulacao/:id/status', regulacaoController.atualizarStatus);
 
-// Rotas de Pacientes
-router.post('/pacientes', roleMiddleware(['POSTO_SAUDE']), pacienteController.criar);
-router.get('/pacientes', roleMiddleware(['POSTO_SAUDE', 'REGULADOR']), pacienteController.listar);
-router.get('/pacientes/busca', roleMiddleware(['POSTO_SAUDE']), pacienteController.buscar);
-router.get('/pacientes/:id', roleMiddleware(['POSTO_SAUDE', 'REGULADOR']), pacienteController.detalhes);
-router.patch('/pacientes/:id', roleMiddleware(['POSTO_SAUDE']), pacienteController.atualizar);
+// Rotas de Importação de PDF (SES-MS) e Confirmações WhatsApp
+router.post('/regulacao/imports/upload', uploadRegulacaoConfig.single('file'), importPdfController.uploadPdf);
+router.get('/regulacao/imports', importPdfController.listarImports);
+router.get('/regulacao/imports/:id', importPdfController.obterImport);
+router.patch('/regulacao/imports/:importId/rows/:rowId', importPdfController.atualizarRow);
+router.post('/regulacao/imports/:importId/approve', importPdfController.aprovarImport);
+
+router.get('/regulacao/whatsapp/filas', filaWhatsappController.obterResumoFilas);
+router.get('/regulacao/whatsapp/filas/detalhes', filaWhatsappController.detalhesFila);
+router.post('/regulacao/whatsapp/filas/disparar-proximo', filaWhatsappController.dispararProximo);
 
 export default router;
+

@@ -627,3 +627,109 @@ model PermissoesPerfil {
   @@unique([perfil, recurso, acao])
   @@map("permissoes_perfil")
 }
+
+// ==========================================
+// Módulo de Confirmação de Filas via WhatsApp (Migração PontaPoraSaude)
+// ==========================================
+
+enum ImportStatus {
+  PENDING
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
+enum QueueEntryStatus {
+  PENDING
+  AWAITING_RESPONSE
+  CONFIRMED
+  DECLINED
+  EXPIRED
+  CANCELLED
+}
+
+enum MessageDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum MessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  RECEIVED
+}
+
+model PdfImport {
+  id               String         @id @default(uuid())
+  storagePath      String         @map("storage_path")
+  originalFilename String?        @map("original_filename")
+  status           ImportStatus   @default(PENDING)
+  rowsFound        Int?           @map("rows_found")
+  rowsImported     Int?           @map("rows_imported")
+  errorLog         String?        @map("error_log")
+  processedAt      DateTime?      @map("processed_at")
+  criadoEm         DateTime       @default(now()) @map("criado_em")
+  rows             PdfImportRow[]
+  queueEntries     QueueEntry[]
+
+  @@map("pdf_imports")
+}
+
+model PdfImportRow {
+  id           String    @id @default(uuid())
+  importId     String    @map("import_id")
+  import       PdfImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+  rawData      Json      @map("raw_data")
+  pacienteId   String?   @map("paciente_id")
+  queueEntryId String?   @map("queue_entry_id")
+  error        String?
+  approved     Boolean   @default(false)
+  criadoEm     DateTime  @default(now()) @map("criado_em")
+
+  @@index([importId])
+  @@map("pdf_import_rows")
+}
+
+model QueueEntry {
+  id             String           @id @default(uuid())
+  pacienteId     String           @map("paciente_id")
+  procedimentoId String?          @map("procedimento_id")
+  importId       String?          @map("import_id")
+  import         PdfImport?       @relation(fields: [importId], references: [id])
+  posicao        Int
+  status         QueueEntryStatus @default(PENDING)
+  dataAgendada   DateTime?        @db.Date @map("data_agendada")
+  notificadoEm   DateTime?        @map("notificado_em")
+  respondidoEm   DateTime?        @map("respondido_em")
+  expiraEm       DateTime?        @map("expira_em")
+  criadoEm       DateTime         @default(now()) @map("criado_em")
+  atualizadoEm   DateTime         @updatedAt @map("atualizado_em")
+  messages       MessageLog[]
+
+  @@index([procedimentoId, status, posicao])
+  @@index([pacienteId])
+  @@map("queue_entries")
+}
+
+model MessageLog {
+  id           String           @id @default(uuid())
+  queueEntryId String?          @map("queue_entry_id")
+  queueEntry   QueueEntry?      @relation(fields: [queueEntryId], references: [id])
+  pacienteId   String?          @map("paciente_id")
+  direction    MessageDirection
+  wamid        String?
+  templateName String?          @map("template_name")
+  body         String?
+  status       MessageStatus    @default(QUEUED)
+  rawPayload   Json?            @map("raw_payload")
+  error        String?
+  criadoEm     DateTime         @default(now()) @map("criado_em")
+
+  @@index([queueEntryId])
+  @@index([wamid])
+  @@map("messages_log")
+}
+

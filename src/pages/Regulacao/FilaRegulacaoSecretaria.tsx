@@ -13,6 +13,8 @@ import {
   AlertCircle,
   Clock,
   Building2,
+  FileUp,
+  MessageSquare
 } from 'lucide-react';
 import { listarFilaRegulacao } from '../../services/regulacaoService';
 import { StatusBadge } from '../../components/ui/StatusBadge';
@@ -20,6 +22,8 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { TableSkeleton } from '../../components/ui/TableSkeleton';
 import { cn } from '../../lib/utils';
 import type { FilaRegulacao } from '../../types';
+import { ImportacaoPdfModal } from './ImportacaoPdfModal';
+import { FilaConfirmacaoWhatsApp } from './FilaConfirmacaoWhatsApp';
 
 type TabFilter = '' | 'AGUARDANDO_REGULACAO' | 'PRE_AGENDADO' | 'CONFIRMADO' | 'CANCELADO';
 
@@ -49,6 +53,8 @@ export function FilaRegulacaoSecretaria() {
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<TabFilter>('');
   const [busca, setBusca] = useState('');
+  const [activeView, setActiveView] = useState<'geral' | 'whatsapp'>('geral');
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['regulacao-fila', statusFilter],
@@ -112,20 +118,60 @@ export function FilaRegulacaoSecretaria() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
             <ListOrdered className="h-6 w-6 text-indigo-600" />
-            Fila de Regulação
+            Fila de Regulação & Agendamentos
           </h1>
           <p className="text-sm text-gray-500 font-medium mt-1">
-            Gerencie e agende fichas de regulação dos postos de saúde
+            Gerencie fichas de regulação e confirmações automáticas via WhatsApp (SES-MS)
           </p>
         </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsPdfModalOpen(true)}
+            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl text-xs flex items-center gap-2 shadow-sm transition active:scale-95"
+          >
+            <FileUp className="h-4 w-4" />
+            Importar PDF Regulação (SES-MS)
+          </button>
+          <button
+            onClick={() => refetch()}
+            className="p-2.5 rounded-xl border border-gray-200 text-gray-500 hover:text-gray-900 bg-white hover:bg-gray-50 transition-all cursor-pointer active:scale-95 shadow-xs"
+            title="Atualizar"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Navegação entre Visualização Geral e Fila WhatsApp */}
+      <div className="flex border-b border-gray-200 gap-4 text-sm font-medium">
         <button
-          onClick={() => refetch()}
-          className="p-2.5 rounded-xl border border-gray-200 text-gray-500 hover:text-gray-900 bg-white hover:bg-gray-50 transition-all cursor-pointer active:scale-95 shadow-xs"
-          title="Atualizar"
+          onClick={() => setActiveView('geral')}
+          className={cn(
+            'pb-3 px-1 border-b-2 flex items-center gap-2 font-semibold transition',
+            activeView === 'geral' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+          )}
         >
-          <RefreshCw className="h-4 w-4" />
+          <ListOrdered className="w-4 h-4" />
+          Fila Geral de Regulação
+        </button>
+        <button
+          onClick={() => setActiveView('whatsapp')}
+          className={cn(
+            'pb-3 px-1 border-b-2 flex items-center gap-2 font-semibold transition',
+            activeView === 'whatsapp' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+          )}
+        >
+          <MessageSquare className="w-4 h-4 text-emerald-600" />
+          Confirmações via WhatsApp
         </button>
       </div>
+
+      {activeView === 'whatsapp' ? (
+        <FilaConfirmacaoWhatsApp />
+      ) : (
+        <div className="space-y-6">
+
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -309,5 +355,15 @@ export function FilaRegulacaoSecretaria() {
         </div>
       )}
     </div>
+  )}
+
+      {/* Modal de Importação de PDF da SES-MS */}
+      <ImportacaoPdfModal
+        isOpen={isPdfModalOpen}
+        onClose={() => setIsPdfModalOpen(false)}
+        onSuccess={() => refetch()}
+      />
+    </div>
   );
 }
+

@@ -85,10 +85,19 @@ const apiLimiter = rateLimit({
   message: { error: 'Muitas requisições vindas deste IP, por favor tente novamente em um minuto.' }
 })
 
+import { FilaWhatsappController } from './controllers/FilaWhatsappController'
+
+const filaWhatsappController = new FilaWhatsappController()
+
+// Webhook da Meta/WhatsApp (público)
+app.get('/webhooks/whatsapp', filaWhatsappController.verifyWebhook)
+app.post('/webhooks/whatsapp', filaWhatsappController.receiveWebhook)
+
 // Rotas
 app.use('/auth', authRoutes)
 app.use('/api', apiLimiter, apiRoutes)
 app.use('/uploads', authMiddleware, express.static(path.join(__dirname, '..', 'uploads')))
+
 
 // Rota de teste pública
 app.get('/', (req, res) => {
