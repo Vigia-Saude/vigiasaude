@@ -666,6 +666,7 @@ model PdfImport {
   id               String         @id @default(uuid())
   storagePath      String         @map("storage_path")
   originalFilename String?        @map("original_filename")
+  fileData         Bytes?         @map("file_data")
   status           ImportStatus   @default(PENDING)
   rowsFound        Int?           @map("rows_found")
   rowsImported     Int?           @map("rows_imported")

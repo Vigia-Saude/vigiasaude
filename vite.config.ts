@@ -38,6 +38,16 @@ export default defineConfig({
   server: {
     host: true, // Listen on all local IPs
     port: 3000,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      '/uploads': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      }
+    }
   },
   test: {
     globals: true,

@@ -17,6 +17,7 @@ import { PacienteController } from '../controllers/PacienteController';
 
 import { ImportPdfController } from '../controllers/ImportPdfController';
 import { FilaWhatsappController } from '../controllers/FilaWhatsappController';
+import { QueueController } from '../controllers/QueueController';
 
 const router = Router();
 const pedidoController = new PedidoController();
@@ -34,6 +35,7 @@ const regulacaoController = new RegulacaoController();
 const pacienteController = new PacienteController();
 const importPdfController = new ImportPdfController();
 const filaWhatsappController = new FilaWhatsappController();
+const queueController = new QueueController();
 
 
 // Todas as rotas da API requerem autenticação
@@ -135,21 +137,32 @@ router.patch('/motorista/entregas/:id/devolver', roleMiddleware(['ENTREGADOR']),
 router.post('/regulacao', roleMiddleware(['POSTO_SAUDE']), uploadRegulacaoConfig.single('anexo'), regulacaoController.criar);
 router.get('/regulacao', roleMiddleware(['POSTO_SAUDE', 'REGULADOR']), regulacaoController.listar);
 router.get('/regulacao/consulta-rapida', roleMiddleware(['POSTO_SAUDE']), regulacaoController.consultaRapida);
+
+// Rotas de Importação de PDF (SES-MS) e Confirmações WhatsApp (Apenas REGULADOR)
+// Precisam vir ANTES de /regulacao/:id, senão "imports" é capturado como :id
+router.post('/regulacao/imports/upload', roleMiddleware(['REGULADOR']), uploadRegulacaoConfig.single('file'), importPdfController.uploadPdf);
+router.get('/regulacao/imports', roleMiddleware(['REGULADOR']), importPdfController.listarImports);
+router.get('/regulacao/imports/:id', roleMiddleware(['REGULADOR']), importPdfController.obterImport);
+router.get('/regulacao/imports/:id/pdf-url', roleMiddleware(['REGULADOR']), importPdfController.obterPdfUrl);
+router.get('/regulacao/imports/:id/pdf', roleMiddleware(['REGULADOR']), importPdfController.servirPdf);
+router.post('/regulacao/imports/:importId/rows', roleMiddleware(['REGULADOR']), importPdfController.criarRowManual);
+router.patch('/regulacao/imports/:importId/rows/:rowId', roleMiddleware(['REGULADOR']), importPdfController.atualizarRow);
+router.post('/regulacao/imports/:importId/approve', roleMiddleware(['REGULADOR']), importPdfController.aprovarImport);
+
 router.get('/regulacao/:id', roleMiddleware(['POSTO_SAUDE', 'REGULADOR']), regulacaoController.detalhes);
 router.patch('/regulacao/:id/agendar', roleMiddleware(['REGULADOR']), regulacaoController.agendar);
 router.patch('/regulacao/:id/avisar-paciente', roleMiddleware(['POSTO_SAUDE']), regulacaoController.avisarPaciente);
 router.patch('/regulacao/:id/status', regulacaoController.atualizarStatus);
 
-// Rotas de Importação de PDF (SES-MS) e Confirmações WhatsApp (Apenas REGULADOR)
-router.post('/regulacao/imports/upload', roleMiddleware(['REGULADOR']), uploadRegulacaoConfig.single('file'), importPdfController.uploadPdf);
-router.get('/regulacao/imports', roleMiddleware(['REGULADOR']), importPdfController.listarImports);
-router.get('/regulacao/imports/:id', roleMiddleware(['REGULADOR']), importPdfController.obterImport);
-router.patch('/regulacao/imports/:importId/rows/:rowId', roleMiddleware(['REGULADOR']), importPdfController.atualizarRow);
-router.post('/regulacao/imports/:importId/approve', roleMiddleware(['REGULADOR']), importPdfController.aprovarImport);
-
 router.get('/regulacao/whatsapp/filas', roleMiddleware(['REGULADOR']), filaWhatsappController.obterResumoFilas);
 router.get('/regulacao/whatsapp/filas/detalhes', roleMiddleware(['REGULADOR']), filaWhatsappController.detalhesFila);
 router.post('/regulacao/whatsapp/filas/disparar-proximo', roleMiddleware(['REGULADOR']), filaWhatsappController.dispararProximo);
+
+// Rotas de Gestão de Filas por Procedimento / Especialidade (Apenas REGULADOR)
+router.get('/regulacao/queues', roleMiddleware(['REGULADOR']), queueController.listarQueues);
+router.get('/regulacao/queues/:procedureId', roleMiddleware(['REGULADOR']), queueController.detalhesQueue);
+router.post('/regulacao/queues/:procedureId/resend-all', roleMiddleware(['REGULADOR']), queueController.resendAll);
+router.post('/regulacao/queues/entries/:entryId/resend', roleMiddleware(['REGULADOR']), queueController.resendSingle);
 
 export default router;
 

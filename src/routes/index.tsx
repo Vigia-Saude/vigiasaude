@@ -611,6 +611,58 @@ export const router = createBrowserRouter([
 
       // Regulador (Secretaria) Protected Routes
       {
+        path: 'regulador/validacao-pdf',
+        lazy: async () => {
+          const { ValidacaoPdfPage } = await import('../pages/Regulacao/ValidacaoPdfPage');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['REGULADOR']}>
+                <ValidacaoPdfPage />
+              </ProtectedRoute>
+            )
+          };
+        }
+      },
+      {
+        path: 'regulador/validacao-pdf/:id',
+        lazy: async () => {
+          const { ValidacaoPdfDetailPage } = await import('../pages/Regulacao/ValidacaoPdfDetailPage');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['REGULADOR']}>
+                <ValidacaoPdfDetailPage />
+              </ProtectedRoute>
+            )
+          };
+        }
+      },
+      {
+        path: 'regulador/filas',
+        lazy: async () => {
+          const { GestaoFilasPage } = await import('../pages/Regulacao/GestaoFilasPage');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['REGULADOR']}>
+                <GestaoFilasPage />
+              </ProtectedRoute>
+            )
+          };
+        }
+      },
+      {
+        path: 'regulador/filas/:procedureId',
+        lazy: async () => {
+          const { DetalhesFilaPage } = await import('../pages/Regulacao/DetalhesFilaPage');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['REGULADOR']}>
+                <DetalhesFilaPage />
+              </ProtectedRoute>
+            )
+          };
+        }
+      },
+      {
         path: 'regulador/fila',
         lazy: async () => {
           const { FilaRegulacaoSecretaria } = await import('../pages/Regulacao/FilaRegulacaoSecretaria');

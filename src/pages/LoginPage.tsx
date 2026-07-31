@@ -57,6 +57,8 @@ export default function LoginPage() {
         navigate('/posto/dashboard');
       } else if (user.perfil === 'ENTREGADOR') {
         navigate('/motorista/dashboard');
+      } else if (user.perfil === 'REGULADOR') {
+        navigate('/regulador/fila');
       } else {
         navigate('/dashboard');
       }
@@ -558,6 +560,7 @@ export default function LoginPage() {
                           <option value="GESTOR_ESTOQUE">Gestor de Estoque</option>
                           <option value="FARMACIA">Farmácia</option>
                           <option value="POSTO_SAUDE">Posto de Saúde</option>
+                          <option value="REGULADOR">Regulador (Secretaria)</option>
                           <option value="MEDICO">Médico</option>
                           <option value="ENTREGADOR">Entregador</option>
                         </select>

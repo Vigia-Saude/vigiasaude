@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Send, CheckCircle2, XCircle, Clock, AlertTriangle, RefreshCw, MessageSquare, User, FileText } from 'lucide-react';
+import { Send, CheckCircle2, XCircle, Clock, AlertTriangle, RefreshCw, MessageSquare, User } from 'lucide-react';
 import { toast } from 'sonner';
+import apiClient from '../../services/apiClient';
 
 interface QueueEntry {
   id: string;
@@ -51,16 +52,13 @@ export function FilaConfirmacaoWhatsApp() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('@VigiaSaude:token');
-      const headers = { Authorization: `Bearer ${token}` };
-
       const [resSummary, resEntries] = await Promise.all([
-        fetch('/api/regulacao/whatsapp/filas', { headers }),
-        fetch('/api/regulacao/whatsapp/filas/detalhes', { headers })
+        apiClient.get('/api/regulacao/whatsapp/filas'),
+        apiClient.get('/api/regulacao/whatsapp/filas/detalhes')
       ]);
 
-      if (resSummary.ok) setSummary(await resSummary.json());
-      if (resEntries.ok) setEntries(await resEntries.json());
+      setSummary(resSummary.data);
+      setEntries(resEntries.data);
     } catch (err) {
       console.error('Erro ao carregar fila:', err);
     } finally {
@@ -75,19 +73,13 @@ export function FilaConfirmacaoWhatsApp() {
   const handleDispararProximo = async () => {
     setDispatching(true);
     try {
-      const token = localStorage.getItem('@VigiaSaude:token');
-      const res = await fetch('/api/regulacao/whatsapp/filas/disparar-proximo', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.erro || 'Falha ao disparar confirmação');
+      await apiClient.post('/api/regulacao/whatsapp/filas/disparar-proximo');
 
       toast.success('Confirmação enviada via WhatsApp para o próximo paciente da fila!');
       fetchData();
     } catch (err: any) {
-      toast.error(err.message);
+      const erroMsg = err.response?.data?.erro || err.response?.data?.error || err.message || 'Falha ao disparar confirmação';
+      toast.error(erroMsg);
     } finally {
       setDispatching(false);
     }

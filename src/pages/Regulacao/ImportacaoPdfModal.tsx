@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { FileUp, CheckCircle, AlertCircle, Loader2, Edit2, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
+import apiClient from '../../services/apiClient';
 
 interface ImportacaoPdfModalProps {
   isOpen: boolean;
@@ -56,23 +57,17 @@ export function ImportacaoPdfModal({ isOpen, onClose, onSuccess }: ImportacaoPdf
     formData.append('file', file);
 
     try {
-      const token = localStorage.getItem('@VigiaSaude:token');
-      const res = await fetch('/api/regulacao/imports/upload', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`
-        },
-        body: formData
+      const res = await apiClient.post('/api/regulacao/imports/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.erro || 'Falha no upload do PDF');
+      const data = res.data;
 
       setImportId(data.id);
       setRows(data.rows || []);
       toast.success(`${data.rowsFound || data.rows?.length || 0} pacientes extraídos do PDF com sucesso!`);
     } catch (err: any) {
-      toast.error(err.message);
+      const erroMsg = err.response?.data?.erro || err.response?.data?.error || err.message || 'Falha no upload do PDF';
+      toast.error(erroMsg);
     } finally {
       setLoading(false);
     }
@@ -84,14 +79,8 @@ export function ImportacaoPdfModal({ isOpen, onClose, onSuccess }: ImportacaoPdf
     setRows(prev => prev.map(r => r.id === rowId ? { ...r, approved: nextApproved } : r));
 
     try {
-      const token = localStorage.getItem('@VigiaSaude:token');
-      await fetch(`/api/regulacao/imports/${importId}/rows/${rowId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ approved: nextApproved })
+      await apiClient.patch(`/api/regulacao/imports/${importId}/rows/${rowId}`, {
+        approved: nextApproved
       });
     } catch (err) {
       toast.error('Erro ao atualizar aprovação');
@@ -109,16 +98,10 @@ export function ImportacaoPdfModal({ isOpen, onClose, onSuccess }: ImportacaoPdf
 
   const handleSaveEdit = async (rowId: string) => {
     try {
-      const token = localStorage.getItem('@VigiaSaude:token');
-      const res = await fetch(`/api/regulacao/imports/${importId}/rows/${rowId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ rawData: editForm })
+      const res = await apiClient.patch(`/api/regulacao/imports/${importId}/rows/${rowId}`, {
+        rawData: editForm
       });
-      const updated = await res.json();
+      const updated = res.data;
 
       setRows(prev => prev.map(r => r.id === rowId ? { ...r, rawData: updated.rawData } : r));
       setEditingRowId(null);
@@ -133,20 +116,15 @@ export function ImportacaoPdfModal({ isOpen, onClose, onSuccess }: ImportacaoPdf
     setApproving(true);
 
     try {
-      const token = localStorage.getItem('@VigiaSaude:token');
-      const res = await fetch(`/api/regulacao/imports/${importId}/approve`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await apiClient.post(`/api/regulacao/imports/${importId}/approve`);
+      const data = res.data;
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.erro || 'Falha ao encaminhar pacientes');
-
-      toast.success(`${data.importados} pacientes encaminhados para a Fila de Confirmação WhatsApp!`);
+      toast.success(`${data.importados} pacientes encaminhados para a Fila da Regulação!`);
       onSuccess();
       onClose();
     } catch (err: any) {
-      toast.error(err.message);
+      const erroMsg = err.response?.data?.erro || err.response?.data?.error || err.message || 'Falha ao encaminhar pacientes';
+      toast.error(erroMsg);
     } finally {
       setApproving(false);
     }
