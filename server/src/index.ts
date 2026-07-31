@@ -118,6 +118,19 @@ app.get('/comprador-only', authMiddleware, roleMiddleware(['COMPRADOR']), (req, 
   res.send('Acesso exclusivo para compradores.')
 })
 
+// Middleware de erro global — garante resposta JSON (não HTML) para falhas de
+// upload (Multer/Busboy: boundary ausente, arquivo grande demais, tipo inválido, etc.)
+// e qualquer erro não tratado que chegue via next(err).
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (res.headersSent) {
+    return next(err)
+  }
+  console.error('Erro não tratado:', err)
+  const status = err?.status || err?.statusCode || 500
+  const mensagem = err?.message || 'Erro interno do servidor.'
+  res.status(status).json({ erro: mensagem })
+})
+
 const server = app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando em http://localhost:${PORT}`)
 })

@@ -1,9 +1,7 @@
 import apiClient from './apiClient';
 
 export async function criarFichaRegulacao(formData: FormData) {
-  const response = await apiClient.post('/api/regulacao', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+  const response = await apiClient.post('/api/regulacao', formData);
   return response.data;
 }
 

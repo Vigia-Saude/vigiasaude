@@ -23,21 +23,11 @@ dns.lookup('aws-0-sa-east-1.pooler.supabase.com', { family: 4 }, (err, address) 
   }
 })
 
-const customLookup = (hostname: string, options: any, callback: any) => {
-  if (hostname === 'db.oxanubfolkoulklrhrpr.supabase.co') {
-    const ip = cachedPoolerIp || '52.67.1.88'
-    return callback(null, ip, 4)
-  }
-  return dns.lookup(hostname, options, callback)
-}
-
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
-  // @ts-ignore
-  lookup: customLookup
 })
 const adapter = new PrismaPg(pool)
 

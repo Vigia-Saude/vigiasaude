@@ -202,15 +202,16 @@ export function ValidacaoPdfDetailPage() {
             <div className="flex items-center gap-2">
               <button
                 onClick={handleApproveAll}
-                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl font-semibold border border-slate-300 transition-colors cursor-pointer flex items-center gap-1">
+                disabled={isAlreadyImported}
+                className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-xl font-semibold border border-slate-300 transition-colors cursor-pointer flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed">
                 <Check className="h-3.5 w-3.5" />
                 Aprovar Todos
               </button>
 
               <button
                 onClick={handleAddManualPatient}
-                disabled={addingManual}
-                className="text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3 py-1.5 rounded-xl font-bold transition-colors disabled:opacity-50 cursor-pointer flex items-center gap-1">
+                disabled={addingManual || isAlreadyImported}
+                className="text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3 py-1.5 rounded-xl font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1">
                 <Plus className="h-3.5 w-3.5" />
                 {addingManual ? 'Adicionando...' : '+ Adicionar Paciente'}
               </button>
@@ -230,6 +231,7 @@ export function ValidacaoPdfDetailPage() {
                   importId={id!}
                   row={row}
                   index={i + 1}
+                  readOnly={isAlreadyImported}
                   onChange={(u) => setRows((prev) => prev.map((r) => (r.id === u.id ? u : r)))}
                 />
               ))
@@ -246,19 +248,21 @@ export function ValidacaoPdfDetailPage() {
 
             <button
               onClick={submit}
-              disabled={approvedCount === 0 || submitting}
-              className="w-full bg-emerald-800 hover:bg-emerald-900 text-white rounded-2xl py-3.5 text-sm font-bold shadow-md disabled:opacity-40 transition-all cursor-pointer flex items-center justify-center gap-2">
+              disabled={approvedCount === 0 || submitting || isAlreadyImported}
+              className="w-full bg-emerald-800 hover:bg-emerald-900 text-white rounded-2xl py-3.5 text-sm font-bold shadow-md disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center justify-center gap-2">
               {submitting ? (
                 <>
                   <Loader2 className="h-5 w-5 animate-spin" />
                   <span>Encaminhando Pacientes para a Fila...</span>
                 </>
+              ) : isAlreadyImported ? (
+                <span>✓ Pacientes já encaminhados para a Fila</span>
               ) : (
                 <span>→ Validar e Encaminhar para Fila</span>
               )}
             </button>
 
-            {approvedCount < rows.length && (
+            {!isAlreadyImported && approvedCount < rows.length && (
               <p className="text-xs text-slate-500 text-center mt-2 font-medium">
                 Aprove todos os {rows.length} pacientes antes de encaminhar
               </p>

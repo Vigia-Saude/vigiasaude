@@ -24,6 +24,7 @@ import { cn } from '../../lib/utils';
 import type { FilaRegulacao } from '../../types';
 import { ImportacaoPdfModal } from './ImportacaoPdfModal';
 import { FilaConfirmacaoWhatsApp } from './FilaConfirmacaoWhatsApp';
+import { GestaoFilasPage } from './GestaoFilasPage';
 
 import { useAuth } from '../../context/AuthContext';
 
@@ -57,7 +58,7 @@ export function FilaRegulacaoSecretaria() {
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<TabFilter>('');
   const [busca, setBusca] = useState('');
-  const [activeView, setActiveView] = useState<'geral' | 'whatsapp'>('geral');
+  const [activeView, setActiveView] = useState<'exames' | 'geral' | 'whatsapp'>('exames');
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
 
@@ -150,23 +151,33 @@ export function FilaRegulacaoSecretaria() {
         </div>
       </div>
 
-      {/* Navegação entre Visualização Geral e Fila WhatsApp */}
+      {/* Navegação entre Visão por Exame, Fila Geral e Fila WhatsApp */}
       {isRegulador && (
         <div className="flex border-b border-gray-200 gap-4 text-sm font-medium">
           <button
-            onClick={() => setActiveView('geral')}
+            onClick={() => setActiveView('exames')}
             className={cn(
-              'pb-3 px-1 border-b-2 flex items-center gap-2 font-semibold transition',
-              activeView === 'geral' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+              'pb-3 px-1 border-b-2 flex items-center gap-2 font-semibold transition cursor-pointer',
+              activeView === 'exames' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'
             )}
           >
             <ListOrdered className="w-4 h-4" />
-            Fila Geral de Regulação
+            Visão por Especialidade / Exame
+          </button>
+          <button
+            onClick={() => setActiveView('geral')}
+            className={cn(
+              'pb-3 px-1 border-b-2 flex items-center gap-2 font-semibold transition cursor-pointer',
+              activeView === 'geral' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+            )}
+          >
+            <Clock className="w-4 h-4" />
+            Lista Geral de Pacientes
           </button>
           <button
             onClick={() => setActiveView('whatsapp')}
             className={cn(
-              'pb-3 px-1 border-b-2 flex items-center gap-2 font-semibold transition',
+              'pb-3 px-1 border-b-2 flex items-center gap-2 font-semibold transition cursor-pointer',
               activeView === 'whatsapp' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700'
             )}
           >
@@ -176,8 +187,9 @@ export function FilaRegulacaoSecretaria() {
         </div>
       )}
 
-      {isRegulador && activeView === 'whatsapp' ? (
-
+      {isRegulador && activeView === 'exames' ? (
+        <GestaoFilasPage />
+      ) : isRegulador && activeView === 'whatsapp' ? (
         <FilaConfirmacaoWhatsApp />
       ) : (
         <div className="space-y-6">

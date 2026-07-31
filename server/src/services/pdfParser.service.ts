@@ -41,8 +41,8 @@ export function extractTableRows(text: string): ParsedRow[] {
     text.match(/(?:DATA|AGENDAMENTO):\s*(\d{2}\/\d{2}\/\d{4})/i);
   const scheduledDateRaw = agendaMatch?.[1] ?? null;
 
-  const unidadeMatch = text.match(/(?:UNIDADE|POSTO|UBS):\s*([^\n\r]+)/i);
-  const unidadeSolicitanteHeader = unidadeMatch?.[1]?.trim() || null;
+  const unidadeMatchHeader = text.match(/(?:UNIDADE|POSTO|UBS|SOLICITANTE):\s*([^\n\r]+)/i);
+  const unidadeSolicitanteHeader = unidadeMatchHeader?.[1]?.trim() || null;
 
   const parts = text.split(/(\d{2}:\d{2}\s*-)\s*\n/).slice(1);
   const rows: ParsedRow[] = [];
@@ -51,6 +51,9 @@ export function extractTableRows(text: string): ParsedRow[] {
     const timeHeader = parts[i];
     const chunk = parts[i + 1];
     if (!chunk) continue;
+
+    const unidadeMatchChunk = chunk.match(/(?:UNIDADE|POSTO|UBS|SOLICITANTE):\s*([^\n\r]+)/i);
+    const unidadeSolicitante = unidadeMatchChunk?.[1]?.trim() || unidadeSolicitanteHeader;
 
     const hora = timeHeader?.match(/(\d{2}:\d{2})/)?.[1] ?? null;
 
@@ -88,7 +91,7 @@ export function extractTableRows(text: string): ParsedRow[] {
       birth_date_raw: birthDateStr,
       age: calculateAgeFromBirthDate(birthDateStr),
       procedure_name: procedureName || null,
-      unidade_solicitante: unidadeSolicitanteHeader,
+      unidade_solicitante: unidadeSolicitante,
       cid10: cidMatch?.[1] ?? null,
       scheduled_date_raw: scheduledDateRaw,
       hora_raw: hora,

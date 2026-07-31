@@ -149,20 +149,21 @@ router.post('/regulacao/imports/:importId/rows', roleMiddleware(['REGULADOR']), 
 router.patch('/regulacao/imports/:importId/rows/:rowId', roleMiddleware(['REGULADOR']), importPdfController.atualizarRow);
 router.post('/regulacao/imports/:importId/approve', roleMiddleware(['REGULADOR']), importPdfController.aprovarImport);
 
-router.get('/regulacao/:id', roleMiddleware(['POSTO_SAUDE', 'REGULADOR']), regulacaoController.detalhes);
-router.patch('/regulacao/:id/agendar', roleMiddleware(['REGULADOR']), regulacaoController.agendar);
-router.patch('/regulacao/:id/avisar-paciente', roleMiddleware(['POSTO_SAUDE']), regulacaoController.avisarPaciente);
-router.patch('/regulacao/:id/status', regulacaoController.atualizarStatus);
-
 router.get('/regulacao/whatsapp/filas', roleMiddleware(['REGULADOR']), filaWhatsappController.obterResumoFilas);
 router.get('/regulacao/whatsapp/filas/detalhes', roleMiddleware(['REGULADOR']), filaWhatsappController.detalhesFila);
 router.post('/regulacao/whatsapp/filas/disparar-proximo', roleMiddleware(['REGULADOR']), filaWhatsappController.dispararProximo);
 
 // Rotas de Gestão de Filas por Procedimento / Especialidade (Apenas REGULADOR)
+// Também precisam vir ANTES de /regulacao/:id, senão "queues" é capturado como :id
 router.get('/regulacao/queues', roleMiddleware(['REGULADOR']), queueController.listarQueues);
 router.get('/regulacao/queues/:procedureId', roleMiddleware(['REGULADOR']), queueController.detalhesQueue);
 router.post('/regulacao/queues/:procedureId/resend-all', roleMiddleware(['REGULADOR']), queueController.resendAll);
 router.post('/regulacao/queues/entries/:entryId/resend', roleMiddleware(['REGULADOR']), queueController.resendSingle);
+
+router.get('/regulacao/:id', roleMiddleware(['POSTO_SAUDE', 'REGULADOR']), regulacaoController.detalhes);
+router.patch('/regulacao/:id/agendar', roleMiddleware(['REGULADOR']), regulacaoController.agendar);
+router.patch('/regulacao/:id/avisar-paciente', roleMiddleware(['POSTO_SAUDE']), regulacaoController.avisarPaciente);
+router.patch('/regulacao/:id/status', regulacaoController.atualizarStatus);
 
 export default router;
 

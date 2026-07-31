@@ -53,34 +53,6 @@ export class QueueController {
         }
       }
 
-      // Se não houver fichas no banco, insere dados padrões de exemplo para visualização inicial
-      if (groupedMap.size === 0) {
-        groupedMap.set('imagem-diagnostico', {
-          procedureId: 'imagem-diagnostico',
-          name: 'Fila A — Imagem & Diagnóstico',
-          total: 8,
-          confirmed: 3,
-          awaiting: 3,
-          cancelled: 2,
-        });
-        groupedMap.set('cardiologia', {
-          procedureId: 'cardiologia',
-          name: 'Fila B — Cardiologia',
-          total: 6,
-          confirmed: 3,
-          awaiting: 2,
-          cancelled: 1,
-        });
-        groupedMap.set('endoscopia', {
-          procedureId: 'endoscopia',
-          name: 'Fila C — Endoscopia Digestiva',
-          total: 5,
-          confirmed: 2,
-          awaiting: 2,
-          cancelled: 1,
-        });
-      }
-
       res.json(Array.from(groupedMap.values()));
     } catch (err: any) {
       res.status(500).json({ erro: err.message });
@@ -100,10 +72,10 @@ export class QueueController {
 
       const filtered = fichas.filter(f => {
         const pId = (f.procedimentoSolicitado || 'Procedimento Geral').toLowerCase().replace(/[^a-z0-9]/g, '-');
-        return pId === procedureId || procedureId === 'todos' || procedureId === 'imagem-diagnostico';
+        return pId === procedureId || procedureId === 'todos';
       });
 
-      const procedureName = filtered[0]?.procedimentoSolicitado || 'Fila A — Imagem & Diagnóstico';
+      const procedureName = filtered[0]?.procedimentoSolicitado || 'Fila de Agendamento';
 
       const entries = filtered.map((f, idx) => ({
         id: f.id,
@@ -121,7 +93,7 @@ export class QueueController {
           id: procedureId,
           name: f.procedimentoSolicitado || procedureName,
         },
-        sms_count: 2,
+        sms_count: 1,
         last_dispatch_at: f.atualizadoEm ? f.atualizadoEm.toISOString() : new Date().toISOString(),
       }));
 

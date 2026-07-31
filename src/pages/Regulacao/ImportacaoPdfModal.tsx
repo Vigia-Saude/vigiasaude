@@ -57,9 +57,7 @@ export function ImportacaoPdfModal({ isOpen, onClose, onSuccess }: ImportacaoPdf
     formData.append('file', file);
 
     try {
-      const res = await apiClient.post('/api/regulacao/imports/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      const res = await apiClient.post('/api/regulacao/imports/upload', formData);
       const data = res.data;
 
       setImportId(data.id);

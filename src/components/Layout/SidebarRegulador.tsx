@@ -20,7 +20,6 @@ export default function SidebarRegulador({ isOpen, setIsOpen }: SidebarRegulador
   const links = [
     { name: 'Validação PDF', path: '/regulador/validacao-pdf', icon: FileCheck },
     { name: 'Gestão de Filas', path: '/regulador/filas', icon: ListOrdered },
-    { name: 'Fila de Regulação', path: '/regulador/fila', icon: ClipboardList },
     { name: 'Configurações', path: '/regulador/configuracoes', icon: Settings },
   ];
 

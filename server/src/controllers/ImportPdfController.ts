@@ -324,10 +324,32 @@ export class ImportPdfController {
             }
           });
 
+          // Busca ou vincula Unidade Solicitante do PDF se especificada
+          let rowUnidadeId = defaultUnidadeId;
+          const unidadeNomeRaw = (raw.unidade_solicitante || '').trim();
+          if (unidadeNomeRaw) {
+            const existingUnidade = await prisma.unidade.findFirst({
+              where: { nome: { equals: unidadeNomeRaw, mode: 'insensitive' } }
+            });
+            if (existingUnidade) {
+              rowUnidadeId = existingUnidade.id;
+            } else {
+              const newUnidade = await prisma.unidade.create({
+                data: {
+                  nome: unidadeNomeRaw,
+                  cnes: `CNES-${Math.floor(1000000 + Math.random() * 9000000)}`,
+                  tenantSchema: `tenant_${Date.now()}`,
+                  ativa: true
+                }
+              });
+              rowUnidadeId = newUnidade.id;
+            }
+          }
+
           // Criar registro na FilaRegulacao para aparecer na visão geral da Secretaria
           await prisma.filaRegulacao.create({
             data: {
-              unidadeEsfId: defaultUnidadeId,
+              unidadeEsfId: rowUnidadeId,
               responsavelEncaminhamento: 'Importação PDF (SES-MS / Regulação)',
               acsResponsavel: 'Regulação Central',
               pacienteId: paciente.id,

@@ -45,10 +45,11 @@ function formatCnsInput(value: string): string {
   return `${digits.slice(0, 3)} ${digits.slice(3, 7)} ${digits.slice(7, 11)} ${digits.slice(11)}`;
 }
 
-export function PatientCard({ importId, row, index, onChange }: {
+export function PatientCard({ importId, row, index, readOnly, onChange }: {
   importId: string;
   row: PdfImportRow;
   index: number;
+  readOnly?: boolean;
   onChange: (updated: PdfImportRow) => void;
 }) {
   const [data, setData] = useState(row.rawData);
@@ -56,6 +57,7 @@ export function PatientCard({ importId, row, index, onChange }: {
   const [error, setError] = useState('');
 
   async function persist(nextData: typeof data, approvedState?: boolean) {
+    if (readOnly) return;
     setSaving(true);
     try {
       const isApproved = approvedState ?? row.approved;
@@ -73,6 +75,7 @@ export function PatientCard({ importId, row, index, onChange }: {
   }
 
   function handleFieldChange(key: keyof typeof data, val: string) {
+    if (readOnly) return;
     let formattedVal = val;
     if (key === 'phone_raw') {
       formattedVal = formatPhoneInput(val);
@@ -98,13 +101,16 @@ export function PatientCard({ importId, row, index, onChange }: {
         </div>
         <button
           type="button"
+          disabled={readOnly}
           onClick={() => persist(data, !row.approved)}
-          className={`text-xs font-bold rounded-xl px-4 py-2 transition-all cursor-pointer ${
+          className={`text-xs font-bold rounded-xl px-4 py-2 transition-all ${
+            readOnly ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+          } ${
             row.approved
               ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-700'
               : 'bg-slate-100 text-slate-700 border border-slate-300 hover:bg-slate-200'
           }`}>
-          {row.approved ? '✓ Aprovar' : 'Aprovar'}
+          {row.approved ? '✓ Aprovado' : 'Aprovar'}
         </button>
       </div>
 
@@ -117,11 +123,12 @@ export function PatientCard({ importId, row, index, onChange }: {
           </label>
           <input
             type="text"
+            disabled={readOnly}
             value={data.name ?? ''}
             onChange={(e) => handleFieldChange('name', e.target.value)}
             onBlur={() => persist(data)}
             placeholder="Nome completo do paciente"
-            className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-2 text-slate-800 font-medium focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+            className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-2 text-slate-800 font-medium focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all disabled:opacity-75 disabled:bg-slate-100"
           />
         </div>
 
@@ -133,11 +140,12 @@ export function PatientCard({ importId, row, index, onChange }: {
             </label>
             <input
               type="text"
+              disabled={readOnly}
               value={data.cns_raw ?? ''}
               onChange={(e) => handleFieldChange('cns_raw', e.target.value)}
               onBlur={() => persist(data)}
               placeholder="706 4021 3570 0014"
-              className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-2 text-slate-800 font-mono font-medium focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+              className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-2 text-slate-800 font-mono font-medium focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all disabled:opacity-75 disabled:bg-slate-100"
             />
           </div>
           <div>
@@ -146,11 +154,12 @@ export function PatientCard({ importId, row, index, onChange }: {
             </label>
             <input
               type="text"
+              disabled={readOnly}
               value={data.phone_raw ?? ''}
               onChange={(e) => handleFieldChange('phone_raw', e.target.value)}
               onBlur={() => persist(data)}
               placeholder="(67) 99876-5432"
-              className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-2 text-slate-800 font-medium focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+              className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-2 text-slate-800 font-medium focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all disabled:opacity-75 disabled:bg-slate-100"
             />
           </div>
         </div>
@@ -163,11 +172,12 @@ export function PatientCard({ importId, row, index, onChange }: {
             </label>
             <input
               type="text"
+              disabled={readOnly}
               value={data.birth_date_raw ?? ''}
               onChange={(e) => handleFieldChange('birth_date_raw', e.target.value)}
               onBlur={() => persist(data)}
               placeholder="DD/MM/AAAA"
-              className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-2 text-slate-800 font-medium focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+              className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-2 text-slate-800 font-medium focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all disabled:opacity-75 disabled:bg-slate-100"
             />
           </div>
           <div>
@@ -176,11 +186,12 @@ export function PatientCard({ importId, row, index, onChange }: {
             </label>
             <input
               type="text"
+              disabled={readOnly}
               value={data.scheduled_date_raw ?? ''}
               onChange={(e) => handleFieldChange('scheduled_date_raw', e.target.value)}
               onBlur={() => persist(data)}
               placeholder="DD/MM/AAAA"
-              className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-2 text-slate-800 font-medium focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+              className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-2 text-slate-800 font-medium focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all disabled:opacity-75 disabled:bg-slate-100"
             />
           </div>
         </div>
@@ -193,11 +204,12 @@ export function PatientCard({ importId, row, index, onChange }: {
             </label>
             <input
               type="text"
+              disabled={readOnly}
               value={data.age ?? ''}
               onChange={(e) => handleFieldChange('age', e.target.value)}
               onBlur={() => persist(data)}
               placeholder="Ex: 54"
-              className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-2 text-slate-800 font-medium focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+              className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-2 text-slate-800 font-medium focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all disabled:opacity-75 disabled:bg-slate-100"
             />
           </div>
           <div>
@@ -206,11 +218,12 @@ export function PatientCard({ importId, row, index, onChange }: {
             </label>
             <input
               type="text"
+              disabled={readOnly}
               value={data.hora_raw ?? ''}
               onChange={(e) => handleFieldChange('hora_raw', e.target.value)}
               onBlur={() => persist(data)}
               placeholder="Ex: 08:30"
-              className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-2 text-slate-800 font-medium focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+              className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-2 text-slate-800 font-medium focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all disabled:opacity-75 disabled:bg-slate-100"
             />
           </div>
         </div>
@@ -222,11 +235,12 @@ export function PatientCard({ importId, row, index, onChange }: {
           </label>
           <input
             type="text"
+            disabled={readOnly}
             value={data.procedure_name ?? ''}
             onChange={(e) => handleFieldChange('procedure_name', e.target.value)}
             onBlur={() => persist(data)}
             placeholder="Ex: Mamografia Bilateral de Rastreamento"
-            className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-2 text-slate-800 font-medium focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+            className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-2 text-slate-800 font-medium focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all disabled:opacity-75 disabled:bg-slate-100"
           />
         </div>
 
@@ -237,11 +251,12 @@ export function PatientCard({ importId, row, index, onChange }: {
           </label>
           <input
             type="text"
+            disabled={readOnly}
             value={data.unidade_solicitante ?? ''}
             onChange={(e) => handleFieldChange('unidade_solicitante', e.target.value)}
             onBlur={() => persist(data)}
             placeholder="Ex: UBS Centro - Ponta Porã"
-            className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-2 text-slate-800 font-medium focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+            className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-2 text-slate-800 font-medium focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all disabled:opacity-75 disabled:bg-slate-100"
           />
         </div>
       </div>
