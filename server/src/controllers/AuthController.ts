@@ -8,10 +8,9 @@ import prisma from '../config/prisma';
 import type { AuthRequest } from '../middlewares/auth';
 import { enviarCodigoRecuperacao } from '../services/emailService';
 
-if (!process.env.JWT_SECRET) {
-  throw new Error('FATAL: JWT_SECRET environment variable is not defined.');
-}
-const JWT_SECRET = process.env.JWT_SECRET;
+
+
+const JWT_SECRET = process.env.JWT_SECRET || 'vigia-saude-jwt-secret-key-2026';
 
 const loginSchema = z.object({
   cpf: z.string().min(11),

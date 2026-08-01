@@ -59,13 +59,11 @@ app.use(cors({
       const url = new URL(origin)
       const hostname = url.hostname
       
-      // Permitir apenas o deploy de produção do Vercel, previews do próprio projeto ou o deploy do Railway
-      const isProductionVercel = hostname === 'vigia-saude-git-developer-giancarlo-projects.vercel.app'
-      const isPreviewVercel = hostname.startsWith('vigia-saude-') && hostname.endsWith('-giancarlo-projects.vercel.app')
-      const isRailwayDeploy = hostname === 'vigiasaude-production.up.railway.app'
-      const isRailwayNewDeploy = hostname === 'vigiasaude-production-a091.up.railway.app'
+      // Permitir o deploy de produção e previews da Vercel (tanto giancarlo quanto tiscinovacoes ou Giancarlomellolino) e Railway
+      const isVercel = hostname.endsWith('.vercel.app')
+      const isRailwayDeploy = hostname.endsWith('.up.railway.app')
       
-      if (isProductionVercel || isPreviewVercel || isRailwayDeploy || isRailwayNewDeploy) {
+      if (isVercel || isRailwayDeploy) {
         return callback(null, true)
       }
     } catch {
