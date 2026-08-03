@@ -40,7 +40,6 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
 
   const [vigenciaInicio, setVigenciaInicio] = useState('');
   const [vigenciaFim, setVigenciaFim] = useState('');
-  const [valorTeto, setValorTeto] = useState<number>(0);
   const [observacoes, setObservacoes] = useState('');
   
   // File upload state
@@ -102,12 +101,9 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
   };
 
   // Auto-calculate Total Value (Valor Teto) as the sum of all medicines total values
-  useEffect(() => {
-    const total = medicamentos.reduce((acc, med) => acc + (med.precoUnitario * med.qtdeInicial), 0);
-    setValorTeto(total);
+  const valorTeto = React.useMemo(() => {
+    return medicamentos.reduce((acc, med) => acc + (med.precoUnitario * med.qtdeInicial), 0);
   }, [medicamentos]);
-
-
 
   // Handle CATMAT Search with 300ms debounce
   const handleCatmatSearch = useCallback((index: number, query: string) => {
@@ -120,13 +116,17 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
 
     // Se o usuário limpou o campo, removemos a associação com o CATMAT
     if (query.trim() === '') {
-      const newMedicamentos = [...medicamentos];
-      newMedicamentos[index] = {
-        ...newMedicamentos[index],
-        catmatCodigo: undefined,
-        unidadeFornecimento: undefined,
-      };
-      setMedicamentos(newMedicamentos);
+      setMedicamentos(prev => {
+        const copy = [...prev];
+        if (copy[index]) {
+          copy[index] = {
+            ...copy[index],
+            catmatCodigo: undefined,
+            unidadeFornecimento: undefined,
+          };
+        }
+        return copy;
+      });
       setCatmatResults(prev => ({ ...prev, [index]: [] }));
       setCatmatLoading(prev => ({ ...prev, [index]: false }));
       return;
@@ -160,23 +160,25 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
         setCatmatLoading(prev => ({ ...prev, [index]: false }));
       }
     }, 300);
-  }, [medicamentos]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
-  const handleSelectCatmat = (index: number, item: CatmatMedicamento) => {
-    const newMedicamentos = [...medicamentos];
-    newMedicamentos[index] = {
-      ...newMedicamentos[index],
-      catmatCodigo: item.codigoBr,
-      nome: item.descricao,
-      unidadeFornecimento: item.unidadeFornecimento,
-      // Preenche unidadeAta com a unidade do CATMAT (editável pelo usuário)
-      unidadeAta: item.unidadeFornecimento || 'UNIDADE',
-    };
-    setMedicamentos(newMedicamentos);
+  const handleSelectCatmat = useCallback((index: number, item: CatmatMedicamento) => {
+    setMedicamentos(prev => {
+      const copy = [...prev];
+      if (copy[index]) {
+        copy[index] = {
+          ...copy[index],
+          catmatCodigo: item.codigoBr,
+          nome: item.descricao,
+          unidadeFornecimento: item.unidadeFornecimento,
+          unidadeAta: item.unidadeFornecimento || 'UNIDADE',
+        };
+      }
+      return copy;
+    });
 
     // Limpar busca e fechar dropdown
     setCatmatResults(prev => ({ ...prev, [index]: [] }));
-    // Removemos a query para que o valor exibido no input seja o med.catmatCodigo selecionado
     setCatmatQueries(prev => {
       const copy = { ...prev };
       delete copy[index];
@@ -185,28 +187,34 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
     setCatmatLoading(prev => ({ ...prev, [index]: false }));
     setActiveSearchIndex(null);
     toast.success(`Medicamento CATMAT preenchido: ${item.codigoBr}`);
-  };
+  }, []);
 
-  const handleAddMedicine = () => {
+  const handleAddMedicine = useCallback(() => {
     setMedicamentos(prev => [...prev, { nome: '', precoUnitario: 0, qtdeInicial: 0, unidadeAta: 'UNIDADE' }]);
-  };
+  }, []);
 
-  const handleRemoveMedicine = (index: number) => {
-    if (medicamentos.length === 1) {
-      toast.warning('A ATA precisa de pelo menos 1 medicamento.');
-      return;
-    }
-    setMedicamentos(prev => prev.filter((_, i) => i !== index));
-  };
+  const handleRemoveMedicine = useCallback((index: number) => {
+    setMedicamentos(prev => {
+      if (prev.length === 1) {
+        toast.warning('A ATA precisa de pelo menos 1 medicamento.');
+        return prev;
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  }, []);
 
-  const handleMedicineChange = (index: number, field: keyof MedicamentoInput, value: any) => {
-    const newMedicamentos = [...medicamentos];
-    newMedicamentos[index] = {
-      ...newMedicamentos[index],
-      [field]: value
-    };
-    setMedicamentos(newMedicamentos);
-  };
+  const handleMedicineChange = useCallback((index: number, field: keyof MedicamentoInput, value: any) => {
+    setMedicamentos(prev => {
+      const copy = [...prev];
+      if (copy[index]) {
+        copy[index] = {
+          ...copy[index],
+          [field]: value
+        };
+      }
+      return copy;
+    });
+  }, []);
 
   const handleFilesChange = (files: File[]) => {
     if (files.length > 0) {
@@ -280,14 +288,14 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
       <div className="absolute inset-0 overflow-hidden">
-        {/* Backdrop overlay */}
+        {/* Backdrop overlay (usando bg-black/50 em vez de backdrop-blur para performance de scroll a 60fps) */}
         <div 
-          className="absolute inset-0 bg-gray-500 bg-opacity-75 transition-opacity backdrop-blur-sm" 
+          className="absolute inset-0 bg-black/50 transition-opacity" 
           onClick={onClose}
         ></div>
 
         <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10 sm:pl-16">
-          <div className="pointer-events-auto w-screen max-w-4xl h-full transform transition-transform duration-500 ease-in-out">
+          <div className="pointer-events-auto w-screen max-w-4xl h-full transform transition-transform duration-300 ease-in-out">
             <form onSubmit={handleSubmit} className="flex h-full flex-col bg-white shadow-2xl">
               
               {/* Header */}
@@ -305,8 +313,8 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
                 </button>
               </div>
 
-              {/* Body */}
-              <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-8">
+              {/* Body com aceleração de GPU isolada para scroll suave */}
+              <div className="flex-1 overflow-y-auto transform-gpu p-6 sm:p-8 space-y-8">
                 
                 {/* Seção 1: Dados Gerais da ATA */}
                 <div className="space-y-4">
@@ -430,7 +438,7 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
                   </div>
 
                   {medicamentos.map((med, index) => (
-                    <div key={index} className="relative p-5 border border-gray-200 rounded-xl bg-gray-50/50 space-y-4 shadow-sm">
+                    <div key={index} className="relative p-5 border border-gray-200 rounded-xl bg-gray-50 space-y-4 shadow-sm">
                       
                       {/* Botão de Remover Item */}
                       <button
