@@ -67,6 +67,7 @@ enum CdEstoqueLoteStatus {
 enum AlertaCdTipo {
   DIVERGENCIA_NF
   RECALL
+  ESTOQUE_MINIMO
 }
 
 enum AlertaCdStatus {

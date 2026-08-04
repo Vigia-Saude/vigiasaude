@@ -474,7 +474,7 @@ export class CdController {
     }
 
     try {
-      // Garantir existência da tabela no banco PostgreSQL caso a migration ainda não tenha rodado
+      // 1. Garantir existência da tabela no banco PostgreSQL
       await prisma.$executeRawUnsafe(`
         CREATE TABLE IF NOT EXISTS public.cd_estoque_minimo (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -486,6 +486,12 @@ export class CdController {
         );
       `).catch(() => null);
 
+      // 2. Garantir valor ESTOQUE_MINIMO no enum AlertaCdTipo
+      await prisma.$executeRawUnsafe(`
+        ALTER TYPE "AlertaCdTipo" ADD VALUE IF NOT EXISTS 'ESTOQUE_MINIMO';
+      `).catch(() => null);
+
+      // 3. Upsert do estoque mínimo
       const registro = await prisma.cdEstoqueMinimo.upsert({
         where: { medicamentoNome },
         update: {
@@ -499,23 +505,27 @@ export class CdController {
         },
       });
 
-      // Se a quantidade mínima atualizada for maior que o estoque atual disponível, criar alerta no CD
-      const estoqueLotes = await prisma.cdEstoqueLote.findMany({
-        where: { medicamentoNome, status: 'DISPONIVEL', deletedAt: null }
-      });
-      const qtdTotal = estoqueLotes.reduce((acc, l) => acc + l.quantidadeAtual, 0);
+      // 4. Se a quantidade mínima atualizada for maior que o estoque atual disponível, criar alerta no CD (bloco isolado)
+      try {
+        const estoqueLotes = await prisma.cdEstoqueLote.findMany({
+          where: { medicamentoNome, status: 'DISPONIVEL', deletedAt: null }
+        });
+        const qtdTotal = estoqueLotes.reduce((acc, l) => acc + l.quantidadeAtual, 0);
 
-      if (qtdTotal < quantidadeMinima) {
-        await prisma.alertaCd.create({
-          data: {
-            tipo: 'ESTOQUE_MINIMO',
-            referenciaId: registro.id,
-            referenciaTipo: 'CdEstoqueMinimo',
-            titulo: `Estoque Crítico: ${medicamentoNome}`,
-            descricao: `O estoque atual (${qtdTotal} un) está abaixo do estoque mínimo configurado (${quantidadeMinima} un).`,
-            perfisDestinatarios: ['GESTOR_ESTOQUE', 'COMPRADOR'],
-          }
-        }).catch(() => null);
+        if (qtdTotal < quantidadeMinima) {
+          await prisma.alertaCd.create({
+            data: {
+              tipo: 'ESTOQUE_MINIMO',
+              referenciaId: registro.id,
+              referenciaTipo: 'CdEstoqueMinimo',
+              titulo: `Estoque Crítico: ${medicamentoNome}`,
+              descricao: `O estoque atual (${qtdTotal} un) está abaixo do estoque mínimo configurado (${quantidadeMinima} un).`,
+              perfisDestinatarios: ['GESTOR_ESTOQUE', 'COMPRADOR'],
+            }
+          });
+        }
+      } catch (alertaErr) {
+        console.warn('Aviso: Não foi possível registrar o alerta de estoque mínimo, mas o valor foi salvo:', alertaErr);
       }
 
       res.json(registro);
