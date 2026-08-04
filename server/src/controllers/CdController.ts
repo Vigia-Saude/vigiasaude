@@ -474,6 +474,18 @@ export class CdController {
     }
 
     try {
+      // Garantir existência da tabela no banco PostgreSQL caso a migration ainda não tenha rodado
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS public.cd_estoque_minimo (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          medicamento_nome TEXT UNIQUE NOT NULL,
+          catmat_codigo TEXT,
+          quantidade_minima INTEGER NOT NULL DEFAULT 0,
+          atualizado_em TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          criado_em TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      `).catch(() => null);
+
       const registro = await prisma.cdEstoqueMinimo.upsert({
         where: { medicamentoNome },
         update: {
@@ -507,9 +519,9 @@ export class CdController {
       }
 
       res.json(registro);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao atualizar estoque mínimo:', err);
-      res.status(500).json({ erro: 'Erro interno ao atualizar estoque mínimo.' });
+      res.status(500).json({ erro: err?.message || 'Erro interno ao atualizar estoque mínimo.' });
     }
   };
 

@@ -68,22 +68,24 @@ export function MeuEstoque() {
 
   // Editing estoque minimo state
   const [editingMedName, setEditingMedName] = useState<string | null>(null);
-  const [editingMinVal, setEditingMinVal] = useState<number>(0);
+  const [editingMinValStr, setEditingMinValStr] = useState<string>('0');
   const [savingMinimo, setSavingMinimo] = useState(false);
 
   const handleSaveMinimo = async (item: MedicamentoGrupo) => {
     try {
       setSavingMinimo(true);
+      setErrorMsg(null);
+      const parsedVal = parseInt(editingMinValStr, 10) || 0;
       await atualizarEstoqueMinimo({
         medicamentoNome: item.medicamentoNome,
         catmatCodigo: item.catmatCodigo,
-        quantidadeMinima: Number(editingMinVal) || 0
+        quantidadeMinima: parsedVal
       });
       
       // Update local state lotes so UI reflects change immediately
       setDbLotes(prev => prev.map(l => {
         if (l.medicamentoNome === item.medicamentoNome) {
-          return { ...l, estoqueMinimo: Number(editingMinVal) || 0 };
+          return { ...l, estoqueMinimo: parsedVal };
         }
         return l;
       }));
@@ -91,7 +93,7 @@ export function MeuEstoque() {
       setEditingMedName(null);
     } catch (err: any) {
       console.error('Erro ao salvar estoque mínimo:', err);
-      setErrorMsg('Não foi possível salvar o estoque mínimo.');
+      setErrorMsg(err.response?.data?.erro || 'Não foi possível salvar o estoque mínimo.');
     } finally {
       setSavingMinimo(false);
     }
@@ -793,20 +795,30 @@ export function MeuEstoque() {
                           {isEditingThis ? (
                             <div className="flex items-center justify-end gap-1">
                               <input
-                                type="number"
-                                min="0"
-                                value={editingMinVal}
-                                onChange={(e) => setEditingMinVal(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                                className="w-20 px-2 py-1 text-xs border border-blue-400 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white font-bold"
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                autoFocus
+                                onFocus={(e) => e.target.select()}
+                                value={editingMinValStr}
+                                onChange={(e) => {
+                                  const val = e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+                                  setEditingMinValStr(val);
+                                }}
+                                className="w-20 px-2 py-1 text-xs border border-blue-400 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white font-bold text-right"
                               />
                               <button
                                 type="button"
                                 onClick={() => handleSaveMinimo(item)}
                                 disabled={savingMinimo}
-                                className="p-1 text-white bg-emerald-600 hover:bg-emerald-700 rounded cursor-pointer border-0"
+                                className="p-1 text-white bg-emerald-600 hover:bg-emerald-700 rounded cursor-pointer border-0 disabled:opacity-50"
                                 title="Salvar"
                               >
-                                <Check className="h-3.5 w-3.5" />
+                                {savingMinimo ? (
+                                  <div className="h-3.5 w-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                ) : (
+                                  <Check className="h-3.5 w-3.5" />
+                                )}
                               </button>
                               <button
                                 type="button"
@@ -824,7 +836,7 @@ export function MeuEstoque() {
                                 type="button"
                                 onClick={() => {
                                   setEditingMedName(item.medicamentoNome);
-                                  setEditingMinVal(item.minimo);
+                                  setEditingMinValStr(String(item.minimo));
                                 }}
                                 className="inline-flex items-center justify-center p-1 text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-md cursor-pointer border border-blue-200 transition-all shadow-3xs"
                                 title="Editar Estoque Mínimo"
