@@ -543,7 +543,7 @@ function ModalAprovacao({ usuario, unidades, onClose, onFinished, onAuthError }:
           <button
             type="button"
             onClick={handleAprovar}
-            disabled={loading || !unidadeId}
+            disabled={loading || (perfil !== 'SECRETARIO_SAUDE' && perfil !== 'GESTOR_ESTOQUE' && usuario.role !== 'FORNECEDOR' && !unidadeId && unidades.length > 0)}
             className="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-500/10 disabled:opacity-50 transition-all cursor-pointer flex items-center gap-1.5"
           >
             <UserCheck className="h-4 w-4" />
