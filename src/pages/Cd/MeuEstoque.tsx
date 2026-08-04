@@ -683,25 +683,41 @@ export function MeuEstoque() {
         {/* Total Card */}
         <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs flex flex-col gap-2">
           <span className="text-xs font-bold text-gray-400">Total de Itens</span>
-          <span className="text-3xl font-black text-gray-900">{totalMedications}</span>
+          {loading ? (
+            <div className="h-9 w-16 bg-gray-200 rounded-lg animate-pulse my-0.5" />
+          ) : (
+            <span className="text-3xl font-black text-gray-900">{totalMedications}</span>
+          )}
         </div>
 
         {/* Normal Card */}
         <div className="bg-emerald-50/20 p-6 rounded-2xl border border-emerald-100 shadow-xs flex flex-col gap-2">
           <span className="text-xs font-bold text-emerald-800">Status Normal</span>
-          <span className="text-3xl font-black text-emerald-600">{normalCount}</span>
+          {loading ? (
+            <div className="h-9 w-16 bg-emerald-100/60 rounded-lg animate-pulse my-0.5" />
+          ) : (
+            <span className="text-3xl font-black text-emerald-600">{normalCount}</span>
+          )}
         </div>
 
         {/* Atencao Card */}
         <div className="bg-amber-50/20 p-6 rounded-2xl border border-amber-150 shadow-xs flex flex-col gap-2">
           <span className="text-xs font-bold text-amber-800">Em Atenção</span>
-          <span className="text-3xl font-black text-amber-600">{atencaoCount}</span>
+          {loading ? (
+            <div className="h-9 w-16 bg-amber-100/60 rounded-lg animate-pulse my-0.5" />
+          ) : (
+            <span className="text-3xl font-black text-amber-600">{atencaoCount}</span>
+          )}
         </div>
 
         {/* Critico Card */}
         <div className="bg-red-50/20 p-6 rounded-2xl border border-red-150 shadow-xs flex flex-col gap-2">
           <span className="text-xs font-bold text-red-800">Crítico (Ruptura)</span>
-          <span className="text-3xl font-black text-red-650">{criticoCount}</span>
+          {loading ? (
+            <div className="h-9 w-16 bg-red-100/60 rounded-lg animate-pulse my-0.5" />
+          ) : (
+            <span className="text-3xl font-black text-red-650">{criticoCount}</span>
+          )}
         </div>
       </div>
 
@@ -730,7 +746,37 @@ export function MeuEstoque() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 text-xs font-semibold text-gray-700">
-              {filteredItems.length === 0 ? (
+              {loading ? (
+                // Table Skeleton Lines (5 mock rows)
+                Array.from({ length: 5 }).map((_, index) => (
+                  <tr key={`skeleton-${index}`} className="animate-pulse">
+                    <td className="px-4 py-4 text-center">
+                      <div className="h-4 w-4 bg-gray-200 rounded mx-auto" />
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="h-4 w-48 bg-gray-200 rounded" />
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="h-4 w-12 bg-gray-200 rounded" />
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="h-4 w-16 bg-gray-200 rounded" />
+                    </td>
+                    <td className="px-4 py-4 text-right">
+                      <div className="h-4 w-16 bg-gray-200 rounded ml-auto" />
+                    </td>
+                    <td className="px-4 py-4 text-right">
+                      <div className="h-4 w-12 bg-gray-200 rounded ml-auto" />
+                    </td>
+                    <td className="px-4 py-4 text-center">
+                      <div className="h-5 w-10 bg-gray-200 rounded-lg mx-auto" />
+                    </td>
+                    <td className="px-4 py-4 text-center">
+                      <div className="h-5 w-20 bg-gray-200 rounded-full mx-auto" />
+                    </td>
+                  </tr>
+                ))
+              ) : filteredItems.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="text-center py-12 text-gray-450">
                     Nenhum medicamento encontrado para os filtros selecionados.
