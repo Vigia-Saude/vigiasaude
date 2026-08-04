@@ -51,10 +51,9 @@ export default function Dashboard() {
     );
   }
 
-  // Formatador de valores (Ex: R$ 450k ou R$ 1.000k)
+  // Formatador de valores monetários (Ex: R$ 1.250,00)
   const formatK = (value: number) => {
-    const kValue = value / 1000;
-    return `R$ ${kValue.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}k`;
+    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
   };
 
   // Porcentagens do orçamento
