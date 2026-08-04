@@ -167,8 +167,14 @@ export function MeuEstoque() {
       
     const diasCob = Math.round(qtdAtual / item.consumoDiario);
     
+    const recallLotes = item.lotes.filter(l => l.status === 'BLOQUEADO_RECALL' || l.status === 'RECALL');
+    const hasRecall = recallLotes.length > 0;
+    const allRecall = item.lotes.length > 0 && recallLotes.length === item.lotes.length;
+    
     let status: 'Normal' | 'Atenção' | 'Crítico' = 'Normal';
-    if (qtdAtual < item.minimo || diasCob <= 5) {
+    if (allRecall) {
+      status = 'Crítico';
+    } else if (qtdAtual < item.minimo || diasCob <= 5) {
       status = 'Crítico';
     } else if (diasCob <= 20) {
       status = 'Atenção';
@@ -176,7 +182,7 @@ export function MeuEstoque() {
 
     const abaixoDoMinimo = item.minimo > 0 && qtdAtual < item.minimo;
 
-    return { qtdAtual, earliestValidade, diasCob, status, abaixoDoMinimo };
+    return { qtdAtual, earliestValidade, diasCob, status, abaixoDoMinimo, hasRecall, allRecall, recallLotesCount: recallLotes.length };
   };
 
   // Apply Search and Status Tab Filters
@@ -212,9 +218,16 @@ export function MeuEstoque() {
 
   // Calculate metrics for Cards
   const totalMedications = allItems.length;
-  const normalCount = allItems.filter(item => getGroupMetrics(item).status === 'Normal').length;
-  const atencaoCount = allItems.filter(item => getGroupMetrics(item).status === 'Atenção').length;
+  const normalCount = allItems.filter(item => {
+    const m = getGroupMetrics(item);
+    return m.status === 'Normal' && !m.hasRecall;
+  }).length;
+  const atencaoCount = allItems.filter(item => {
+    const m = getGroupMetrics(item);
+    return m.status === 'Atenção' && !m.hasRecall;
+  }).length;
   const criticoCount = allItems.filter(item => getGroupMetrics(item).status === 'Crítico').length;
+  const recallCount = allItems.filter(item => getGroupMetrics(item).hasRecall).length;
 
   // Counts for tabs
   const tabTodosCount = allItems.length;
@@ -784,7 +797,7 @@ export function MeuEstoque() {
                 </tr>
               ) : (
                 filteredItems.map(item => {
-                  const { qtdAtual, earliestValidade, diasCob, status, abaixoDoMinimo } = getGroupMetrics(item);
+                  const { qtdAtual, earliestValidade, diasCob, status, abaixoDoMinimo, hasRecall, allRecall, recallLotesCount } = getGroupMetrics(item);
                   const isExpanded = !!expandedRows[item.id];
                   const hasMultipleLotes = item.lotes.length > 1;
                   const isEditingThis = editingMedName === item.medicamentoNome;
@@ -793,7 +806,11 @@ export function MeuEstoque() {
                     <Fragment key={item.id}>
                       {/* Main Grouped Row */}
                       <tr className={`transition-colors border-b border-gray-100 ${
-                        abaixoDoMinimo ? 'bg-red-50/40 hover:bg-red-50/60 border-l-4 border-l-red-500' : 'hover:bg-gray-55/30'
+                        hasRecall
+                          ? 'bg-red-50/60 hover:bg-red-100/50 border-l-4 border-l-red-600'
+                          : abaixoDoMinimo 
+                          ? 'bg-red-50/40 hover:bg-red-50/60 border-l-4 border-l-red-500' 
+                          : 'hover:bg-gray-55/30'
                       }`}>
                         <td className="px-4 py-4 text-center">
                           <button
@@ -808,7 +825,7 @@ export function MeuEstoque() {
                           </button>
                         </td>
                         <td className="px-4 py-4">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <button
                               onClick={() => setSearchParams({ medicamento: item.medicamentoNome })}
                               className="text-left font-bold text-blue-650 hover:text-blue-800 hover:underline text-sm bg-transparent border-0 p-0 cursor-pointer"
@@ -820,7 +837,13 @@ export function MeuEstoque() {
                                 {item.lotes.length} lotes
                               </span>
                             )}
-                            {abaixoDoMinimo && (
+                            {hasRecall && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-black bg-red-600 text-white shadow-xs animate-pulse">
+                                <AlertCircle className="h-3 w-3 text-white" />
+                                {recallLotesCount === 1 ? '1 Lote sob Recall' : `${recallLotesCount} Lotes sob Recall`}
+                              </span>
+                            )}
+                            {abaixoDoMinimo && !hasRecall && (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-red-100 text-red-700 border border-red-200 animate-pulse">
                                 <AlertTriangle className="h-3 w-3 text-red-600" />
                                 Abaixo do Mínimo
@@ -833,7 +856,7 @@ export function MeuEstoque() {
                         {/* Validade */}
                         <td className="px-4 py-4">{formatDate(earliestValidade)}</td>
                         {/* Qtd Atual */}
-                        <td className={`px-4 py-4 text-right font-bold text-sm ${abaixoDoMinimo ? 'text-red-700 font-extrabold' : 'text-gray-900'}`}>
+                        <td className={`px-4 py-4 text-right font-bold text-sm ${hasRecall || abaixoDoMinimo ? 'text-red-700 font-extrabold' : 'text-gray-900'}`}>
                           {qtdAtual.toLocaleString('pt-BR')} un
                         </td>
                         {/* Est Minimo (Editável) */}
@@ -895,7 +918,7 @@ export function MeuEstoque() {
                         {/* Dias Cob */}
                         <td className="px-4 py-4 text-center">
                           <span className={`inline-flex px-2 py-0.5 rounded-lg font-bold text-[11px] ${
-                            diasCob <= 5 || abaixoDoMinimo
+                            hasRecall || diasCob <= 5 || abaixoDoMinimo
                               ? 'bg-red-50 text-red-650 border border-red-150 animate-pulse'
                               : diasCob <= 20
                               ? 'bg-amber-50 text-amber-700 border border-amber-150'
@@ -907,50 +930,58 @@ export function MeuEstoque() {
                         {/* Status */}
                         <td className="px-4 py-4 text-center">
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border select-none ${
-                            status === 'Normal' && !abaixoDoMinimo
+                            hasRecall
+                              ? 'bg-red-100 text-red-800 border-red-300'
+                              : status === 'Normal' && !abaixoDoMinimo
                               ? 'bg-emerald-50/20 text-emerald-700 border-emerald-100'
                               : status === 'Atenção' && !abaixoDoMinimo
                               ? 'bg-amber-50/25 text-amber-700 border-amber-200'
                               : 'bg-red-50/20 text-red-650 border-red-100'
                           }`}>
                             <span className={`h-1.5 w-1.5 rounded-full ${
-                              status === 'Normal' && !abaixoDoMinimo ? 'bg-emerald-500' : status === 'Atenção' && !abaixoDoMinimo ? 'bg-amber-500' : 'bg-red-500'
+                              hasRecall ? 'bg-red-600' : status === 'Normal' && !abaixoDoMinimo ? 'bg-emerald-500' : status === 'Atenção' && !abaixoDoMinimo ? 'bg-amber-500' : 'bg-red-500'
                             }`} />
-                            {abaixoDoMinimo ? 'Estoque Crítico' : status}
+                            {hasRecall ? 'Bloqueado (Recall)' : abaixoDoMinimo ? 'Estoque Crítico' : status}
                           </span>
                         </td>
                       </tr>
 
                       {/* Expanded Lots Detail */}
-                      {isExpanded && item.lotes.map(l => (
-                        <tr key={l.id} className="bg-gray-50/40 border-b border-gray-100/60 font-medium">
-                          <td></td>
-                          <td className="px-8 py-3 text-gray-500 flex items-center gap-2">
-                            <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                            Lote físico individual
-                          </td>
-                          <td className="px-4 py-3 font-bold text-gray-900">{l.numeroLote}</td>
-                          <td className="px-4 py-3 text-gray-500">{new Date(l.dataValidade).toLocaleDateString('pt-BR')}</td>
-                          <td className="px-4 py-3 text-right font-extrabold text-gray-800">{l.quantidadeAtual}</td>
-                          <td className="px-4 py-3 text-right text-gray-400">—</td>
-                          <td className="px-4 py-3 text-center">
-                            <span className="text-[10px] text-gray-450 font-bold bg-white border border-gray-150 px-1.5 py-0.5 rounded">
-                              {Math.round(l.quantidadeAtual / item.consumoDiario)}d
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold ${
-                              l.status === 'BLOQUEADO_RECALL'
-                                ? 'bg-orange-50 text-orange-700 border border-orange-200'
-                                : l.status === 'VENCIDO'
-                                ? 'bg-red-50 text-red-700 border border-red-200'
-                                : 'bg-blue-50 text-blue-700 border border-blue-100'
-                            }`}>
-                              {l.status === 'BLOQUEADO_RECALL' ? 'Bloqueado Recall' : l.status === 'VENCIDO' ? 'Vencido' : 'Disponível'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                      {isExpanded && item.lotes.map(l => {
+                        const isLoteRecall = l.status === 'BLOQUEADO_RECALL' || l.status === 'RECALL';
+                        return (
+                          <tr key={l.id} className={`border-b border-gray-100/60 font-medium ${
+                            isLoteRecall ? 'bg-red-100/30' : 'bg-gray-50/40'
+                          }`}>
+                            <td></td>
+                            <td className="px-8 py-3 text-gray-500 flex items-center gap-2">
+                              <span className={`h-1.5 w-1.5 rounded-full ${isLoteRecall ? 'bg-red-600' : 'bg-blue-500'}`} />
+                              Lote físico individual
+                            </td>
+                            <td className="px-4 py-3 font-bold text-gray-900">{l.numeroLote}</td>
+                            <td className="px-4 py-3 text-gray-500">{new Date(l.dataValidade).toLocaleDateString('pt-BR')}</td>
+                            <td className="px-4 py-3 text-right font-extrabold text-gray-800">{l.quantidadeAtual}</td>
+                            <td className="px-4 py-3 text-right text-gray-400">—</td>
+                            <td className="px-4 py-3 text-center">
+                              <span className="text-[10px] text-gray-450 font-bold bg-white border border-gray-150 px-1.5 py-0.5 rounded">
+                                {Math.round(l.quantidadeAtual / item.consumoDiario)}d
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-black ${
+                                isLoteRecall
+                                  ? 'bg-red-600 text-white shadow-2xs'
+                                  : l.status === 'VENCIDO'
+                                  ? 'bg-red-50 text-red-700 border border-red-200'
+                                  : 'bg-blue-50 text-blue-700 border border-blue-100'
+                              }`}>
+                                {isLoteRecall && <AlertCircle className="h-3 w-3 text-white" />}
+                                {isLoteRecall ? 'BLOQUEADO — RECALL' : l.status === 'VENCIDO' ? 'Vencido' : 'Disponível'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </Fragment>
                   );
                 })
