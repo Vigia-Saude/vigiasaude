@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { 
   Upload, 
   FileText, 
@@ -38,6 +39,7 @@ interface NfeData {
 
 export function ImportarNota() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [xmlFile, setXmlFile] = useState<File | null>(null);
   
   // React State mapping
@@ -218,6 +220,10 @@ export function ImportarNota() {
 
       setSuccessMsg('Nota Fiscal salva e enviada para análise de recebimento!');
       
+      // Invalidate queries so lists and dashboard update immediately without F5
+      queryClient.invalidateQueries({ queryKey: ['notasFiscais'] });
+      queryClient.invalidateQueries({ queryKey: ['cdDashboardStats'] });
+
       // Refresh metrics
       void fetchStats();
       
