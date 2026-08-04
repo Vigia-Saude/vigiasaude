@@ -32,6 +32,80 @@ async function verificarRecall(
 }
 
 export class CdController {
+  // GET /api/cd/dashboard/stats
+  getDashboardStats = async (req: AuthRequest, res: Response) => {
+    try {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+
+      const [
+        distinctMedicamentos,
+        lotesDisponiveisCount,
+        recebimentosHojeRaw,
+        alertasCount
+      ] = await Promise.all([
+        // Itens cadastrados (medicamentos distintos nos lotes ou notas fiscais)
+        prisma.cdEstoqueLote.groupBy({
+          by: ['medicamentoNome'],
+          where: { deletedAt: null },
+        }),
+        // Lotes no estoque disponíveis
+        prisma.cdEstoqueLote.count({
+          where: {
+            status: 'DISPONIVEL',
+            deletedAt: null,
+          },
+        }),
+        // Recebimentos hoje (NFs recebidas hoje)
+        prisma.notaFiscal.findMany({
+          where: {
+            dataRecebimento: {
+              gte: todayStart,
+              lte: todayEnd,
+            },
+            deletedAt: null,
+          },
+          include: {
+            itens: true,
+          },
+        }),
+        // Alertas ativos
+        prisma.alertaCd.count({
+          where: {
+            status: 'NOVO',
+          },
+        }),
+      ]);
+
+      const recebimentosLotes = recebimentosHojeRaw.reduce(
+        (acc, nf) => acc + nf.itens.length,
+        0
+      );
+
+      const recebimentosUnidades = recebimentosHojeRaw.reduce((acc, nf) => {
+        const itemSum = nf.itens.reduce(
+          (sum, item) => sum + (item.quantidadeRecebida || item.quantidadeEsperada || 0),
+          0
+        );
+        return acc + itemSum;
+      }, 0);
+
+      return res.json({
+        itensCadastradosCount: distinctMedicamentos.length,
+        lotesDisponiveisCount,
+        recebimentosHojeLotes: recebimentosLotes,
+        recebimentosHojeUnidades: recebimentosUnidades,
+        alertasAtivosCount: alertasCount,
+      });
+    } catch (err) {
+      console.error('Erro ao buscar estatísticas do CD:', err);
+      return res.status(500).json({ erro: 'Erro interno ao buscar estatísticas do CD' });
+    }
+  };
+
   // POST /api/cd/notas-fiscais
   registrarNf = async (req: AuthRequest, res: Response) => {
     const { numeroNf, serie, chaveAcesso, dataEmissao, fornecedorId, pedidoCompraId, valorTotal, xmlUrl, observacoes, itens } = req.body;

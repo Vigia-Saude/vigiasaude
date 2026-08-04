@@ -87,6 +87,7 @@ router.put('/fornecedores/:id', roleMiddleware(['COMPRADOR']), fornecedorControl
 router.patch('/fornecedores/:id/status', roleMiddleware(['COMPRADOR']), fornecedorController.toggleStatus);
 
 // Rotas do Centro de Distribuição (CD)
+router.get('/cd/dashboard/stats', cdController.getDashboardStats);
 router.post('/cd/notas-fiscais/xml', roleMiddleware(['GESTOR_ESTOQUE']), cdController.lerNfXml);
 router.post('/cd/notas-fiscais', roleMiddleware(['GESTOR_ESTOQUE']), cdController.registrarNf);
 router.get('/cd/notas-fiscais', cdController.listarNfs);
