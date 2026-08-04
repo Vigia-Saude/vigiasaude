@@ -227,7 +227,7 @@ function ModalAprovacao({ usuario, unidades, onClose, onFinished, onAuthError }:
       perfil === 'SECRETARIO_SAUDE' ||
       perfil === 'GESTOR_ESTOQUE';
 
-    if (!isGlobalOrSupplier && !unidadeSelecionada) {
+    if (!isGlobalOrSupplier && !unidadeSelecionada && unidades.length > 0) {
       setErrorMsg('Selecione uma unidade para aprovar o cadastro.');
       return;
     }
