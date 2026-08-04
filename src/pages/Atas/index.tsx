@@ -42,10 +42,6 @@ export function AtasLista() {
   };
 
   const formatCurrencyCompact = (value: number) => {
-    if (value >= 1000) {
-      const kValue = value / 1000;
-      return `R$ ${kValue.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}k`;
-    }
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 
