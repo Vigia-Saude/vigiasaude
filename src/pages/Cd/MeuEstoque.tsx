@@ -1,12 +1,15 @@
 import { useState, useEffect, Fragment } from 'react';
-import { Package, Search, ChevronDown, ChevronRight, Download, RefreshCw, AlertCircle, ArrowLeft, AlertTriangle, TrendingUp, TrendingDown } from 'lucide-react';
+import { Package, Search, ChevronDown, ChevronRight, Download, RefreshCw, AlertCircle, ArrowLeft, AlertTriangle, TrendingUp, TrendingDown, Edit2, Check, X } from 'lucide-react';
 import { useSearchParams } from 'react-router';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import apiClient from '../../services/apiClient';
 import { useAuth } from '../../context/AuthContext';
+import { atualizarEstoqueMinimo } from '../../services/cdService';
 
 interface LoteDetail {
   id: string;
+  medicamentoNome?: string;
+  estoqueMinimo?: number;
   numeroLote: string;
   dataValidade: string;
   quantidadeAtual: number;
@@ -63,6 +66,37 @@ export function MeuEstoque() {
   const [activeTab, setActiveTab] = useState<'todos' | 'critico' | 'vencimento'>('todos');
   const [expandedRows, setExpandedRows] = useState<{ [key: string]: boolean }>({});
 
+  // Editing estoque minimo state
+  const [editingMedName, setEditingMedName] = useState<string | null>(null);
+  const [editingMinVal, setEditingMinVal] = useState<number>(0);
+  const [savingMinimo, setSavingMinimo] = useState(false);
+
+  const handleSaveMinimo = async (item: MedicamentoGrupo) => {
+    try {
+      setSavingMinimo(true);
+      await atualizarEstoqueMinimo({
+        medicamentoNome: item.medicamentoNome,
+        catmatCodigo: item.catmatCodigo,
+        quantidadeMinima: Number(editingMinVal) || 0
+      });
+      
+      // Update local state lotes so UI reflects change immediately
+      setDbLotes(prev => prev.map(l => {
+        if (l.medicamentoNome === item.medicamentoNome) {
+          return { ...l, estoqueMinimo: Number(editingMinVal) || 0 };
+        }
+        return l;
+      }));
+
+      setEditingMedName(null);
+    } catch (err: any) {
+      console.error('Erro ao salvar estoque mínimo:', err);
+      setErrorMsg('Não foi possível salvar o estoque mínimo.');
+    } finally {
+      setSavingMinimo(false);
+    }
+  };
+
   const fetchEstoque = async () => {
     try {
       setLoading(true);
@@ -93,8 +127,8 @@ export function MeuEstoque() {
       const nome = lote.medicamentoNome;
       const catmat = lote.catmatCodigo;
       
-      // Use values from backend if present, else safe defaults
-      const minimo = lote.estoqueMinimo || 100;
+      // Use values from backend if present
+      const minimo = typeof lote.estoqueMinimo === 'number' ? lote.estoqueMinimo : 0;
       const consumoDiario = lote.consumoDiario || 5;
       
       if (!groupedDb[nome]) {
@@ -132,13 +166,15 @@ export function MeuEstoque() {
     const diasCob = Math.round(qtdAtual / item.consumoDiario);
     
     let status: 'Normal' | 'Atenção' | 'Crítico' = 'Normal';
-    if (diasCob <= 5) {
+    if (qtdAtual < item.minimo || diasCob <= 5) {
       status = 'Crítico';
     } else if (diasCob <= 20) {
       status = 'Atenção';
     }
 
-    return { qtdAtual, earliestValidade, diasCob, status };
+    const abaixoDoMinimo = item.minimo > 0 && qtdAtual < item.minimo;
+
+    return { qtdAtual, earliestValidade, diasCob, status, abaixoDoMinimo };
   };
 
   // Apply Search and Status Tab Filters
@@ -700,14 +736,17 @@ export function MeuEstoque() {
                 </tr>
               ) : (
                 filteredItems.map(item => {
-                  const { qtdAtual, earliestValidade, diasCob, status } = getGroupMetrics(item);
+                  const { qtdAtual, earliestValidade, diasCob, status, abaixoDoMinimo } = getGroupMetrics(item);
                   const isExpanded = !!expandedRows[item.id];
                   const hasMultipleLotes = item.lotes.length > 1;
+                  const isEditingThis = editingMedName === item.medicamentoNome;
 
                   return (
                     <Fragment key={item.id}>
                       {/* Main Grouped Row */}
-                      <tr className="hover:bg-gray-55/30 transition-colors border-b border-gray-100">
+                      <tr className={`transition-colors border-b border-gray-100 ${
+                        abaixoDoMinimo ? 'bg-red-50/40 hover:bg-red-50/60 border-l-4 border-l-red-500' : 'hover:bg-gray-55/30'
+                      }`}>
                         <td className="px-4 py-4 text-center">
                           <button
                             onClick={() => toggleExpandRow(item.id)}
@@ -733,6 +772,12 @@ export function MeuEstoque() {
                                 {item.lotes.length} lotes
                               </span>
                             )}
+                            {abaixoDoMinimo && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-red-100 text-red-700 border border-red-200 animate-pulse">
+                                <AlertTriangle className="h-3 w-3 text-red-600" />
+                                Abaixo do Mínimo
+                              </span>
+                            )}
                           </div>
                         </td>
                         {/* Lote */}
@@ -740,13 +785,59 @@ export function MeuEstoque() {
                         {/* Validade */}
                         <td className="px-4 py-4">{formatDate(earliestValidade)}</td>
                         {/* Qtd Atual */}
-                        <td className="px-4 py-4 text-right font-bold text-gray-900 text-sm">{qtdAtual}</td>
-                        {/* Est Minimo */}
-                        <td className="px-4 py-4 text-right text-gray-500">{item.minimo}</td>
+                        <td className={`px-4 py-4 text-right font-bold text-sm ${abaixoDoMinimo ? 'text-red-700 font-extrabold' : 'text-gray-900'}`}>
+                          {qtdAtual.toLocaleString('pt-BR')} un
+                        </td>
+                        {/* Est Minimo (Editável) */}
+                        <td className="px-4 py-4 text-right">
+                          {isEditingThis ? (
+                            <div className="flex items-center justify-end gap-1">
+                              <input
+                                type="number"
+                                min="0"
+                                value={editingMinVal}
+                                onChange={(e) => setEditingMinVal(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                                className="w-20 px-2 py-1 text-xs border border-blue-400 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white font-bold"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleSaveMinimo(item)}
+                                disabled={savingMinimo}
+                                className="p-1 text-white bg-emerald-600 hover:bg-emerald-700 rounded cursor-pointer border-0"
+                                title="Salvar"
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingMedName(null)}
+                                className="p-1 text-gray-600 bg-gray-200 hover:bg-gray-300 rounded cursor-pointer border-0"
+                                title="Cancelar"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-end gap-1.5 group">
+                              <span className="text-gray-700 font-bold">{item.minimo.toLocaleString('pt-BR')} un</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingMedName(item.medicamentoNome);
+                                  setEditingMinVal(item.minimo);
+                                }}
+                                className="opacity-70 group-hover:opacity-100 p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded cursor-pointer border-0 transition-all"
+                                title="Editar Estoque Mínimo"
+                              >
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          )}
+                        </td>
                         {/* Dias Cob */}
                         <td className="px-4 py-4 text-center">
                           <span className={`inline-flex px-2 py-0.5 rounded-lg font-bold text-[11px] ${
-                            diasCob <= 5 
+                            diasCob <= 5 || abaixoDoMinimo
                               ? 'bg-red-50 text-red-650 border border-red-150 animate-pulse'
                               : diasCob <= 20
                               ? 'bg-amber-50 text-amber-700 border border-amber-150'
@@ -758,16 +849,16 @@ export function MeuEstoque() {
                         {/* Status */}
                         <td className="px-4 py-4 text-center">
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border select-none ${
-                            status === 'Normal'
+                            status === 'Normal' && !abaixoDoMinimo
                               ? 'bg-emerald-50/20 text-emerald-700 border-emerald-100'
-                              : status === 'Atenção'
+                              : status === 'Atenção' && !abaixoDoMinimo
                               ? 'bg-amber-50/25 text-amber-700 border-amber-200'
                               : 'bg-red-50/20 text-red-650 border-red-100'
                           }`}>
                             <span className={`h-1.5 w-1.5 rounded-full ${
-                              status === 'Normal' ? 'bg-emerald-500' : status === 'Atenção' ? 'bg-amber-500' : 'bg-red-500'
+                              status === 'Normal' && !abaixoDoMinimo ? 'bg-emerald-500' : status === 'Atenção' && !abaixoDoMinimo ? 'bg-amber-500' : 'bg-red-500'
                             }`} />
-                            {status}
+                            {abaixoDoMinimo ? 'Estoque Crítico' : status}
                           </span>
                         </td>
                       </tr>

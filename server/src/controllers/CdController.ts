@@ -441,17 +441,78 @@ export class CdController {
         ];
       }
 
-      const [total, lotes] = await Promise.all([
+      const [total, lotes, minimos] = await Promise.all([
         prisma.cdEstoqueLote.count({ where }),
         prisma.cdEstoqueLote.findMany({ where, skip, take, orderBy: { dataValidade: 'asc' } }),
+        prisma.cdEstoqueMinimo.findMany().catch(() => []),
       ]);
 
-      res.json({ total, pagina: Number(page), dados: lotes });
+      const minimosMap: Record<string, number> = {};
+      minimos.forEach(m => {
+        minimosMap[m.medicamentoNome] = m.quantidadeMinima;
+      });
+
+      const lotesComMinimo = lotes.map(lote => ({
+        ...lote,
+        estoqueMinimo: minimosMap[lote.medicamentoNome] ?? 0
+      }));
+
+      res.json({ total, pagina: Number(page), dados: lotesComMinimo });
     } catch (err) {
       console.error(err);
       res.status(500).json({ erro: 'Erro ao listar estoque.' });
     }
   };
+
+  // PUT /api/cd/estoque/minimo
+  atualizarEstoqueMinimo = async (req: AuthRequest, res: Response) => {
+    const { medicamentoNome, catmatCodigo, quantidadeMinima } = req.body;
+
+    if (!medicamentoNome || typeof quantidadeMinima !== 'number' || quantidadeMinima < 0) {
+      res.status(400).json({ erro: 'Campos obrigatórios: medicamentoNome e quantidadeMinima (número >= 0).' });
+      return;
+    }
+
+    try {
+      const registro = await prisma.cdEstoqueMinimo.upsert({
+        where: { medicamentoNome },
+        update: {
+          quantidadeMinima,
+          catmatCodigo: catmatCodigo || null,
+        },
+        create: {
+          medicamentoNome,
+          catmatCodigo: catmatCodigo || null,
+          quantidadeMinima,
+        },
+      });
+
+      // Se a quantidade mínima atualizada for maior que o estoque atual disponível, criar alerta no CD
+      const estoqueLotes = await prisma.cdEstoqueLote.findMany({
+        where: { medicamentoNome, status: 'DISPONIVEL', deletedAt: null }
+      });
+      const qtdTotal = estoqueLotes.reduce((acc, l) => acc + l.quantidadeAtual, 0);
+
+      if (qtdTotal < quantidadeMinima) {
+        await prisma.alertaCd.create({
+          data: {
+            tipo: 'ESTOQUE_MINIMO',
+            referenciaId: registro.id,
+            referenciaTipo: 'CdEstoqueMinimo',
+            titulo: `Estoque Crítico: ${medicamentoNome}`,
+            descricao: `O estoque atual (${qtdTotal} un) está abaixo do estoque mínimo configurado (${quantidadeMinima} un).`,
+            perfisDestinatarios: ['GESTOR_ESTOQUE', 'COMPRADOR'],
+          }
+        }).catch(() => null);
+      }
+
+      res.json(registro);
+    } catch (err) {
+      console.error('Erro ao atualizar estoque mínimo:', err);
+      res.status(500).json({ erro: 'Erro interno ao atualizar estoque mínimo.' });
+    }
+  };
+
 
   // POST /api/cd/recalls
   registrarRecall = async (req: AuthRequest, res: Response) => {

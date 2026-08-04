@@ -18,3 +18,14 @@ export const getNotasFiscais = async (status?: string) => {
   const response = await apiClient.get(url);
   return response.data?.dados || response.data || [];
 };
+
+export interface AtualizarEstoqueMinimoParams {
+  medicamentoNome: string;
+  catmatCodigo?: string | null;
+  quantidadeMinima: number;
+}
+
+export const atualizarEstoqueMinimo = async (params: AtualizarEstoqueMinimoParams) => {
+  const response = await apiClient.put('/api/cd/estoque/minimo', params);
+  return response.data;
+};

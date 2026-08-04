@@ -425,6 +425,18 @@ model AlertaCd {
   @@map("alertas_cd")
 }
 
+model CdEstoqueMinimo {
+  id               String   @id @default(uuid())
+  medicamentoNome  String   @unique @map("medicamento_nome")
+  catmatCodigo     String?  @map("catmat_codigo")
+  quantidadeMinima Int      @default(0) @map("quantidade_minima")
+  atualizadoEm     DateTime @updatedAt @map("atualizado_em")
+  criadoEm         DateTime @default(now()) @map("criado_em")
+
+  @@map("cd_estoque_minimo")
+}
+
+
 enum PedidoReposicaoStatus {
   PENDENTE
   EM_ANALISE

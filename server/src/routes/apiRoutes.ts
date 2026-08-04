@@ -95,6 +95,7 @@ router.get('/cd/notas-fiscais/:id', cdController.obterNf);
 router.post('/cd/notas-fiscais/:id/conferir', roleMiddleware(['GESTOR_ESTOQUE']), cdController.conferirNf);
 router.get('/cd/estoque/detalhes', cdController.obterDetalhesMedicamento);
 router.get('/cd/estoque', cdController.listarEstoque);
+router.put('/cd/estoque/minimo', roleMiddleware(['GESTOR_ESTOQUE']), cdController.atualizarEstoqueMinimo);
 router.post('/cd/recalls', roleMiddleware(['COMPRADOR']), cdController.registrarRecall);
 router.get('/cd/recalls', cdController.listarRecalls);
 router.patch('/cd/recalls/:id/encerrar', roleMiddleware(['COMPRADOR']), cdController.encerrarRecall);
