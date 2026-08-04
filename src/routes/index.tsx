@@ -216,7 +216,7 @@ export const router = createBrowserRouter([
           const { ImportarNota } = await import('../pages/Cd/ImportarNota');
           return {
             Component: () => (
-              <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE', 'SECRETARIO_SAUDE']}>
+              <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE']}>
                 <ImportarNota />
               </ProtectedRoute>
             )
