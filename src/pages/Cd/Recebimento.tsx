@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { getNotasFiscais } from '../../services/cdService';
 import { 
   Truck, 
   FileText, 
@@ -46,12 +48,17 @@ interface NotaFiscal {
 
 export function Recebimento() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
-  // Pending NFs list and selection
-  const [pendingNfs, setPendingNfs] = useState<any[]>([]);
+  // Pending NFs list via React Query (reactive updates across views)
+  const { data: pendingNfs = [], isLoading: isLoadingNfs, isError: isErrorNfs } = useQuery({
+    queryKey: ['notasFiscais', 'PENDENTE'],
+    queryFn: () => getNotasFiscais('PENDENTE'),
+  });
+
   const [selectedNfId, setSelectedNfId] = useState('');
   const [notaFiscal, setNotaFiscal] = useState<NotaFiscal | null>(null);
   
@@ -61,25 +68,6 @@ export function Recebimento() {
   
   // Observações fiscais for Step 3
   const [observacoesFiscais, setObservacoesFiscais] = useState('');
-
-  // Fetch pending NFs on load
-  useEffect(() => {
-    async function loadPendingNfs() {
-      try {
-        setLoading(true);
-        const response = await apiClient.get('/api/cd/notas-fiscais?status=PENDENTE');
-        // If the query returns a paginated object, handle it
-        const data = response.data?.dados || response.data || [];
-        setPendingNfs(data);
-      } catch (err) {
-        console.error('Erro ao buscar notas fiscais pendentes:', err);
-        setErrorMsg('Não foi possível carregar a lista de Notas Fiscais pendentes.');
-      } finally {
-        setLoading(false);
-      }
-    }
-    void loadPendingNfs();
-  }, []);
 
   // Fetch selected NF details
   useEffect(() => {
@@ -179,6 +167,9 @@ export function Recebimento() {
         itens: itemsPayload,
         descricaoCD: observacoesFiscais || 'Conferência física concluída no CD'
       });
+
+      queryClient.invalidateQueries({ queryKey: ['notasFiscais'] });
+      queryClient.invalidateQueries({ queryKey: ['cdDashboardStats'] });
 
       setStep(4);
     } catch (err: any) {
@@ -304,7 +295,7 @@ export function Recebimento() {
                 className="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-3 outline-none font-semibold"
               >
                 <option value="">Selecione ou busque a Nota Fiscal...</option>
-                {pendingNfs.map(nf => (
+                {pendingNfs.map((nf: any) => (
                   <option key={nf.id} value={nf.id}>NF {nf.numeroNf} - {nf.fornecedor?.razaoSocial || 'Fornecedor avulso'}</option>
                 ))}
               </select>
