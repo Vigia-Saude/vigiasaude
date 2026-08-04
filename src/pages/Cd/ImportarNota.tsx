@@ -58,7 +58,7 @@ export function ImportarNota() {
   const [toastMessage, setToastMessage] = useState('');
   
   // Dynamic stats
-  const [stats, setStats] = useState({ processadasHoje: 12, confirmadas: 10, pendentes: 2 });
+  const [stats, setStats] = useState({ processadasHoje: 0, confirmadas: 0, pendentes: 0 });
 
   // Load stats
   const fetchStats = async () => {
@@ -72,9 +72,9 @@ export function ImportarNota() {
       const pendentes = list.filter((nf: any) => nf.status === 'PENDENTE').length;
 
       setStats({
-        processadasHoje: processadasHoje || 12,
-        confirmadas: confirmadas || 10,
-        pendentes: pendentes || 2
+        processadasHoje,
+        confirmadas,
+        pendentes
       });
     } catch (err) {
       console.error('Erro ao buscar estatísticas de NF:', err);
