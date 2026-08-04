@@ -209,48 +209,54 @@ export function Recebimento() {
 
       {/* Stepper (Steps 1, 2, 3) */}
       {step <= 3 && (
-        <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex items-center justify-between">
-          <div className="flex items-center w-full justify-around relative">
-            <div className="absolute left-[15%] right-[15%] top-1/2 h-0.5 bg-gray-150 -translate-y-1/2 z-0" />
-            <div className="absolute left-[15%] right-[15%] top-1/2 h-0.5 bg-green-500 -translate-y-1/2 z-0 transition-all duration-300" 
-                 style={{ width: `${(step - 1) * 35}%` }} />
-            
+        <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+          <div className="flex items-start w-full">
             {/* Step 1 */}
-            <div className="relative z-10 flex flex-col items-center gap-2">
+            <div className="flex flex-col items-center flex-1">
               <div className={`h-10 w-10 rounded-full flex items-center justify-center font-bold text-sm border-2 transition-all ${
                 step === 1 
                   ? 'bg-blue-600 border-blue-600 text-white shadow-md' 
                   : step > 1 
-                  ? 'bg-green-600 border-green-600 text-white shadow-sm' 
+                  ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm' 
                   : 'bg-white border-gray-300 text-gray-400'
               }`}>
                 {step > 1 ? <CheckCircle2 className="h-5 w-5" /> : '1'}
               </div>
-              <div className="text-center">
-                <p className={`text-xs font-bold ${step === 1 ? 'text-blue-650' : 'text-gray-700'}`}>Pré-Recebimento</p>
-                <p className="text-[10px] text-gray-400 font-medium hidden md:block">Identificar e registrar a Nota Fiscal</p>
+              <div className="text-center mt-2">
+                <p className={`text-xs font-bold ${step === 1 ? 'text-blue-600' : step > 1 ? 'text-emerald-600' : 'text-gray-500'}`}>Pré-Recebimento</p>
+                <p className="text-[10px] text-gray-400 font-medium hidden md:block mt-0.5">Identificar e registrar a NF</p>
               </div>
             </div>
 
+            {/* Connector 1→2 */}
+            <div className="flex-1 flex items-center pt-5 px-1">
+              <div className={`h-0.5 w-full rounded-full transition-all duration-500 ${step > 1 ? 'bg-emerald-500' : 'bg-gray-200'}`} />
+            </div>
+
             {/* Step 2 */}
-            <div className="relative z-10 flex flex-col items-center gap-2">
+            <div className="flex flex-col items-center flex-1">
               <div className={`h-10 w-10 rounded-full flex items-center justify-center font-bold text-sm border-2 transition-all ${
                 step === 2 
                   ? 'bg-blue-600 border-blue-600 text-white shadow-md' 
                   : step > 2 
-                  ? 'bg-green-600 border-green-600 text-white shadow-sm' 
+                  ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm' 
                   : 'bg-white border-gray-300 text-gray-400'
               }`}>
                 {step > 2 ? <CheckCircle2 className="h-5 w-5" /> : '2'}
               </div>
-              <div className="text-center">
-                <p className={`text-xs font-bold ${step === 2 ? 'text-blue-650' : 'text-gray-700'}`}>Conferência Física</p>
-                <p className="text-[10px] text-gray-400 font-medium hidden md:block">Verificar quantidades e identificar divergências</p>
+              <div className="text-center mt-2">
+                <p className={`text-xs font-bold ${step === 2 ? 'text-blue-600' : step > 2 ? 'text-emerald-600' : 'text-gray-500'}`}>Conferência Física</p>
+                <p className="text-[10px] text-gray-400 font-medium hidden md:block mt-0.5">Verificar quantidades e divergências</p>
               </div>
             </div>
 
+            {/* Connector 2→3 */}
+            <div className="flex-1 flex items-center pt-5 px-1">
+              <div className={`h-0.5 w-full rounded-full transition-all duration-500 ${step > 2 ? 'bg-emerald-500' : 'bg-gray-200'}`} />
+            </div>
+
             {/* Step 3 */}
-            <div className="relative z-10 flex flex-col items-center gap-2">
+            <div className="flex flex-col items-center flex-1">
               <div className={`h-10 w-10 rounded-full flex items-center justify-center font-bold text-sm border-2 transition-all ${
                 step === 3 
                   ? 'bg-blue-600 border-blue-600 text-white shadow-md' 
@@ -258,9 +264,9 @@ export function Recebimento() {
               }`}>
                 3
               </div>
-              <div className="text-center">
-                <p className={`text-xs font-bold ${step === 3 ? 'text-blue-650' : 'text-gray-700'}`}>Conferência Fiscal</p>
-                <p className="text-[10px] text-gray-400 font-medium hidden md:block">Validar dados fiscais e confirmar entrada</p>
+              <div className="text-center mt-2">
+                <p className={`text-xs font-bold ${step === 3 ? 'text-blue-600' : 'text-gray-500'}`}>Conferência Fiscal</p>
+                <p className="text-[10px] text-gray-400 font-medium hidden md:block mt-0.5">Validar dados fiscais e confirmar</p>
               </div>
             </div>
           </div>
