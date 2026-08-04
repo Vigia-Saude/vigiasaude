@@ -818,15 +818,15 @@ export function MeuEstoque() {
                               </button>
                             </div>
                           ) : (
-                            <div className="flex items-center justify-end gap-1.5 group">
-                              <span className="text-gray-700 font-bold">{item.minimo.toLocaleString('pt-BR')} un</span>
+                            <div className="flex items-center justify-end gap-1.5">
+                              <span className="text-gray-900 font-bold">{item.minimo.toLocaleString('pt-BR')} un</span>
                               <button
                                 type="button"
                                 onClick={() => {
                                   setEditingMedName(item.medicamentoNome);
                                   setEditingMinVal(item.minimo);
                                 }}
-                                className="opacity-70 group-hover:opacity-100 p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded cursor-pointer border-0 transition-all"
+                                className="inline-flex items-center justify-center p-1 text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-md cursor-pointer border border-blue-200 transition-all shadow-3xs"
                                 title="Editar Estoque Mínimo"
                               >
                                 <Edit2 className="h-3.5 w-3.5" />
