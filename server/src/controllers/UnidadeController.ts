@@ -129,9 +129,9 @@ export class UnidadeController {
       });
 
       return res.status(201).json(novaUnidade);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao criar unidade:', err);
-      return res.status(500).json({ error: 'Erro ao cadastrar nova unidade de saúde.' });
+      return res.status(500).json({ error: err?.message || 'Erro ao cadastrar nova unidade de saúde.' });
     }
   };
 
@@ -194,9 +194,9 @@ export class UnidadeController {
       });
 
       return res.json(unidadeAtualizada);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao atualizar unidade:', err);
-      return res.status(500).json({ error: 'Erro ao atualizar dados da unidade.' });
+      return res.status(500).json({ error: err?.message || 'Erro ao atualizar dados da unidade.' });
     }
   };
 
