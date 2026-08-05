@@ -402,6 +402,22 @@ export class PedidoController {
         return pedido;
       });
 
+      // Gerar alerta/notificação para o Secretário de Saúde sobre a nova solicitação de compra
+      try {
+        await prisma.alertaCd.create({
+          data: {
+            tipo: 'DIVERGENCIA_NF',
+            referenciaId: novoPedido.id,
+            referenciaTipo: 'PedidoCompra',
+            titulo: `Solicitação de Compra: ${novoPedido.numero}`,
+            descricao: `Solicitação de compra realizada pelo Gerente de Estoque no valor total de R$ ${Number(novoPedido.valorTotal).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`,
+            perfisDestinatarios: ['SECRETARIO_SAUDE'],
+          }
+        }).catch(() => null);
+      } catch (alertErr) {
+        console.warn('Não foi possível gerar notificação para a solicitação de compra:', alertErr);
+      }
+
       return res.status(201).json({
         ...novoPedido,
         valorTotal: Number(novoPedido.valorTotal),

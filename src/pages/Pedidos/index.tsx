@@ -114,6 +114,32 @@ export function PedidosLista() {
     }
   };
 
+  // Aprovar e Efetivar Pedido junto ao Fornecedor
+  const handleAprovarPedido = async (id: string, numero: string) => {
+    try {
+      await updatePedidoStatus(id, 'APROVADO', 'Pedido de compra aprovado e efetivado pelo Secretário de Saúde.');
+      toast.success(`Pedido de Compra ${numero} aprovado e enviado ao fornecedor com sucesso!`);
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+      queryClient.invalidateQueries({ queryKey: ['cdAlertasHeader'] });
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.response?.data?.error || 'Erro ao aprovar pedido de compra.');
+    }
+  };
+
+  // Rejeitar Solicitação de Compra
+  const handleRejeitarPedido = async (id: string, numero: string) => {
+    try {
+      await updatePedidoStatus(id, 'REJEITADO', 'Solicitação de compra rejeitada pelo Secretário de Saúde.');
+      toast.error(`Solicitação ${numero} rejeitada.`);
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+      queryClient.invalidateQueries({ queryKey: ['cdAlertasHeader'] });
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.response?.data?.error || 'Erro ao rejeitar solicitação.');
+    }
+  };
+
   // Helper formatting functions
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -215,6 +241,44 @@ export function PedidosLista() {
       accessorKey: 'dataSolicitacao',
       sortable: true,
       cell: (row) => formatDate(row.dataSolicitacao)
+    },
+    {
+      header: 'Ações',
+      cell: (row) => {
+        const isPendente = row.status === 'PENDENTE';
+        return (
+          <div className="flex items-center gap-1.5 justify-end">
+            <button
+              onClick={() => handleViewDetails(row.id)}
+              className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors border-0 cursor-pointer"
+              title="Ver Detalhes do Pedido"
+            >
+              <Eye className="w-4 h-4" />
+            </button>
+
+            {isPendente && (
+              <>
+                <button
+                  onClick={() => handleAprovarPedido(row.id, row.numero)}
+                  className="px-2.5 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-all border-0 cursor-pointer flex items-center gap-1 shadow-xs"
+                  title="Aprovar e Enviar ao Fornecedor"
+                >
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  Efetivar
+                </button>
+
+                <button
+                  onClick={() => handleRejeitarPedido(row.id, row.numero)}
+                  className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors border-0 cursor-pointer"
+                  title="Rejeitar Solicitação"
+                >
+                  <XCircle className="w-4 h-4" />
+                </button>
+              </>
+            )}
+          </div>
+        );
+      }
     }
   ];
 

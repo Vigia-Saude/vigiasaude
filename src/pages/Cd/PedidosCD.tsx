@@ -57,10 +57,27 @@ interface Motorista {
 }
 
 export function PedidosCD() {
+  const [activeTab, setActiveTab] = useState<'UNIDADES' | 'SOLICITACOES_COMPRA'>('UNIDADES');
+
+  // Estados de Pedidos de Reposição (Unidades)
   const [pedidos, setPedidos] = useState<PedidoReposicao[]>([]);
   const [stats, setStats] = useState({ total: 0, pendentes: 0, emAnalise: 0, emSeparacao: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+
+  // Estados de Solicitações de Compra (Enviadas ao Secretário)
+  const [solicitaCompras, setSolicitaCompras] = useState<any[]>([]);
+  const [loadingCompras, setLoadingCompras] = useState(false);
+  const [modalNovaCompra, setModalNovaCompra] = useState(false);
+  const [submittingCompra, setSubmittingCompra] = useState(false);
+  
+  // Form Nova Solicitação Compra
+  const [medicamentoNome, setMedicamentoNome] = useState('');
+  const [catmatCodigo, setCatmatCodigo] = useState('');
+  const [quantidade, setQuantidade] = useState('');
+  const [precoUnitario, setPrecoUnitario] = useState('');
+  const [justificativa, setJustificativa] = useState('');
+  const [selectedPedidoCompraDetails, setSelectedPedidoCompraDetails] = useState<any | null>(null);
 
   // Filters State
   const [busca, setBusca] = useState('');
@@ -113,9 +130,63 @@ export function PedidosCD() {
     }
   };
 
+  const fetchSolicitacoesCompra = async () => {
+    try {
+      setLoadingCompras(true);
+      const res = await apiClient.get('/api/pedidos');
+      setSolicitaCompras(res.data.pedidos || res.data || []);
+    } catch (err) {
+      console.error('Erro ao buscar solicitações de compra:', err);
+    } finally {
+      setLoadingCompras(false);
+    }
+  };
+
   useEffect(() => {
     fetchPedidos();
+    fetchSolicitacoesCompra();
   }, [page, statusFilter, dataFilter]);
+
+  const handleCriarSolicitacaoCompra = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!medicamentoNome || !quantidade || Number(quantidade) <= 0) {
+      toast.error('Informe o nome do medicamento e uma quantidade válida.');
+      return;
+    }
+
+    try {
+      setSubmittingCompra(true);
+      const payload = {
+        medicamentoNome,
+        catmatCodigo: catmatCodigo || null,
+        justificativa: justificativa || 'Solicitação de compra de reposição de estoque do CD.',
+        status: 'PENDENTE',
+        itens: [
+          {
+            medicamentoNome,
+            catmatCodigo: catmatCodigo || null,
+            quantidade: Number(quantidade),
+            precoUnitario: Number(precoUnitario) || 0
+          }
+        ]
+      };
+
+      await apiClient.post('/api/pedidos', payload);
+      toast.success('Solicitação de compra enviada com sucesso ao Secretário de Saúde!');
+      setModalNovaCompra(false);
+      setMedicamentoNome('');
+      setCatmatCodigo('');
+      setQuantidade('');
+      setPrecoUnitario('');
+      setJustificativa('');
+      fetchSolicitacoesCompra();
+    } catch (err: any) {
+      console.error('Erro ao criar solicitação de compra:', err);
+      toast.error(err?.response?.data?.error || 'Erro ao enviar solicitação de compra.');
+    } finally {
+      setSubmittingCompra(false);
+    }
+  };
 
   // Debounce search
   useEffect(() => {
@@ -286,26 +357,55 @@ export function PedidosCD() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
             <ShoppingCart className="h-6 w-6 text-blue-600" />
-            Pedidos de Reposição
+            Módulo de Pedidos e Reposição
           </h1>
-          <p className="text-sm text-gray-500 font-medium mt-1">Gerencie as solicitações recebidas das unidades de saúde</p>
+          <p className="text-sm text-gray-500 font-medium mt-1">Gerencie o atendimento a unidades e solicitações de compra ao Secretário de Saúde</p>
         </div>
         <div className="flex items-center gap-2.5">
           <button 
-            onClick={fetchPedidos}
+            onClick={() => { fetchPedidos(); fetchSolicitacoesCompra(); }}
             className="p-2.5 rounded-xl border border-gray-200 text-gray-500 hover:text-gray-900 bg-white hover:bg-gray-50 transition-all cursor-pointer active:scale-95 shadow-xs"
             title="Atualizar"
           >
             <RefreshCw className="h-4 w-4" />
           </button>
           <button
-            onClick={handleExport}
-            className="inline-flex items-center gap-2 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 px-4 py-2.5 text-xs font-bold text-gray-700 shadow-xs transition-all active:scale-95 cursor-pointer"
+            onClick={() => setModalNovaCompra(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 text-xs font-bold shadow-xs transition-all active:scale-95 cursor-pointer border-0"
           >
-            <Download className="h-4 w-4 text-gray-500" />
-            Exportar
+            <ShoppingCart className="h-4 w-4" />
+            + Solicitar Compra de Estoque
           </button>
         </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex border-b border-gray-200 gap-4">
+        <button
+          onClick={() => setActiveTab('UNIDADES')}
+          className={`pb-3 px-4 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+            activeTab === 'UNIDADES'
+              ? 'border-blue-600 text-blue-600 font-extrabold'
+              : 'border-transparent text-gray-500 hover:text-gray-800'
+          }`}
+        >
+          Atendimento a Unidades (Recebidos)
+        </button>
+        <button
+          onClick={() => setActiveTab('SOLICITACOES_COMPRA')}
+          className={`pb-3 px-4 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
+            activeTab === 'SOLICITACOES_COMPRA'
+              ? 'border-blue-600 text-blue-600 font-extrabold'
+              : 'border-transparent text-gray-500 hover:text-gray-800'
+          }`}
+        >
+          Minhas Solicitações de Compra (Secretário)
+          {solicitaCompras.length > 0 && (
+            <span className="px-2 py-0.5 rounded-full text-[10px] bg-blue-100 text-blue-700 font-black">
+              {solicitaCompras.length}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* KPI Cards Grid */}
@@ -399,7 +499,93 @@ export function PedidosCD() {
       </div>
 
       {/* Main Table */}
-      {loading ? (
+      {activeTab === 'SOLICITACOES_COMPRA' ? (
+        loadingCompras ? (
+          <div className="bg-white rounded-2xl border border-gray-200/80 shadow-xs p-12 text-center">
+            <Loader2 className="h-8 w-8 text-blue-600 animate-spin mx-auto mb-4" />
+            <span className="text-xs font-bold text-gray-500">Carregando solicitações de compra...</span>
+          </div>
+        ) : solicitaCompras.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-gray-200/80 shadow-xs p-12 text-center text-gray-500">
+            <ShoppingCart className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-950 font-bold mb-1 text-sm">Nenhuma solicitação de compra enviada</p>
+            <p className="text-xs text-gray-400 mb-4">Clique no botão acima para enviar um novo pedido de compra de estoque ao Secretário de Saúde.</p>
+            <button
+              onClick={() => setModalNovaCompra(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-500 transition-all cursor-pointer border-0"
+            >
+              + Nova Solicitação de Compra
+            </button>
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl border border-gray-200/80 shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50/50">
+                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Número do Pedido</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Data de Envio</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Medicamento Principal</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-400 text-right uppercase tracking-wider">Valor Total</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Status no Secretário</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-400 text-right uppercase tracking-wider">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {solicitaCompras.map((item: any) => {
+                    const isPendente = item.status === 'PENDENTE';
+                    const isAprovado = item.status === 'APROVADO' || item.status === 'EM_TRANSITO' || item.status === 'ENTREGUE';
+                    const isRejeitado = item.status === 'REJEITADO' || item.status === 'CANCELADO';
+                    const firstItem = item.itens?.[0]?.medicamentoNome || 'Medicamento de estoque';
+
+                    return (
+                      <tr key={item.id} className="hover:bg-gray-50/40 transition-colors">
+                        <td className="px-6 py-4">
+                          <span className="text-xs font-bold text-gray-700 bg-gray-100 px-2 py-1 rounded-md tracking-tight font-mono">{item.numero}</span>
+                        </td>
+                        <td className="px-6 py-4 text-xs text-gray-600">
+                          {new Date(item.dataSolicitacao || item.criadoEm).toLocaleDateString('pt-BR')}
+                        </td>
+                        <td className="px-6 py-4 text-xs font-bold text-gray-900">
+                          {firstItem}
+                          {item.itens?.length > 1 && (
+                            <span className="ml-2 text-[10px] text-gray-400 font-normal">+{item.itens.length - 1} item(ns)</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-xs font-extrabold text-gray-900 text-right">
+                          R$ {Number(item.valorTotal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-black ${
+                            isPendente
+                              ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                              : isAprovado
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              : isRejeitado
+                              ? 'bg-red-100 text-red-800 border border-red-200'
+                              : 'bg-gray-100 text-gray-700'
+                          }`}>
+                            {isPendente ? 'Aguardando Secretário' : isAprovado ? 'Aprovado & Efetivado' : isRejeitado ? 'Rejeitado' : item.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button
+                            onClick={() => setSelectedPedidoCompraDetails(item)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all border-0 cursor-pointer"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            Detalhes
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
+      ) : loading ? (
         <div className="bg-white rounded-2xl border border-gray-200/80 shadow-xs p-12 text-center">
           <Loader2 className="h-8 w-8 text-blue-600 animate-spin mx-auto mb-4" />
           <span className="text-xs font-bold text-gray-500">Carregando pedidos...</span>
@@ -826,6 +1012,174 @@ export function PedidosCD() {
                 >
                   {submittingRejection && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                   Confirmar Rejeição
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Nova Solicitação de Compra (Enviada ao Secretário) */}
+      {modalNovaCompra && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100 animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <ShoppingCart className="h-5 w-5 text-blue-600" />
+                  Nova Solicitação de Compra de Estoque
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5 font-medium">
+                  Solicite ao Secretário de Saúde a autorização para efetivar pedido de compra de reposição.
+                </p>
+              </div>
+              <button
+                onClick={() => setModalNovaCompra(false)}
+                className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors border-0 cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCriarSolicitacaoCompra} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Nome do Medicamento *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Amoxicilina 500mg cápsula"
+                  value={medicamentoNome}
+                  onChange={(e) => setMedicamentoNome(e.target.value)}
+                  className="w-full px-3.5 py-2.5 text-xs font-semibold border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Código CATMAT</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: 458921"
+                    value={catmatCodigo}
+                    onChange={(e) => setCatmatCodigo(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs font-semibold border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Qtd. Solicitada *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    placeholder="Ex: 5000"
+                    value={quantidade}
+                    onChange={(e) => setQuantidade(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs font-semibold border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Preço Est. (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Ex: 1.50"
+                    value={precoUnitario}
+                    onChange={(e) => setPrecoUnitario(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs font-semibold border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Justificativa da Reposição</label>
+                <textarea
+                  rows={3}
+                  placeholder="Ex: Estoque atual zerado no CD e com alta demanda das UBS para os próximos 30 dias."
+                  value={justificativa}
+                  onChange={(e) => setJustificativa(e.target.value)}
+                  className="w-full px-3.5 py-2.5 text-xs font-semibold border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none"
+                />
+              </div>
+
+              <div className="pt-3 flex justify-end gap-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setModalNovaCompra(false)}
+                  className="px-4 py-2.5 text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors border-0 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingCompra}
+                  className="px-5 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all shadow-xs disabled:opacity-50 cursor-pointer border-0 flex items-center gap-1.5"
+                >
+                  {submittingCompra && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  Enviar ao Secretário
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Detalhes da Solicitação de Compra */}
+      {selectedPedidoCompraDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100 animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">
+                  Detalhes do Pedido de Compra: {selectedPedidoCompraDetails.numero}
+                </h3>
+                <p className="text-xs text-gray-400 font-mono mt-0.5">
+                  Solicitado em: {new Date(selectedPedidoCompraDetails.dataSolicitacao || selectedPedidoCompraDetails.criadoEm).toLocaleString('pt-BR')}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedPedidoCompraDetails(null)}
+                className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors border-0 cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="flex justify-between items-center bg-gray-50 p-3.5 rounded-xl border border-gray-100">
+                <span className="text-xs font-bold text-gray-500 uppercase">Status no Secretário</span>
+                <span className="px-2.5 py-1 rounded-full text-xs font-extrabold bg-blue-100 text-blue-700">
+                  {selectedPedidoCompraDetails.status}
+                </span>
+              </div>
+
+              <div>
+                <h4 className="text-xs font-bold text-gray-700 uppercase mb-2">Itens Solicitados</h4>
+                <div className="bg-gray-50 rounded-xl p-3 divide-y divide-gray-100 border border-gray-150">
+                  {selectedPedidoCompraDetails.itens?.map((it: any) => (
+                    <div key={it.id} className="py-2 flex justify-between items-center text-xs">
+                      <div>
+                        <span className="font-bold text-gray-900">{it.medicamentoNome}</span>
+                        {it.catmatCodigo && <span className="text-[10px] text-gray-400 ml-2 font-mono">CATMAT: {it.catmatCodigo}</span>}
+                      </div>
+                      <span className="font-extrabold text-gray-800">{it.quantidade} un</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-xs font-bold text-gray-700 uppercase mb-1">Justificativa</h4>
+                <p className="text-xs text-gray-600 bg-gray-50 p-3 rounded-xl border border-gray-150 italic">
+                  "{selectedPedidoCompraDetails.justificativa || 'Sem justificativa informada.'}"
+                </p>
+              </div>
+
+              <div className="pt-3 flex justify-end border-t border-gray-100">
+                <button
+                  onClick={() => setSelectedPedidoCompraDetails(null)}
+                  className="px-5 py-2.5 text-xs font-bold text-white bg-gray-900 hover:bg-gray-800 rounded-xl transition-all border-0 cursor-pointer"
+                >
+                  Fechar
                 </button>
               </div>
             </div>
