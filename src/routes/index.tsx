@@ -276,19 +276,6 @@ export const router = createBrowserRouter([
         }
       },
       {
-        path: 'cd/notificacoes',
-        lazy: async () => {
-          const { Notificacoes } = await import('../pages/Cd/Notificacoes');
-          return {
-            Component: () => (
-              <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE']}>
-                <Notificacoes />
-              </ProtectedRoute>
-            )
-          };
-        }
-      },
-      {
         path: 'cd/portal-publico',
         lazy: async () => {
           const { PortalPublico } = await import('../pages/Cd/PortalPublico');
