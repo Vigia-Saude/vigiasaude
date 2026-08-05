@@ -58,7 +58,6 @@ export default function SidebarCD({ isOpen, setIsOpen }: SidebarCDProps) {
     { name: 'Pedidos', path: '/cd/pedidos', icon: ShoppingCart },
     { name: 'Entregas', path: '/cd/entregas', icon: MapPin },
     { name: 'Recalls', path: '/cd/recalls', icon: AlertTriangle, badge: activeRecallsCount > 0 ? String(activeRecallsCount) : null },
-    { name: 'Rastreabilidade', path: '/cd/rastreabilidade', icon: ScanBarcode },
     { name: 'Auditoria', path: '/cd/auditoria', icon: History },
     { name: 'Notificações', path: '/cd/notificacoes', icon: Bell, badge: unreadAlertsCount > 0 ? String(unreadAlertsCount) : null },
     { name: 'Portal Público', path: '/cd/portal-publico', icon: ExternalLink, external: true },

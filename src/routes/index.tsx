@@ -263,19 +263,6 @@ export const router = createBrowserRouter([
         }
       },
       {
-        path: 'cd/rastreabilidade',
-        lazy: async () => {
-          const { Rastreabilidade } = await import('../pages/Cd/Rastreabilidade');
-          return {
-            Component: () => (
-              <ProtectedRoute allowedPerfil={['GESTOR_ESTOQUE']}>
-                <Rastreabilidade />
-              </ProtectedRoute>
-            )
-          };
-        }
-      },
-      {
         path: 'cd/auditoria',
         lazy: async () => {
           const { AuditoriaCD } = await import('../pages/Cd/AuditoriaCD');
