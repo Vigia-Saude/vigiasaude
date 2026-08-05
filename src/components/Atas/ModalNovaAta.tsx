@@ -2,9 +2,18 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Plus, Trash2, HelpCircle, Loader2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { FileUpload } from '../ui/FileUpload';
-import { criarAta, buscarCatmat, buscarCatmatPorCodigo, uploadFile } from '../../services/ataService';
+import { criarAta, buscarCatmat, buscarCatmatPorCodigo, buscarPrecosReferencia, uploadFile } from '../../services/ataService';
 import { getFornecedores } from '../../services/fornecedorService';
-import type { CatmatMedicamento, Fornecedor } from '../../types';
+import type { CatmatMedicamento, Fornecedor, PrecosReferencia } from '../../types';
+import { cn } from '../../lib/utils';
+
+/** Preços de referência costumam ter 3-4 casas, então não fixamos em 2. */
+const formatCurrency = (valor: number) =>
+  new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    maximumFractionDigits: valor < 1 ? 4 : 2,
+  }).format(valor);
 
 interface ModalNovaAtaProps {
   isOpen: boolean;
@@ -54,6 +63,9 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
   const [catmatQueries, setCatmatQueries] = useState<{ [key: number]: string }>({});
   const [catmatResults, setCatmatResults] = useState<{ [key: number]: CatmatMedicamento[] }>({});
   const [catmatLoading, setCatmatLoading] = useState<{ [key: number]: boolean }>({});
+  // Preços oficiais (BPS/CMED) por índice de medicamento
+  const [precosRef, setPrecosRef] = useState<{ [key: number]: PrecosReferencia }>({});
+  const [precosLoading, setPrecosLoading] = useState<{ [key: number]: boolean }>({});
   const [activeSearchIndex, setActiveSearchIndex] = useState<number | null>(null);
   // Debounce timers ref
   const debounceTimers = useRef<{ [key: number]: ReturnType<typeof setTimeout> }>({});
@@ -187,6 +199,39 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
     setCatmatLoading(prev => ({ ...prev, [index]: false }));
     setActiveSearchIndex(null);
     toast.success(`Medicamento CATMAT preenchido: ${item.codigoBr}`);
+
+    // Buscar preços oficiais em segundo plano. O BPS já vem por unidade de
+    // fornecimento, então preenche o campo direto; o PMVG da CMED é por
+    // apresentação (embalagem) e fica como lista para o comprador escolher.
+    setPrecosLoading(prev => ({ ...prev, [index]: true }));
+    buscarPrecosReferencia(item.codigoBr)
+      .then(precos => {
+        if (!precos) return;
+        setPrecosRef(prev => ({ ...prev, [index]: precos }));
+
+        if (precos.bps) {
+          const mediana = Number(precos.bps.precoMediano.toFixed(4));
+          setMedicamentos(prev => {
+            const copy = [...prev];
+            // Não sobrescreve valor que o comprador já tenha digitado.
+            if (copy[index] && !copy[index].precoBPS) {
+              copy[index] = { ...copy[index], precoBPS: mediana };
+            }
+            return copy;
+          });
+        }
+      })
+      .finally(() => setPrecosLoading(prev => ({ ...prev, [index]: false })));
+  }, []);
+
+  /** Preenche o teto CMED a partir da apresentação escolhida pelo comprador. */
+  const handleSelectPmvg = useCallback((index: number, preco: number) => {
+    setMedicamentos(prev => {
+      const copy = [...prev];
+      if (copy[index]) copy[index] = { ...copy[index], precoCMED: preco };
+      return copy;
+    });
+    toast.success('Preço teto CMED preenchido a partir da apresentação selecionada');
   }, []);
 
   const handleAddMedicine = useCallback(() => {
@@ -611,6 +656,28 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
                             onChange={(e) => handleMedicineChange(index, 'precoBPS', parseFloat(e.target.value) || undefined)}
                             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs"
                           />
+                          {precosLoading[index] && (
+                            <p className="mt-1 text-[11px] text-gray-400">Consultando Banco de Preços em Saúde…</p>
+                          )}
+                          {precosRef[index]?.bps && (
+                            <p className={cn(
+                              'mt-1 text-[11px]',
+                              precosRef[index].bps!.filtradoPorUnidade ? 'text-green-700' : 'text-amber-700'
+                            )}>
+                              BPS {precosRef[index].bps!.anoCompra}: mediana{' '}
+                              {formatCurrency(precosRef[index].bps!.precoMediano)} (faixa{' '}
+                              {formatCurrency(precosRef[index].bps!.precoMinimo)}–
+                              {formatCurrency(precosRef[index].bps!.precoMaximo)} em{' '}
+                              {precosRef[index].bps!.amostras} compra(s))
+                              {!precosRef[index].bps!.filtradoPorUnidade &&
+                                ' — apresentações misturadas, use como ordem de grandeza'}
+                            </p>
+                          )}
+                          {precosRef[index] && !precosRef[index].bps && (
+                            <p className="mt-1 text-[11px] text-gray-500">
+                              Sem histórico de compra pública para este princípio ativo.
+                            </p>
+                          )}
                         </div>
 
                         <div>
@@ -626,6 +693,41 @@ export function ModalNovaAta({ isOpen, onClose, onSuccess }: ModalNovaAtaProps) 
                             onChange={(e) => handleMedicineChange(index, 'precoCMED', parseFloat(e.target.value) || undefined)}
                             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs"
                           />
+                          {/* O PMVG é publicado por apresentação, não por unidade.
+                              Preencher automaticamente produziria um teto errado,
+                              então listamos as opções para o comprador escolher a
+                              embalagem equivalente ao item da ata. */}
+                          {(precosRef[index]?.cmed?.length ?? 0) > 0 && (
+                            <details className="mt-1">
+                              <summary className="text-[11px] text-blue-700 cursor-pointer select-none">
+                                {precosRef[index].cmed.length} apresentação(ões) com PMVG na CMED — clique para escolher
+                              </summary>
+                              <ul className="mt-1 max-h-40 overflow-y-auto rounded border border-gray-200 divide-y divide-gray-100">
+                                {precosRef[index].cmed.map((ap, i) => (
+                                  <li key={i}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSelectPmvg(index, ap.precoPmvg)}
+                                      className="w-full text-left px-2 py-1.5 hover:bg-blue-50"
+                                    >
+                                      <span className="block text-[11px] font-semibold text-gray-800">
+                                        {formatCurrency(ap.precoPmvg)} — {ap.produto}
+                                      </span>
+                                      <span className="block text-[10px] text-gray-500">
+                                        {ap.apresentacao}
+                                        {ap.laboratorio ? ` · ${ap.laboratorio}` : ''}
+                                      </span>
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </details>
+                          )}
+                          {precosRef[index] && precosRef[index].cmed.length === 0 && (
+                            <p className="mt-1 text-[11px] text-gray-500">
+                              Sem PMVG publicado — pode ser insumo/correlato, não regulado por preço-teto.
+                            </p>
+                          )}
                         </div>
 
                         <div>

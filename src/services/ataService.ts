@@ -1,5 +1,12 @@
 import apiClient from './apiClient';
-import type { Ata, MedicamentoAta, PedidoCompra, AtaConsumo, CatmatMedicamento } from '../types';
+import type {
+  Ata,
+  MedicamentoAta,
+  PedidoCompra,
+  AtaConsumo,
+  CatmatMedicamento,
+  PrecosReferencia,
+} from '../types';
 
 export interface AtaWithFornecedor extends Ata {
   fornecedorNome: string;
@@ -74,6 +81,24 @@ export const buscarCatmatPorCodigo = async (codigoBr: string): Promise<CatmatMed
     return response.data;
   } catch {
     return null; // Retorna null se não encontrar
+  }
+};
+
+/**
+ * Preços oficiais de referência para um item CATMAT.
+ * Retorna null em caso de falha para não travar o preenchimento da ATA — o
+ * comprador continua podendo digitar os valores manualmente.
+ */
+export const buscarPrecosReferencia = async (
+  codigoBr: string,
+): Promise<PrecosReferencia | null> => {
+  try {
+    const response = await apiClient.get<PrecosReferencia>('/api/precos/referencia', {
+      params: { codigoBr: codigoBr.toUpperCase().trim() },
+    });
+    return response.data;
+  } catch {
+    return null;
   }
 };
 

@@ -40,11 +40,15 @@ export class CatmatController {
 
       const medicamentos = await prisma.catmatMedicamento.findMany({
         where: {
+          ativo: true,
           OR: [
             // Busca por código BR (começa com o termo ou contém)
             { codigoBr: { contains: termoBusca.toUpperCase(), mode: 'insensitive' } },
             // Busca por descrição (contém o termo, case-insensitive)
             { descricao: { contains: termoBusca, mode: 'insensitive' } },
+            // Busca por princípio ativo — permite achar por "dipirona" mesmo
+            // quando a descrição usa outra grafia comercial
+            { principioAtivo: { contains: termoBusca, mode: 'insensitive' } },
           ],
         },
         orderBy: [
@@ -55,6 +59,9 @@ export class CatmatController {
           id: true,
           codigoBr: true,
           descricao: true,
+          principioAtivo: true,
+          concentracao: true,
+          formaFarmaceutica: true,
           unidadeFornecimento: true,
         },
         take: limit,
@@ -80,12 +87,18 @@ export class CatmatController {
       }
 
       const codigo = String(codigoBr).toUpperCase().trim();
-      const medicamento = await prisma.catmatMedicamento.findUnique({
-        where: { codigoBr: codigo },
+      // findFirst (e não findUnique): em etl_catmat o mesmo codigo_br pode
+      // aparecer em mais de uma apresentação.
+      const medicamento = await prisma.catmatMedicamento.findFirst({
+        where: { codigoBr: codigo, ativo: true },
+        orderBy: { criadoEm: 'asc' },
         select: {
           id: true,
           codigoBr: true,
           descricao: true,
+          principioAtivo: true,
+          concentracao: true,
+          formaFarmaceutica: true,
           unidadeFornecimento: true,
         },
       });

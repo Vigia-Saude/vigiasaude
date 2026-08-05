@@ -82,7 +82,40 @@ export interface CatmatMedicamento {
   id: string;
   codigoBr: string;
   descricao: string;
+  principioAtivo?: string | null;
+  concentracao?: string | null;
+  formaFarmaceutica?: string | null;
   unidadeFornecimento: string;
+}
+
+/** Estatística de preços efetivamente pagos por órgãos públicos (BPS). */
+export interface ResumoBps {
+  precoMediano: number;
+  precoMinimo: number;
+  precoMaximo: number;
+  anoCompra: number;
+  amostras: number;
+  unidadeFornecimento: string | null;
+  /** false = amostras de apresentações diferentes; use só como ordem de grandeza. */
+  filtradoPorUnidade: boolean;
+}
+
+/** Preço Máximo de Venda ao Governo por apresentação (CMED). */
+export interface ApresentacaoCmed {
+  produto: string;
+  laboratorio: string | null;
+  apresentacao: string;
+  precoPmvg: number;
+  aliquotaIcms: number | null;
+  publicadoEm: string;
+}
+
+export interface PrecosReferencia {
+  codigoBr: string;
+  principioAtivo: string | null;
+  bps: ResumoBps | null;
+  cmed: ApresentacaoCmed[];
+  avisos: string[];
 }
 
 export type PedidoCompraStatus = 

@@ -2,9 +2,6 @@ import { PrismaClient } from '@prisma/client'
 import { Pool } from 'pg'
 import { PrismaPg } from '@prisma/adapter-pg'
 import * as dotenv from 'dotenv'
-import * as fs from 'fs'
-import * as path from 'path'
-import { parse } from 'csv-parse/sync'
 
 dotenv.config()
 
@@ -72,50 +69,11 @@ async function main() {
 
   console.log({ comprador, fornecedor, usuarioFornecedor })
 
-  // Carga de dados CATMAT a partir do arquivo CSV (se existirem novos ou para garantir)
-  const csvPath = path.resolve(__dirname, '..', '..', 'catmat_medicamentos.csv')
-  if (fs.existsSync(csvPath)) {
-    console.log(`Lendo arquivo CSV em: ${csvPath}`)
-    const csvContent = fs.readFileSync(csvPath, 'utf8')
-    const records = parse(csvContent, {
-      columns: true,
-      skip_empty_lines: true,
-      trim: true,
-    }) as any[]
-
-    console.log(`Linhas lidas do CSV: ${records.length}`)
-    const map = new Map<string, { codigoBr: string; descricao: string; unidadeFornecimento: string }>()
-
-    for (const record of records) {
-      const codigoBr = record.codigo_br?.trim()
-      const descricao = record.descricao?.trim()
-      const unidadeFornecimento = record.unidade_fornecimento?.trim()
-
-      if (!codigoBr || !descricao) continue
-
-      if (!map.has(codigoBr)) {
-        map.set(codigoBr, {
-          codigoBr,
-          descricao,
-          unidadeFornecimento: unidadeFornecimento || '',
-        })
-      }
-    }
-
-    const uniqueRecords = Array.from(map.values())
-    const CHUNK_SIZE = 1000
-    let totalInseridos = 0
-
-    for (let i = 0; i < uniqueRecords.length; i += CHUNK_SIZE) {
-      const chunk = uniqueRecords.slice(i, i + CHUNK_SIZE)
-      const res = await prisma.catmatMedicamento.createMany({
-        data: chunk,
-        skipDuplicates: true,
-      })
-      totalInseridos += res.count
-    }
-    console.log(`CATMAT total importado: ${totalInseridos}`)
-  }
+  // O catálogo CATMAT (etl_catmat) é mantido pelo processo de ETL externo,
+  // não pelo seed. A carga antiga via catmat_medicamentos.csv foi removida
+  // junto com a tabela catmat_medicamentos.
+  const catmatCount = await prisma.catmatMedicamento.count()
+  console.log(`CATMAT disponível (etl_catmat): ${catmatCount} registros`)
 
   // Criar 8 ATAs Ativas (3 delas vencendo em menos de 45 dias)
   // Valor total das 8 ATAs = R$ 1.000.000,00
