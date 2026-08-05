@@ -49,7 +49,7 @@ export class UnidadeController {
   // GET /api/unidades/:id
   obterPorId = async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
+      const id = String(req.params.id);
       const unidade = await prisma.unidade.findUnique({
         where: { id }
       });
@@ -138,7 +138,7 @@ export class UnidadeController {
   // PUT /api/unidades/:id
   atualizar = async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
+      const id = String(req.params.id);
       const {
         nome,
         cnes,
@@ -203,7 +203,7 @@ export class UnidadeController {
   // PATCH /api/unidades/:id/toggle-status
   toggleStatus = async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
+      const id = String(req.params.id);
       const unidade = await prisma.unidade.findUnique({ where: { id } });
 
       if (!unidade || unidade.deletedAt) {
