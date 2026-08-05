@@ -3,6 +3,7 @@ import { PedidoController } from '../controllers/PedidoController';
 import { AuditoriaController } from '../controllers/AuditoriaController';
 import { AtaController } from '../controllers/AtaController';
 import { CatmatController } from '../controllers/CatmatController';
+import { PrecoReferenciaController } from '../controllers/PrecoReferenciaController';
 import { UploadController, uploadConfig } from '../controllers/UploadController';
 import { FornecedorController } from '../controllers/FornecedorController';
 import { DashboardController } from '../controllers/DashboardController';
@@ -24,6 +25,7 @@ const pedidoController = new PedidoController();
 const auditoriaController = new AuditoriaController();
 const ataController = new AtaController();
 const catmatController = new CatmatController();
+const precoReferenciaController = new PrecoReferenciaController();
 const uploadController = new UploadController();
 const fornecedorController = new FornecedorController();
 const dashboardController = new DashboardController();
@@ -41,16 +43,16 @@ const queueController = new QueueController();
 // Todas as rotas da API requerem autenticação
 router.use(authMiddleware);
 
-// Rota de Unidades (Secretaria / Unidades)
-router.get('/unidades', async (req, res) => {
-  try {
-    const unidades = await listarUnidades();
-    return res.json(unidades);
-  } catch (err) {
-    console.error('Erro ao listar unidades:', err);
-    return res.status(500).json({ error: 'Erro ao listar unidades' });
-  }
-});
+import { UnidadeController } from '../controllers/UnidadeController';
+
+const unidadeController = new UnidadeController();
+
+// Rotas de Unidades de Saúde
+router.get('/unidades', unidadeController.listar);
+router.get('/unidades/:id', unidadeController.obterPorId);
+router.post('/unidades', unidadeController.criar);
+router.put('/unidades/:id', unidadeController.atualizar);
+router.patch('/unidades/:id/toggle-status', unidadeController.toggleStatus);
 
 // Rotas de Dashboard
 router.get('/dashboard/stats', dashboardController.getStats);
@@ -64,6 +66,9 @@ router.post('/atas/:ataId/consumos', roleMiddleware(['COMPRADOR', 'GESTOR_ESTOQU
 // Rotas de CATMAT
 router.get('/catmat/buscar', catmatController.buscar);
 router.get('/catmat/:codigoBr', catmatController.buscarPorCodigo);
+
+// Preços oficiais de referência (BPS / CMED)
+router.get('/precos/referencia', precoReferenciaController.obter);
 
 // Rotas de Upload
 router.post('/upload', roleMiddleware(['COMPRADOR', 'GESTOR_ESTOQUE']), uploadConfig.single('file'), uploadController.upload);

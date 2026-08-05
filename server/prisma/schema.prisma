@@ -96,14 +96,140 @@ enum Sexo {
   PREFIRO_NAO_INFORMAR
 }
 
-model CatmatMedicamento {
-  id                  String   @id @default(uuid())
-  codigoBr            String   @unique @map("codigo_br") // Ex: BR027xxxx — índice único automático
-  descricao           String
-  unidadeFornecimento String   @map("unidade_fornecimento")
-  criadoEm            DateTime @default(now()) @map("criado_em")
+// ─── Bases oficiais de preço (carregadas pelo ETL externo) ───────────────────
+// Estas tabelas NÃO são escritas pela aplicação — só lidas, em
+// precoReferencia.service.ts. Estão declaradas aqui porque, sem isso, o Prisma
+// as considera tabelas estranhas ao schema e um `db push` as removeria,
+// levando junto ~425 MB de dados oficiais.
 
-  @@map("catmat_medicamentos")
+/// Banco de Preços em Saúde: preços que órgãos públicos efetivamente pagaram.
+/// `preco_unitario` já é por unidade de fornecimento.
+/// Atenção: `codigo_br` aqui é o código de material do ComprasNet (ex.: 393138),
+/// que NÃO é o mesmo do código BR do CATMAT (ex.: BR0270558-2). Por isso o elo
+/// entre as bases é feito por princípio ativo, não por código.
+model EtlBps {
+  id                            BigInt   @id @default(autoincrement())
+  registroHash                  String   @unique @map("registro_hash")
+  anoCompra                     Int      @map("ano_compra")
+  nomeInstituicao               String   @map("nome_instituicao")
+  esfera                        String
+  cnpjInstituicao               String   @map("cnpj_instituicao")
+  municipioInstituicao          String   @map("municipio_instituicao")
+  uf                            String
+  compra                        DateTime @db.Date
+  insercao                      DateTime @db.Date
+  codigoBr                      String   @map("codigo_br")
+  descricaoCatmat               String   @map("descricao_catmat")
+  unidadeFornecimento           String   @map("unidade_fornecimento")
+  generico                      Boolean?
+  anvisa                        String?
+  modalidadeCompra              String   @map("modalidade_compra")
+  tipoCompra                    String   @map("tipo_compra")
+  capacidade                    Decimal?
+  unidadeMedida                 String?  @map("unidade_medida")
+  unidadeFornecimentoCapacidade String   @map("unidade_fornecimento_capacidade")
+  cnpjFornecedor                String   @map("cnpj_fornecedor")
+  fornecedor                    String
+  cnpjFabricante                String   @map("cnpj_fabricante")
+  fabricante                    String
+  qtdItensComprados             BigInt   @map("qtd_itens_comprados")
+  precoUnitario                 Decimal  @map("preco_unitario")
+  precoTotal                    Decimal  @map("preco_total")
+  extraidoEm                    DateTime @default(now()) @map("extraido_em") @db.Timestamp(6)
+  arquivoOrigem                 String   @map("arquivo_origem")
+
+  @@index([codigoBr])
+  @@index([anoCompra])
+  @@index([anvisa])
+  @@index([cnpjFornecedor])
+  @@index([cnpjInstituicao])
+  @@index([compra])
+  @@index([uf])
+  @@map("etl_bps")
+}
+
+/// Catálogo de medicamentos regulados pela CMED (um registro por apresentação).
+model EtlCmed {
+  codigoGgrem        String    @id @map("codigo_ggrem")
+  registro           String
+  ean1               String?   @map("ean_1")
+  ean2               String?   @map("ean_2")
+  ean3               String?   @map("ean_3")
+  substancia         String?
+  produto            String?
+  apresentacao       String?
+  cnpj               String
+  laboratorio        String?
+  classeTerapeutica  String?   @map("classe_terapeutica")
+  tipoProduto        String?   @map("tipo_produto")
+  regimeDePreco      String?   @map("regime_de_preco")
+  restricaoHospitalar Boolean? @map("restricao_hospitalar")
+  cap                Boolean?
+  confaz87           Boolean?  @map("confaz_87")
+  icms0Percentual    Boolean?  @map("icms_0_percentual")
+  analiseRecursal    String?   @map("analise_recursal")
+  creditoTributario  String?   @map("credito_tributario")
+  comercializado     Boolean?
+  anoComercializacao Int?      @map("ano_comercializacao")
+  tarja              String?
+  publicadoEm        DateTime  @map("publicado_em") @db.Timestamp(6)
+  extraidoEm         DateTime  @map("extraido_em") @db.Timestamp(6)
+  arquivoOrigem      String    @map("arquivo_origem")
+
+  precos EtlCmedPreco[]
+
+  @@index([produto])
+  @@index([ean1])
+  @@index([registro])
+  @@map("etl_cmed")
+}
+
+/// Série histórica de preços CMED. `tipo_preco` é PF (Preço Fábrica) ou
+/// PMVG (Preço Máximo de Venda ao Governo) — este último é o teto legal em
+/// compra pública, publicado POR APRESENTAÇÃO, não por unidade.
+model EtlCmedPreco {
+  id              BigInt   @id @default(autoincrement())
+  codigoGgrem     String   @map("codigo_ggrem")
+  medicamento     EtlCmed  @relation(fields: [codigoGgrem], references: [codigoGgrem])
+  publicadoEm     DateTime @map("publicado_em") @db.Timestamp(6)
+  tipoPreco       String   @map("tipo_preco")
+  aliquotaIcms    Decimal? @map("aliquota_icms")
+  alc             Boolean
+  semImpostos     Boolean  @map("sem_impostos")
+  valor           Decimal
+  possuiAsterisco Boolean  @map("possui_asterisco")
+  extraidoEm      DateTime @map("extraido_em") @db.Timestamp(6)
+
+  @@unique([codigoGgrem, publicadoEm, tipoPreco, aliquotaIcms, alc, semImpostos])
+  @@index([codigoGgrem])
+  @@index([publicadoEm])
+  @@index([tipoPreco])
+  @@map("etl_cmed_precos")
+}
+
+/// Catálogo CATMAT de medicamentos, mantido pelo processo de ETL externo.
+/// Substitui a antiga tabela `catmat_medicamentos`, que ficou vazia e era
+/// mais pobre (não tinha princípio ativo, concentração nem forma farmacêutica).
+/// Atenção: `codigo_br` NÃO é único aqui — a unicidade real é a combinação
+/// (codigo_br, principio_ativo, concentracao, forma_farmaceutica,
+/// unidade_fornecimento), pois um mesmo BR pode ter apresentações distintas.
+model CatmatMedicamento {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  codigoBr            String   @map("codigo_br") // Ex: BR0270558-2
+  descricao           String?
+  principioAtivo      String   @map("principio_ativo")
+  concentracao        String?
+  formaFarmaceutica   String?  @map("forma_farmaceutica")
+  unidadeFornecimento String?  @map("unidade_fornecimento")
+  ativo               Boolean  @default(true)
+  criadoEm            DateTime @default(now()) @map("criado_em") @db.Timestamp(6)
+  atualizadoEm        DateTime @updatedAt @default(now()) @map("atualizado_em") @db.Timestamp(6)
+
+  @@unique([codigoBr, principioAtivo, concentracao, formaFarmaceutica, unidadeFornecimento])
+  @@index([codigoBr])
+  @@index([principioAtivo])
+  @@index([descricao])
+  @@map("etl_catmat")
 }
 
 model Fornecedor {
@@ -454,12 +580,29 @@ enum PedidoReposicaoUrgencia {
   ALTA
 }
 
+enum TipoUnidade {
+  UBS
+  USF
+  UPA
+  FARMACIA_MUNICIPAL
+  POSTO_SAUDE
+}
+
 model Unidade {
   id           String            @id @default(uuid())
   nome         String
   cnes         String?           @unique
+  tipo         TipoUnidade       @default(UBS)
   endereco     String?
   telefone     String?
+  email        String?
+  responsavel  String?
+  cep          String?
+  logradouro   String?
+  numero       String?
+  bairro       String?
+  cidade       String?
+  uf           String?
   tenantSchema String            @unique @map("tenant_schema")
   ativa        Boolean           @default(true)
   criadoEm     DateTime          @default(now()) @map("criado_em") @db.Timestamptz(6)
@@ -630,16 +773,9 @@ model FilaRegulacao {
   @@map("fila_regulacao")
 }
 
-model PermissoesPerfil {
-  id       String   @id @default(uuid())
-  perfil   Perfil
-  recurso  String
-  acao     String
-  criadoEm DateTime @default(now()) @map("criado_em")
-
-  @@unique([perfil, recurso, acao])
-  @@map("permissoes_perfil")
-}
+// Removido: model PermissoesPerfil / tabela permissoes_perfil.
+// Nunca foi lido nem escrito pelo código — a autorização real acontece em
+// roleMiddleware() (arrays de perfis nas rotas) + usuarios.permissoes_extras.
 
 // ==========================================
 // Módulo de Confirmação de Filas via WhatsApp (Migração PontaPoraSaude)

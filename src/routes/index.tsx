@@ -144,6 +144,19 @@ export const router = createBrowserRouter([
         },
       },
       {
+        path: 'unidades',
+        lazy: async () => {
+          const { UnidadesLista } = await import('../pages/Unidades');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedRoles={['COMPRADOR']} allowedPerfil={['SECRETARIO_SAUDE']}>
+                <UnidadesLista />
+              </ProtectedRoute>
+            )
+          };
+        },
+      },
+      {
         path: 'auditoria',
         lazy: async () => {
           const { AuditoriaLista } = await import('../pages/Auditoria');

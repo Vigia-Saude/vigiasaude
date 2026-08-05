@@ -5,6 +5,7 @@ import {
   FileCheck, 
   Search, 
   Users, 
+  Building2,
   Shield, 
   ChevronLeft 
 } from 'lucide-react';
@@ -21,6 +22,7 @@ export default function Sidebar({ isOpen, setIsOpen }: { isOpen: boolean; setIsO
     { name: 'Recebimento NF', path: '/cd/importar', icon: FileCheck, roles: ['COMPRADOR'], perfis: ['GESTOR_ESTOQUE'] },
     { name: 'Auditoria', path: '/auditoria', icon: Search, roles: ['COMPRADOR'] },
     { name: 'Fornecedores', path: '/fornecedores', icon: Users, roles: ['COMPRADOR'] },
+    { name: 'Unidades de Saúde', path: '/unidades', icon: Building2, roles: ['COMPRADOR'], perfil: 'SECRETARIO_SAUDE' },
     { name: 'Solicitações', path: '/solicitacoes', icon: Users, roles: ['COMPRADOR'], perfil: 'SECRETARIO_SAUDE' },
   ];
 
