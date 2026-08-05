@@ -594,37 +594,42 @@ export class CdController {
   // GET /api/cd/recalls
   listarRecalls = async (_req: Request, res: Response) => {
     try {
-      const recalls = await prisma.recall.findMany({
-        orderBy: { criadoEm: 'desc' },
+      const [recalls, lotesEstoque] = await Promise.all([
+        prisma.recall.findMany({
+          orderBy: { criadoEm: 'desc' },
+        }),
+        prisma.cdEstoqueLote.findMany({
+          where: { deletedAt: null },
+          select: { catmatCodigo: true, numeroLote: true }
+        }),
+      ]);
+
+      const recallsComLotes = recalls.map((recall) => {
+        let lotesAfetados = 0;
+
+        if (recall.numeroLote && recall.catmatCodigo) {
+          lotesAfetados = lotesEstoque.filter(
+            l => l.numeroLote === recall.numeroLote && l.catmatCodigo === recall.catmatCodigo
+          ).length;
+        } else if (recall.catmatCodigo) {
+          lotesAfetados = lotesEstoque.filter(
+            l => l.catmatCodigo === recall.catmatCodigo
+          ).length;
+        } else if (recall.numeroLote) {
+          lotesAfetados = lotesEstoque.filter(
+            l => l.numeroLote === recall.numeroLote
+          ).length;
+        }
+
+        return {
+          ...recall,
+          lotesAfetados,
+        };
       });
-
-      const recallsComLotes = await Promise.all(
-        recalls.map(async (recall) => {
-          const conditions: any[] = [];
-          if (recall.numeroLote && recall.catmatCodigo) {
-            conditions.push({ numeroLote: recall.numeroLote, catmatCodigo: recall.catmatCodigo });
-          } else if (recall.catmatCodigo) {
-            conditions.push({ catmatCodigo: recall.catmatCodigo });
-          } else if (recall.numeroLote) {
-            conditions.push({ numeroLote: recall.numeroLote });
-          }
-
-          const lotesAfetados = await prisma.cdEstoqueLote.count({
-            where: {
-              AND: conditions,
-            },
-          });
-
-          return {
-            ...recall,
-            lotesAfetados,
-          };
-        })
-      );
 
       res.json(recallsComLotes);
     } catch (err) {
-      console.error(err);
+      console.error('Erro ao listar recalls:', err);
       res.status(500).json({ erro: 'Erro ao listar recalls.' });
     }
   };

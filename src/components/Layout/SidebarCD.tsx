@@ -16,6 +16,9 @@ import {
   Shield
 } from 'lucide-react';
 
+import { useQuery } from '@tanstack/react-query';
+import apiClient from '../../services/apiClient';
+
 interface SidebarCDProps {
   isOpen: boolean;
   setIsOpen: (val: boolean) => void;
@@ -24,6 +27,29 @@ interface SidebarCDProps {
 export default function SidebarCD({ isOpen, setIsOpen }: SidebarCDProps) {
   const location = useLocation();
 
+  // Fetch active recalls count
+  const { data: recalls = [] } = useQuery({
+    queryKey: ['cdRecallsSidebar'],
+    queryFn: async () => {
+      const res = await apiClient.get('/api/cd/recalls');
+      return res.data?.dados || res.data || [];
+    },
+    refetchInterval: 30000
+  });
+
+  // Fetch unread notifications count
+  const { data: alertas = [] } = useQuery({
+    queryKey: ['cdAlertasSidebar'],
+    queryFn: async () => {
+      const res = await apiClient.get('/api/cd/alertas');
+      return res.data?.dados || res.data || [];
+    },
+    refetchInterval: 15000
+  });
+
+  const activeRecallsCount = recalls.filter((r: any) => r.ativo).length;
+  const unreadAlertsCount = alertas.filter((a: any) => a.status === 'NOVO').length;
+
   const links = [
     { name: 'Dashboard', path: '/cd/dashboard', icon: Home },
     { name: 'Meu Estoque', path: '/cd/meu-estoque', icon: Package },
@@ -31,10 +57,10 @@ export default function SidebarCD({ isOpen, setIsOpen }: SidebarCDProps) {
     { name: 'Importação NF', path: '/cd/importar', icon: FileDigit },
     { name: 'Pedidos', path: '/cd/pedidos', icon: ShoppingCart },
     { name: 'Entregas', path: '/cd/entregas', icon: MapPin },
-    { name: 'Recalls', path: '/cd/recalls', icon: AlertTriangle, badge: '2' },
+    { name: 'Recalls', path: '/cd/recalls', icon: AlertTriangle, badge: activeRecallsCount > 0 ? String(activeRecallsCount) : null },
     { name: 'Rastreabilidade', path: '/cd/rastreabilidade', icon: ScanBarcode },
     { name: 'Auditoria', path: '/cd/auditoria', icon: History },
-    { name: 'Notificações', path: '/cd/notificacoes', icon: Bell, badge: '3' },
+    { name: 'Notificações', path: '/cd/notificacoes', icon: Bell, badge: unreadAlertsCount > 0 ? String(unreadAlertsCount) : null },
     { name: 'Portal Público', path: '/cd/portal-publico', icon: ExternalLink, external: true },
     { name: 'Configurações', path: '/cd/configuracoes', icon: Settings },
   ];
