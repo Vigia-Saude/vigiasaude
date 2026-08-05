@@ -54,8 +54,7 @@ export function UnidadesLista() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingUnidade, setEditingUnidade] = useState<UnidadeSaude | null>(null);
   const [saving, setSaving] = useState(false);
-
-  // Form State
+  // Form State & Errors
   const [nome, setNome] = useState('');
   const [cnes, setCnes] = useState('');
   const [tipo, setTipo] = useState<'UBS' | 'USF' | 'UPA' | 'FARMACIA_MUNICIPAL' | 'POSTO_SAUDE'>('UBS');
@@ -68,6 +67,102 @@ export function UnidadesLista() {
   const [bairro, setBairro] = useState('');
   const [cidade, setCidade] = useState('');
   const [uf, setUf] = useState('');
+  const [loadingCep, setLoadingCep] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  // Formaters
+  const formatarCNES = (val: string) => val.replace(/\D/g, '').slice(0, 7);
+
+  const formatarTelefone = (val: string) => {
+    const nums = val.replace(/\D/g, '').slice(0, 11);
+    if (nums.length <= 10) {
+      return nums.replace(/^(\d{2})(\d{4})(\d{0,4})/, (_, ddd, p1, p2) => p2 ? `(${ddd}) ${p1}-${p2}` : p1 ? `(${ddd}) ${p1}` : ddd);
+    }
+    return nums.replace(/^(\d{2})(\d{5})(\d{0,4})/, (_, ddd, p1, p2) => p2 ? `(${ddd}) ${p1}-${p2}` : p1 ? `(${ddd}) ${p1}` : ddd);
+  };
+
+  const formatarCEP = (val: string) => {
+    const nums = val.replace(/\D/g, '').slice(0, 8);
+    return nums.replace(/^(\d{5})(\d{0,3})/, (_, p1, p2) => p2 ? `${p1}-${p2}` : p1);
+  };
+
+  const formatarUF = (val: string) => val.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 2);
+
+  const validarFormulario = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    if (!nome.trim()) {
+      errors.nome = 'O nome da unidade é obrigatório.';
+    } else if (nome.trim().length < 3) {
+      errors.nome = 'O nome deve ter no mínimo 3 caracteres.';
+    }
+
+    if (cnes.trim() && cnes.trim().length !== 7) {
+      errors.cnes = 'O código CNES deve conter exatamente 7 dígitos numéricos.';
+    }
+
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      errors.email = 'Informe um endereço de e-mail válido.';
+    }
+
+    if (telefone.trim() && telefone.replace(/\D/g, '').length < 10) {
+      errors.telefone = 'Informe um telefone válido com DDD (mínimo 10 dígitos).';
+    }
+
+    if (cep.trim() && cep.replace(/\D/g, '').length !== 8) {
+      errors.cep = 'O CEP deve conter 8 dígitos.';
+    }
+
+    if (uf.trim() && uf.trim().length !== 2) {
+      errors.uf = 'A UF deve conter 2 letras.';
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const buscarCep = async (cepInput: string) => {
+    const cleanCep = cepInput.replace(/\D/g, '');
+    if (cleanCep.length === 8) {
+      try {
+        setLoadingCep(true);
+        const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+        const data = await res.json();
+        
+        if (data.erro) {
+          toast.error('CEP não encontrado.');
+          setFieldErrors(prev => ({ ...prev, cep: 'CEP não encontrado na base do ViaCEP.' }));
+          return;
+        }
+
+        if (data.logradouro) setLogradouro(data.logradouro);
+        if (data.bairro) setBairro(data.bairro);
+        if (data.localidade) setCidade(data.localidade);
+        if (data.uf) setUf(data.uf);
+
+        setFieldErrors(prev => {
+          const newErr = { ...prev };
+          delete newErr.cep;
+          return newErr;
+        });
+
+        toast.success('Endereço preenchido automaticamente pelo CEP!');
+      } catch (err) {
+        console.error('Erro ao consultar ViaCEP:', err);
+      } finally {
+        setLoadingCep(false);
+      }
+    }
+  };
+
+  const handleCepChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatarCEP(e.target.value);
+    setCep(formatted);
+    const cleanCep = formatted.replace(/\D/g, '');
+    if (cleanCep.length === 8) {
+      buscarCep(cleanCep);
+    }
+  };
 
   const fetchUnidades = async () => {
     try {
@@ -123,13 +218,14 @@ export function UnidadesLista() {
       setCidade('');
       setUf('');
     }
+    setFieldErrors({});
     setModalOpen(true);
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nome.trim()) {
-      toast.error('O nome da unidade é obrigatório.');
+    if (!validarFormulario()) {
+      toast.error('Verifique os campos destacados em vermelho antes de enviar.');
       return;
     }
 
@@ -389,19 +485,30 @@ export function UnidadesLista() {
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="sm:col-span-2">
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Nome da Unidade *</label>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                      Nome da Unidade <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="text"
-                      required
                       placeholder="Ex: UBS São José"
                       value={nome}
-                      onChange={(e) => setNome(e.target.value)}
-                      className="w-full px-3.5 py-2.5 text-xs font-semibold border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none"
+                      onChange={(e) => {
+                        setNome(e.target.value);
+                        if (fieldErrors.nome) setFieldErrors(prev => ({ ...prev, nome: '' }));
+                      }}
+                      className={`w-full px-3.5 py-2.5 text-xs font-semibold border rounded-xl outline-none transition-all ${
+                        fieldErrors.nome
+                          ? 'border-red-500 bg-red-50/30 text-red-900 focus:ring-2 focus:ring-red-100'
+                          : 'border-gray-200 focus:ring-2 focus:ring-blue-100 focus:border-blue-500'
+                      }`}
                     />
+                    {fieldErrors.nome && <p className="text-[11px] font-bold text-red-600 mt-1">{fieldErrors.nome}</p>}
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Tipo de Unidade *</label>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                      Tipo de Unidade <span className="text-red-500">*</span>
+                    </label>
                     <select
                       value={tipo}
                       onChange={(e) => setTipo(e.target.value as any)}
@@ -416,14 +523,23 @@ export function UnidadesLista() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Código CNES</label>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Código CNES (7 dígitos)</label>
                     <input
                       type="text"
                       placeholder="Ex: 2345678"
                       value={cnes}
-                      onChange={(e) => setCnes(e.target.value)}
-                      className="w-full px-3.5 py-2.5 text-xs font-semibold border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none font-mono"
+                      maxLength={7}
+                      onChange={(e) => {
+                        setCnes(formatarCNES(e.target.value));
+                        if (fieldErrors.cnes) setFieldErrors(prev => ({ ...prev, cnes: '' }));
+                      }}
+                      className={`w-full px-3.5 py-2.5 text-xs font-semibold border rounded-xl outline-none font-mono transition-all ${
+                        fieldErrors.cnes
+                          ? 'border-red-500 bg-red-50/30 text-red-900 focus:ring-2 focus:ring-red-100'
+                          : 'border-gray-200 focus:ring-2 focus:ring-blue-100 focus:border-blue-500'
+                      }`}
                     />
+                    {fieldErrors.cnes && <p className="text-[11px] font-bold text-red-600 mt-1">{fieldErrors.cnes}</p>}
                   </div>
                 </div>
               </div>
@@ -450,11 +566,19 @@ export function UnidadesLista() {
                     <label className="block text-xs font-bold text-gray-700 mb-1">Telefone</label>
                     <input
                       type="text"
-                      placeholder="Ex: (81) 3333-4444"
+                      placeholder="Ex: (81) 98888-7777"
                       value={telefone}
-                      onChange={(e) => setTelefone(e.target.value)}
-                      className="w-full px-3.5 py-2.5 text-xs font-semibold border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none"
+                      onChange={(e) => {
+                        setTelefone(formatarTelefone(e.target.value));
+                        if (fieldErrors.telefone) setFieldErrors(prev => ({ ...prev, telefone: '' }));
+                      }}
+                      className={`w-full px-3.5 py-2.5 text-xs font-semibold border rounded-xl outline-none transition-all ${
+                        fieldErrors.telefone
+                          ? 'border-red-500 bg-red-50/30 text-red-900 focus:ring-2 focus:ring-red-100'
+                          : 'border-gray-200 focus:ring-2 focus:ring-blue-100 focus:border-blue-500'
+                      }`}
                     />
+                    {fieldErrors.telefone && <p className="text-[11px] font-bold text-red-600 mt-1">{fieldErrors.telefone}</p>}
                   </div>
 
                   <div>
@@ -463,9 +587,17 @@ export function UnidadesLista() {
                       type="email"
                       placeholder="Ex: ubs.saojose@saude.gov.br"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full px-3.5 py-2.5 text-xs font-semibold border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none"
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (fieldErrors.email) setFieldErrors(prev => ({ ...prev, email: '' }));
+                      }}
+                      className={`w-full px-3.5 py-2.5 text-xs font-semibold border rounded-xl outline-none transition-all ${
+                        fieldErrors.email
+                          ? 'border-red-500 bg-red-50/30 text-red-900 focus:ring-2 focus:ring-red-100'
+                          : 'border-gray-200 focus:ring-2 focus:ring-blue-100 focus:border-blue-500'
+                      }`}
                     />
+                    {fieldErrors.email && <p className="text-[11px] font-bold text-red-600 mt-1">{fieldErrors.email}</p>}
                   </div>
                 </div>
               </div>
@@ -478,14 +610,27 @@ export function UnidadesLista() {
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">CEP</label>
+                    <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center justify-between">
+                      CEP
+                      {loadingCep && <span className="text-[10px] text-blue-600 font-extrabold flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Buscando...</span>}
+                    </label>
                     <input
                       type="text"
+                      maxLength={9}
                       placeholder="Ex: 50000-000"
                       value={cep}
-                      onChange={(e) => setCep(e.target.value)}
-                      className="w-full px-3.5 py-2.5 text-xs font-semibold border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none"
+                      onChange={(e) => {
+                        handleCepChange(e);
+                        if (fieldErrors.cep) setFieldErrors(prev => ({ ...prev, cep: '' }));
+                      }}
+                      onBlur={() => buscarCep(cep)}
+                      className={`w-full px-3.5 py-2.5 text-xs font-semibold border rounded-xl outline-none transition-all ${
+                        fieldErrors.cep
+                          ? 'border-red-500 bg-red-50/30 text-red-900 focus:ring-2 focus:ring-red-100'
+                          : 'border-gray-200 focus:ring-2 focus:ring-blue-100 focus:border-blue-500'
+                      }`}
                     />
+                    {fieldErrors.cep && <p className="text-[11px] font-bold text-red-600 mt-1">{fieldErrors.cep}</p>}
                   </div>
 
                   <div className="sm:col-span-2">
@@ -539,9 +684,17 @@ export function UnidadesLista() {
                         maxLength={2}
                         placeholder="PE"
                         value={uf}
-                        onChange={(e) => setUf(e.target.value.toUpperCase())}
-                        className="w-full px-3.5 py-2.5 text-xs font-semibold border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none text-center font-mono"
+                        onChange={(e) => {
+                          setUf(formatarUF(e.target.value));
+                          if (fieldErrors.uf) setFieldErrors(prev => ({ ...prev, uf: '' }));
+                        }}
+                        className={`w-full px-3.5 py-2.5 text-xs font-semibold border rounded-xl outline-none text-center font-mono transition-all ${
+                          fieldErrors.uf
+                            ? 'border-red-500 bg-red-50/30 text-red-900 focus:ring-2 focus:ring-red-100'
+                            : 'border-gray-200 focus:ring-2 focus:ring-blue-100 focus:border-blue-500'
+                        }`}
                       />
+                      {fieldErrors.uf && <p className="text-[11px] font-bold text-red-600 mt-1">{fieldErrors.uf}</p>}
                     </div>
                   </div>
                 </div>

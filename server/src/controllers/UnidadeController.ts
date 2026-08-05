@@ -87,13 +87,25 @@ export class UnidadeController {
         return res.status(400).json({ error: 'O nome da unidade é obrigatório.' });
       }
 
+      if (nome.trim().length < 3) {
+        return res.status(400).json({ error: 'O nome da unidade deve ter no mínimo 3 caracteres.' });
+      }
+
       if (cnes && cnes.trim()) {
+        const cleanCnes = cnes.replace(/\D/g, '');
+        if (cleanCnes.length !== 7) {
+          return res.status(400).json({ error: 'O código CNES deve ter exatamente 7 dígitos numéricos.' });
+        }
         const cnesExistente = await prisma.unidade.findFirst({
-          where: { cnes: cnes.trim(), deletedAt: null }
+          where: { cnes: cleanCnes, deletedAt: null }
         });
         if (cnesExistente) {
           return res.status(400).json({ error: 'Já existe uma unidade cadastrada com este CNES.' });
         }
+      }
+
+      if (email && email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+        return res.status(400).json({ error: 'Informe um endereço de e-mail válido.' });
       }
 
       let tenantSchema = gerarTenantSchema(nome);
