@@ -488,7 +488,7 @@ export function AuditoriaLista() {
                                         <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-2xs">
                                           <p className="text-[9px] font-bold text-gray-400 uppercase mb-2">Estado Anterior</p>
                                           {log.dadosAntes ? (
-                                            <pre className="text-[10px] text-gray-600 font-mono overflow-auto max-h-40 p-1.5 bg-gray-50/30 rounded-lg">
+                                            <pre className="text-[10px] text-gray-600 font-mono overflow-auto max-h-40 p-1.5 bg-gray-50/30 rounded-lg whitespace-pre-wrap break-words">
                                               {JSON.stringify(log.dadosAntes, null, 2)}
                                             </pre>
                                           ) : (
@@ -498,7 +498,7 @@ export function AuditoriaLista() {
                                         <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-2xs">
                                           <p className="text-[9px] font-bold text-blue-500 uppercase mb-2">Estado Novo</p>
                                           {log.dadosDepois ? (
-                                            <pre className="text-[10px] text-gray-700 font-mono overflow-auto max-h-40 p-1.5 bg-blue-50/10 rounded-lg">
+                                            <pre className="text-[10px] text-gray-700 font-mono overflow-auto max-h-40 p-1.5 bg-blue-50/10 rounded-lg whitespace-pre-wrap break-words">
                                               {JSON.stringify(log.dadosDepois, null, 2)}
                                             </pre>
                                           ) : (

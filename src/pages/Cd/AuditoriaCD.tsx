@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   History, 
   Search, 
@@ -410,124 +410,165 @@ export function AuditoriaCD() {
 
       {/* Details Side Panel/Modal */}
       {selectedLog && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-2xl bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-            {/* Header */}
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-bold text-gray-900">Detalhes da Auditoria</h3>
-                <p className="text-xs text-gray-400 mt-0.5 font-mono">ID: {selectedLog.id}</p>
-              </div>
-              <button 
-                onClick={() => setSelectedLog(null)}
-                className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 active:scale-95 transition-all text-sm font-semibold"
-              >
-                Fechar
-              </button>
-            </div>
-
-            {/* Content (Scrollable) */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {/* Event Summary */}
-              <div className="bg-gray-50 p-4.5 rounded-2xl border border-gray-100 space-y-3.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Ação / Operação</span>
-                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full border ${getActionDetails(selectedLog.acao).color}`}>
-                    {getActionDetails(selectedLog.acao).icon}
-                    {getActionDetails(selectedLog.acao).label}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Data e Hora</span>
-                  <span className="text-sm font-semibold text-gray-700">{formatDateTime(selectedLog.dataHora)}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Referência Interna (Entidade)</span>
-                  <span className="text-sm font-mono font-semibold text-gray-750">{selectedLog.entidadeId || 'N/A'}</span>
-                </div>
-              </div>
-
-              {/* Responsible User details */}
-              <div className="space-y-3">
-                <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Operador</h4>
-                <div className="flex items-center gap-4 p-4 border border-gray-100 rounded-2xl">
-                  <div className="h-10 w-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center font-bold text-sm">
-                    {getInitials(selectedLog.usuario?.nome)}
-                  </div>
-                  <div>
-                    <h5 className="text-sm font-bold text-gray-800">{selectedLog.usuario?.nome || 'Processo do Sistema'}</h5>
-                    <p className="text-xs text-gray-400">{selectedLog.usuario?.email || 'sistema@vigiasaude.com.br'}</p>
-                    {selectedLog.usuario?.perfil && (
-                      <span className="inline-block mt-1 bg-gray-100 text-gray-600 text-[10px] font-bold px-2 py-0.5 rounded-md uppercase">
-                        {selectedLog.usuario.perfil.replace('_', ' ')}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Justification details */}
-              <div className="space-y-3">
-                <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Justificativa / Descrição</h4>
-                <div className="p-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm text-gray-600 italic">
-                  "{selectedLog.justificativa || 'Nenhuma justificativa inserida para esta alteração.'}"
-                </div>
-              </div>
-
-              {/* Before and After States comparison */}
-              <div className="space-y-4">
-                <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Estado da Informação</h4>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Before */}
-                  <div className="space-y-2">
-                    <span className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-red-500"></span>
-                      Estado Anterior (Antes)
-                    </span>
-                    <div className="p-4 bg-gray-900 text-gray-100 font-mono text-xs rounded-xl overflow-x-auto max-h-60 border border-gray-800">
-                      {selectedLog.dadosAntes ? (
-                        <pre>{JSON.stringify(selectedLog.dadosAntes, null, 2)}</pre>
-                      ) : (
-                        <span className="text-gray-550 italic">Sem registros anteriores (Criação/Novo)</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* After */}
-                  <div className="space-y-2">
-                    <span className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
-                      Estado Resultante (Depois)
-                    </span>
-                    <div className="p-4 bg-gray-900 text-gray-100 font-mono text-xs rounded-xl overflow-x-auto max-h-60 border border-gray-800">
-                      {selectedLog.dadosDepois ? (
-                        <pre>{JSON.stringify(selectedLog.dadosDepois, null, 2)}</pre>
-                      ) : (
-                        <span className="text-gray-550 italic">Sem registros finais (Exclusão)</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="p-6 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
-              <span className="text-xs font-semibold text-gray-400 flex items-center gap-1">
-                <HelpCircle className="h-3.5 w-3.5" />
-                Registros de auditoria são imutáveis
-              </span>
-              <button
-                onClick={() => setSelectedLog(null)}
-                className="px-5 py-2 bg-gray-900 text-white text-sm font-semibold rounded-xl hover:bg-gray-800 active:scale-95 transition-all"
-              >
-                Concluir Visualização
-              </button>
-            </div>
-          </div>
-        </div>
+        <AuditDetailsModal selectedLog={selectedLog} onClose={() => setSelectedLog(null)} />
       )}
     </div>
   );
 }
+
+// Sub-componente memoizado para renderização rápida do Modal de Detalhes sem lag de FPS
+const AuditDetailsModal = React.memo(({ selectedLog, onClose }: { selectedLog: AuditLog; onClose: () => void }) => {
+  const formattedAntes = useMemo(() => {
+    if (!selectedLog.dadosAntes) return null;
+    try {
+      return JSON.stringify(selectedLog.dadosAntes, null, 2);
+    } catch {
+      return String(selectedLog.dadosAntes);
+    }
+  }, [selectedLog.dadosAntes]);
+
+  const formattedDepois = useMemo(() => {
+    if (!selectedLog.dadosDepois) return null;
+    try {
+      return JSON.stringify(selectedLog.dadosDepois, null, 2);
+    } catch {
+      return String(selectedLog.dadosDepois);
+    }
+  }, [selectedLog.dadosDepois]);
+
+  const actionInfo = useMemo(() => {
+    switch (selectedLog.acao) {
+      case 'DISPENSACAO':
+      case 'SAIDA':
+        return { label: 'Saída / Dispensação', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: <ArrowUpRight className="h-3.5 w-3.5" /> };
+      case 'ENTRADA':
+      case 'RECEBIMENTO':
+        return { label: 'Entrada / Recebimento', color: 'bg-blue-50 text-blue-700 border-blue-200', icon: <ArrowDownLeft className="h-3.5 w-3.5" /> };
+      case 'RECALL_REGISTRADO':
+      case 'RECALL':
+        return { label: 'Alerta / Recall', color: 'bg-red-50 text-red-700 border-red-200', icon: <AlertTriangle className="h-3.5 w-3.5" /> };
+      default:
+        return { label: selectedLog.acao.replace(/_/g, ' '), color: 'bg-gray-50 text-gray-700 border-gray-200', icon: <Database className="h-3.5 w-3.5" /> };
+    }
+  }, [selectedLog.acao]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/60 transition-opacity">
+      <div className="w-full max-w-2xl bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+        {/* Header */}
+        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900">Detalhes da Auditoria</h3>
+            <p className="text-xs text-gray-400 mt-0.5 font-mono">ID: {selectedLog.id}</p>
+          </div>
+          <button 
+            onClick={onClose}
+            className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 active:scale-95 transition-all text-sm font-semibold cursor-pointer border-0"
+          >
+            Fechar
+          </button>
+        </div>
+
+        {/* Content (Scrollable) */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Event Summary */}
+          <div className="bg-gray-50 p-4.5 rounded-2xl border border-gray-100 space-y-3.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Ação / Operação</span>
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full border ${actionInfo.color}`}>
+                {actionInfo.icon}
+                {actionInfo.label}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Data e Hora</span>
+              <span className="text-sm font-semibold text-gray-700">{new Date(selectedLog.dataHora).toLocaleString('pt-BR')}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Referência Interna (Entidade)</span>
+              <span className="text-sm font-mono font-semibold text-gray-750">{selectedLog.entidadeId || 'N/A'}</span>
+            </div>
+          </div>
+
+          {/* Responsible User details */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Operador</h4>
+            <div className="flex items-center gap-4 p-4 border border-gray-100 rounded-2xl">
+              <div className="h-10 w-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center font-bold text-sm">
+                {selectedLog.usuario?.nome ? selectedLog.usuario.nome.substring(0, 2).toUpperCase() : 'SYS'}
+              </div>
+              <div>
+                <h5 className="text-sm font-bold text-gray-800">{selectedLog.usuario?.nome || 'Processo do Sistema'}</h5>
+                <p className="text-xs text-gray-400">{selectedLog.usuario?.email || 'sistema@vigiasaude.com.br'}</p>
+                {selectedLog.usuario?.perfil && (
+                  <span className="inline-block mt-1 bg-gray-100 text-gray-600 text-[10px] font-bold px-2 py-0.5 rounded-md uppercase">
+                    {selectedLog.usuario.perfil.replace(/_/g, ' ')}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Justification details */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Justificativa / Descrição</h4>
+            <div className="p-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm text-gray-600 italic">
+              "{selectedLog.justificativa || 'Nenhuma justificativa inserida para esta alteração.'}"
+            </div>
+          </div>
+
+          {/* Before and After States comparison */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Estado da Informação</h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Before */}
+              <div className="space-y-2">
+                <span className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-red-500"></span>
+                  Estado Anterior (Antes)
+                </span>
+                <div className="p-4 bg-gray-900 text-gray-100 font-mono text-xs rounded-xl overflow-x-auto max-h-60 border border-gray-800">
+                  {formattedAntes ? (
+                    <pre className="whitespace-pre-wrap break-words">{formattedAntes}</pre>
+                  ) : (
+                    <span className="text-gray-550 italic">Sem registros anteriores (Criação/Novo)</span>
+                  )}
+                </div>
+              </div>
+
+              {/* After */}
+              <div className="space-y-2">
+                <span className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+                  Estado Resultante (Depois)
+                </span>
+                <div className="p-4 bg-gray-900 text-gray-100 font-mono text-xs rounded-xl overflow-x-auto max-h-60 border border-gray-800">
+                  {formattedDepois ? (
+                    <pre className="whitespace-pre-wrap break-words">{formattedDepois}</pre>
+                  ) : (
+                    <span className="text-gray-550 italic">Sem registros finais (Exclusão)</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-6 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+          <span className="text-xs font-semibold text-gray-400 flex items-center gap-1">
+            <HelpCircle className="h-3.5 w-3.5" />
+            Registros de auditoria são imutáveis
+          </span>
+          <button
+            onClick={onClose}
+            className="px-5 py-2 bg-gray-900 text-white text-sm font-semibold rounded-xl hover:bg-gray-800 active:scale-95 transition-all cursor-pointer border-0"
+          >
+            Concluir Visualização
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+});
