@@ -616,7 +616,7 @@ export function Recalls() {
 
       {/* Modal - Registrar Recall */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
           <div className="bg-white rounded-2xl w-full max-w-2xl border border-gray-100 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-scale-up">
             
             {/* Modal Header */}

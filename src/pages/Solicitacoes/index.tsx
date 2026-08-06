@@ -297,7 +297,7 @@ function ModalAprovacao({ usuario, unidades, onClose, onFinished, onAuthError }:
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 animate-fade-in">
       <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto bg-white rounded-3xl shadow-2xl border border-gray-100 flex flex-col transform transition-all animate-scale-up">
         
         {/* Modal Header */}
@@ -642,7 +642,7 @@ function ModalEdicaoUsuario({ usuario, unidades, onClose, onFinished, onAuthErro
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 animate-fade-in">
       <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto bg-white rounded-3xl shadow-2xl border border-gray-100 flex flex-col transform transition-all animate-scale-up">
         
         {/* Modal Header */}
@@ -865,7 +865,7 @@ function ModalDesativarUsuario({ usuario, onClose, onFinished, onAuthError }: Mo
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 animate-fade-in">
       <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-gray-100 flex flex-col transform transition-all animate-scale-up">
         {/* Header */}
         <div className="px-6 py-5 border-b border-gray-150 flex items-center justify-between">

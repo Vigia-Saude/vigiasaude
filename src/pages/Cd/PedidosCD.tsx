@@ -694,7 +694,7 @@ export function PedidosCD() {
       {/* Details Modal */}
       {detailsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => !detailsLoading && setDetailsOpen(false)} />
+          <div className="fixed inset-0 bg-slate-900/60 transition-opacity" onClick={() => !detailsLoading && setDetailsOpen(false)} />
           
           <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden transform transition-all border border-gray-100 flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200 relative z-10">
             {/* Modal Header */}
@@ -901,7 +901,7 @@ export function PedidosCD() {
       {/* Driver Selection Modal */}
       {approvalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => !submittingApproval && setApprovalOpen(false)} />
+          <div className="fixed inset-0 bg-slate-900/60 transition-opacity" onClick={() => !submittingApproval && setApprovalOpen(false)} />
           
           <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl p-6 sm:p-8 transform transition-all border border-gray-100 animate-in fade-in zoom-in-95 duration-200 relative z-10">
             <div className="flex flex-col">
@@ -967,7 +967,7 @@ export function PedidosCD() {
       {/* Reject Order Modal */}
       {rejectionOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => !submittingRejection && setRejectionOpen(false)} />
+          <div className="fixed inset-0 bg-slate-900/60 transition-opacity" onClick={() => !submittingRejection && setRejectionOpen(false)} />
           
           <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl p-6 sm:p-8 transform transition-all border border-gray-100 animate-in fade-in zoom-in-95 duration-200 relative z-10">
             <div className="flex flex-col">

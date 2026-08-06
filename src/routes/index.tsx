@@ -623,6 +623,19 @@ export const router = createBrowserRouter([
         }
       },
       {
+        path: 'regulador/configuracoes',
+        lazy: async () => {
+          const { ConfiguracoesRegulacao } = await import('../pages/Regulacao/ConfiguracoesRegulacao');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['REGULADOR']}>
+                <ConfiguracoesRegulacao />
+              </ProtectedRoute>
+            )
+          };
+        }
+      },
+      {
         path: 'regulador/:id',
         lazy: async () => {
           const { DetalhesFichaRegulacao } = await import('../pages/Regulacao/DetalhesFichaRegulacao');

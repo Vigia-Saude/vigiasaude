@@ -137,6 +137,18 @@ export class PacienteController {
         unidadeOrigemId = req.user.unidadeId;
       }
 
+      // Safe date parser
+      const safeParseDate = (d: any): Date | null => {
+        if (!d || typeof d !== 'string' || d.trim() === '') return null;
+        const parsed = new Date(d.includes('T') ? d : `${d}T00:00:00.000Z`);
+        return isNaN(parsed.getTime()) ? null : parsed;
+      };
+
+      const dateNasc = safeParseDate(dataNascimento);
+      if (!dateNasc) {
+        return res.status(400).json({ error: 'Data de nascimento em formato inválido.' });
+      }
+
       // Criar o paciente
       const paciente = await prisma.paciente.create({
         data: {
@@ -144,7 +156,7 @@ export class PacienteController {
           cpf,
           cartaoSus: cartaoSus || null,
           nomeCompleto,
-          dataNascimento: new Date(dataNascimento),
+          dataNascimento: dateNasc,
           sexo: sexo as Sexo,
           orientacaoSexual: orientacaoSexual || null,
           identidadeGenero: identidadeGenero || null,
@@ -173,10 +185,10 @@ export class PacienteController {
           rg: rg || null,
           orgaoEmissor: orgaoEmissor || null,
           ufRg: ufRg || null,
-          dataExpedicaoRg: dataExpedicaoRg ? new Date(dataExpedicaoRg) : null,
+          dataExpedicaoRg: safeParseDate(dataExpedicaoRg),
           nis: nis || null,
           certidaoNascimento: certidaoNascimento || null,
-          dataObito: dataObito ? new Date(dataObito) : null,
+          dataObito: safeParseDate(dataObito),
           tituloEleitor: tituloEleitor || null,
           estadoCivil: estadoCivil || null,
           funcionarioExterno: funcionarioExterno === true || funcionarioExterno === 'true',

@@ -550,7 +550,7 @@ export function PedidosRecomposicaoPage() {
       {/* Details Modal */}
       {detailsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => !detailsLoading && setDetailsOpen(false)} />
+          <div className="fixed inset-0 bg-slate-900/60 transition-opacity" onClick={() => !detailsLoading && setDetailsOpen(false)} />
           
           <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden transform transition-all border border-gray-100 flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200 relative z-10">
             {/* Modal Header */}
@@ -733,7 +733,7 @@ export function PedidosRecomposicaoPage() {
       {/* New Request Modal */}
       {newRequestOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => !submittingRequest && setNewRequestOpen(false)} />
+          <div className="fixed inset-0 bg-slate-900/60 transition-opacity" onClick={() => !submittingRequest && setNewRequestOpen(false)} />
           
           <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden transform transition-all border border-gray-100 flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200 relative z-10">
             {/* Modal Header */}

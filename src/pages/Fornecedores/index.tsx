@@ -518,7 +518,7 @@ export function FornecedoresLista() {
 
       {/* ================= REGISTER MODAL ================= */}
       {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50">
           <div className="relative w-full max-w-2xl bg-white rounded-xl shadow-xl flex flex-col max-h-[90vh]">
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-gray-100">
@@ -694,7 +694,7 @@ export function FornecedoresLista() {
 
       {/* ================= EDIT MODAL ================= */}
       {isEditOpen && selectedFornecedor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50">
           <div className="relative w-full max-w-2xl bg-white rounded-xl shadow-xl flex flex-col max-h-[90vh]">
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-gray-100">
@@ -856,7 +856,7 @@ export function FornecedoresLista() {
           {/* Overlay */}
           <div 
             onClick={() => setIsDrawerOpen(false)} 
-            className="fixed inset-0 z-40 bg-gray-900/50 backdrop-blur-sm transition-opacity"
+            className="fixed inset-0 z-40 bg-gray-900/50 transition-opacity"
           />
 
           {/* Drawer container */}

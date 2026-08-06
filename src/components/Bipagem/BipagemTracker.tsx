@@ -171,7 +171,7 @@ export default function BipagemTracker({
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-gray-950/95 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex flex-col bg-gray-950/95">
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between border-b border-amber-900/40 bg-amber-950 px-4 py-3 sm:px-6">
         <div className="flex flex-col gap-0.5">

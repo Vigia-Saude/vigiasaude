@@ -71,7 +71,7 @@ export function ModalNovoConsumo({ isOpen, onClose, onSuccess, ataId, item }: Mo
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
       {/* Backdrop */}
       <div 
-        className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity backdrop-blur-sm" 
+        className="fixed inset-0 bg-slate-900/60 transition-opacity" 
         onClick={onClose}
       ></div>
 

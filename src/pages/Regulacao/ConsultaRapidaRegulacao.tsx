@@ -107,7 +107,7 @@ function PacienteDetailPanel({ pacienteId, onClose }: PacienteDetailPanelProps) 
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/50">
       {/* Overlay click to close */}
       <div className="flex-1" onClick={onClose} />
 

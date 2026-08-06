@@ -59,14 +59,19 @@ export class RegulacaoController {
         return;
       }
 
-      // Determinar unidadeEsfId: POSTO_SAUDE usa req.user.unidadeId automaticamente
+      // Determinar unidadeEsfId: usa req.user.unidadeId se disponível, senão fallback automático
       let finalUnidadeEsfId = unidadeEsfId;
-      if (req.user?.perfil === 'POSTO_SAUDE' && req.user?.unidadeId) {
+      if (req.user?.unidadeId) {
         finalUnidadeEsfId = req.user.unidadeId;
       }
 
       if (!finalUnidadeEsfId) {
-        res.status(400).json({ erro: 'Unidade ESF é obrigatória.' });
+        const primeiraUnidade = await prisma.unidade.findFirst();
+        finalUnidadeEsfId = primeiraUnidade?.id;
+      }
+
+      if (!finalUnidadeEsfId) {
+        res.status(400).json({ erro: 'Nenhuma Unidade de Saúde cadastrada no sistema.' });
         return;
       }
 
