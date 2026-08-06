@@ -25,6 +25,8 @@ const perfilEnum = z.enum([
   'ENTREGADOR',
   'POSTO_SAUDE',
   'REGULADOR',
+  'RECEPCIONISTA_UBS',
+  'GESTOR_UBS',
 ]);
 
 const solicitarAcessoSchema = z.object({
