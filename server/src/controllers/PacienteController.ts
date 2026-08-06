@@ -140,11 +140,17 @@ export class PacienteController {
 
       // Verificar se CPF já está cadastrado (verifica tanto formatado quanto dígitos puros)
       const cleanCpf = cpf.replace(/\D/g, '');
+      let formattedCpf = '';
+      if (cleanCpf.length === 11) {
+        formattedCpf = `${cleanCpf.slice(0, 3)}.${cleanCpf.slice(3, 6)}.${cleanCpf.slice(6, 9)}-${cleanCpf.slice(9, 11)}`;
+      }
+
       const pacienteExistente = await prisma.paciente.findFirst({
         where: {
           OR: [
             { cpf: cpf },
-            { cpf: cleanCpf }
+            { cpf: cleanCpf },
+            ...(formattedCpf ? [{ cpf: formattedCpf }] : [])
           ]
         },
       });
@@ -179,11 +185,16 @@ export class PacienteController {
       }
       const prontuario = `${prefix}${String(nextNum).padStart(4, '0')}`;
 
-      // Definir unidade de origem caso o criador pertença a uma UBS
+      // Definir unidade de origem caso o criador pertença a uma UBS e a unidade exista no banco
       let unidadeOrigemId = null;
       const ubsPerfis = ['POSTO_SAUDE', 'GESTOR_UBS', 'RECEPCIONISTA_UBS', 'MEDICO'];
-      if (req.user?.perfil && ubsPerfis.includes(req.user.perfil)) {
-        unidadeOrigemId = req.user.unidadeId;
+      if (req.user?.perfil && ubsPerfis.includes(req.user.perfil) && req.user.unidadeId) {
+        const unidadeExistente = await prisma.unidade.findUnique({
+          where: { id: req.user.unidadeId }
+        });
+        if (unidadeExistente) {
+          unidadeOrigemId = unidadeExistente.id;
+        }
       }
 
       // Safe date parser
@@ -262,7 +273,23 @@ export class PacienteController {
       return res.status(201).json(paciente);
     } catch (err: any) {
       console.error('Erro ao criar paciente:', err);
-      return res.status(500).json({ error: 'Erro interno ao cadastrar paciente.' });
+      if (err.code === 'P2002') {
+        const target = err.meta?.target;
+        if (Array.isArray(target) && target.includes('cpf')) {
+          return res.status(400).json({ error: 'Já existe um paciente cadastrado com este CPF.' });
+        }
+        if (Array.isArray(target) && target.includes('cartao_sus')) {
+          return res.status(400).json({ error: 'Já existe um paciente cadastrado com este Cartão SUS.' });
+        }
+        if (Array.isArray(target) && target.includes('prontuario')) {
+          return res.status(400).json({ error: 'Conflito de prontuário. Por favor, tente enviar novamente.' });
+        }
+        return res.status(400).json({ error: 'Já existe um paciente com estes dados cadastrados no sistema.' });
+      }
+      if (err.code === 'P2003') {
+        return res.status(400).json({ error: 'Unidade de saúde vinculada inválida ou inexistente.' });
+      }
+      return res.status(500).json({ error: err.message || 'Erro interno ao cadastrar paciente.' });
     }
   }
 
