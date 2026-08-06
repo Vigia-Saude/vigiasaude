@@ -25,6 +25,37 @@ export const uploadRegulacaoConfig = multer({
 });
 
 export class RegulacaoController {
+  // GET /api/regulacao/medicos — Listar médicos cadastrados
+  listarMedicos = async (req: AuthRequest, res: Response) => {
+    try {
+      let medicos = await prisma.user.findMany({
+        where: {
+          perfil: 'MEDICO',
+          status: 'ATIVO',
+          ...(req.user?.unidadeId ? { unidadeId: req.user.unidadeId } : {})
+        },
+        select: { id: true, nome: true, cpf: true },
+        orderBy: { nome: 'asc' },
+      });
+
+      if (medicos.length === 0) {
+        medicos = await prisma.user.findMany({
+          where: {
+            perfil: 'MEDICO',
+            status: 'ATIVO',
+          },
+          select: { id: true, nome: true, cpf: true },
+          orderBy: { nome: 'asc' },
+        });
+      }
+
+      res.json(medicos);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ erro: 'Erro ao listar médicos.' });
+    }
+  };
+
   // POST /api/regulacao
   criar = async (req: AuthRequest, res: Response) => {
     const {
@@ -37,14 +68,15 @@ export class RegulacaoController {
       observacaoClinica,
     } = req.body;
 
+    const finalAcs = acsResponsavel || 'N/A';
+
     // Validações de campos obrigatórios
     if (
       !responsavelEncaminhamento ||
-      !acsResponsavel ||
       !pacienteId ||
       !procedimentoSolicitado
     ) {
-      res.status(400).json({ erro: 'Campos obrigatórios: responsavelEncaminhamento, acsResponsavel, pacienteId, procedimentoSolicitado.' });
+      res.status(400).json({ erro: 'Preencha os campos obrigatórios: Responsável pelo Encaminhamento, Paciente e Procedimento.' });
       return;
     }
 
@@ -90,7 +122,7 @@ export class RegulacaoController {
         data: {
           unidadeEsfId: finalUnidadeEsfId,
           responsavelEncaminhamento,
-          acsResponsavel,
+          acsResponsavel: finalAcs,
           pacienteId,
           tipoAtendimento: tipoAtendimento || 'SUS',
           procedimentoSolicitado,

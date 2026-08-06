@@ -44,3 +44,8 @@ export async function historicoRegulacaoPaciente(pacienteId: string) {
   const response = await apiClient.get('/api/regulacao', { params: { pacienteId, limit: 50 } });
   return response.data;
 }
+
+export async function listarMedicos(): Promise<Array<{ id: string; nome: string; cpf?: string }>> {
+  const response = await apiClient.get('/api/regulacao/medicos');
+  return response.data;
+}

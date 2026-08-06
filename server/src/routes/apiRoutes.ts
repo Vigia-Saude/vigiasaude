@@ -152,6 +152,7 @@ router.patch('/pacientes/:id', roleMiddleware(['POSTO_SAUDE', 'GESTOR_UBS', 'REC
 router.post('/regulacao', roleMiddleware(UBS_PROFILES), uploadRegulacaoConfig.single('anexo'), regulacaoController.criar);
 router.get('/regulacao', roleMiddleware([...UBS_PROFILES, 'REGULADOR']), regulacaoController.listar);
 router.get('/regulacao/consulta-rapida', roleMiddleware(UBS_PROFILES), regulacaoController.consultaRapida);
+router.get('/regulacao/medicos', roleMiddleware(UBS_PROFILES), regulacaoController.listarMedicos);
 
 // Rotas de Importação de PDF (SES-MS) e Confirmações WhatsApp (Apenas REGULADOR)
 // Precisam vir ANTES de /regulacao/:id, senão "imports" é capturado como :id

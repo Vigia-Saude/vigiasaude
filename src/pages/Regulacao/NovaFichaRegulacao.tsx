@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
-import { criarFichaRegulacao } from '../../services/regulacaoService';
+import { criarFichaRegulacao, listarMedicos } from '../../services/regulacaoService';
 import { buscarPacientes, atualizarPaciente } from '../../services/pacienteService';
 import { FileUpload } from '../../components/ui/FileUpload';
 import { CadastrarPaciente } from '../Pacientes/CadastrarPaciente';
@@ -35,8 +35,8 @@ import type { Paciente } from '../../types';
 import { formatPhone, cn } from '../../lib/utils';
 
 const fichaSchema = z.object({
-  responsavelEncaminhamento: z.string().min(3, 'Nome do responsável é obrigatório (mín. 3 caracteres)'),
-  acsResponsavel: z.string().min(3, 'Nome do ACS responsável é obrigatório (mín. 3 caracteres)'),
+  responsavelEncaminhamento: z.string().min(3, 'Selecione ou informe o médico responsável'),
+  acsResponsavel: z.string().optional(),
   pacienteId: z.string().min(1, 'Selecione um paciente'),
   procedimentoSolicitado: z.string().min(3, 'Procedimento solicitado é obrigatório (mín. 3 caracteres)'),
   observacaoClinica: z.string().optional(),
@@ -74,8 +74,11 @@ export function NovaFichaRegulacao() {
   const [editMunicipio, setEditMunicipio] = useState('');
   const [editLocalizacao, setEditLocalizacao] = useState('URBANA');
   const [isLoadingCep, setIsLoadingCep] = useState(false);
-
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // States para médicos cadastrados
+  const [medicos, setMedicos] = useState<Array<{ id: string; nome: string }>>([]);
+  const [loadingMedicos, setLoadingMedicos] = useState(false);
 
   const {
     register,
@@ -86,8 +89,25 @@ export function NovaFichaRegulacao() {
     resolver: zodResolver(fichaSchema),
     defaultValues: {
       pacienteId: '',
+      acsResponsavel: 'N/A',
     },
   });
+
+  // Carregar médicos da UBS
+  useEffect(() => {
+    const fetchMedicos = async () => {
+      setLoadingMedicos(true);
+      try {
+        const list = await listarMedicos();
+        setMedicos(list || []);
+      } catch (err) {
+        console.error('Erro ao carregar médicos:', err);
+      } finally {
+        setLoadingMedicos(false);
+      }
+    };
+    fetchMedicos();
+  }, []);
 
   // Debounce search query
   useEffect(() => {
@@ -265,11 +285,20 @@ export function NovaFichaRegulacao() {
         }
       });
 
+      if (!formData.has('acsResponsavel')) {
+        formData.append('acsResponsavel', 'N/A');
+      }
+
       formData.append('anexo', files[0]);
 
       await criarFichaRegulacao(formData);
-      toast.success('Ficha de regulação criada com sucesso!');
-      navigate('/posto/regulacao/consulta');
+      const isRecepcionista = user?.perfil === 'RECEPCIONISTA_UBS';
+      toast.success(
+        isRecepcionista
+          ? 'Pré-ficha enviada com sucesso ao médico responsável!'
+          : 'Ficha de regulação criada com sucesso!'
+      );
+      navigate(isRecepcionista ? '/posto/agendamentos' : '/posto/regulacao/consulta');
     } catch (err: any) {
       console.error(err);
       toast.error(err.response?.data?.erro || 'Erro ao criar ficha de regulação.');
@@ -702,36 +731,39 @@ export function NovaFichaRegulacao() {
           </div>
         </div>
 
-        {/* Section 3: Responsáveis */}
+        {/* Section 3: Responsável pelo Encaminhamento */}
         <div className="bg-white rounded-2xl border border-gray-200/80 shadow-xs overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-teal-50/50 to-transparent">
             <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
               <Users className="h-4.5 w-4.5 text-teal-600" />
-              Responsáveis pelo Encaminhamento
+              Responsável pelo Encaminhamento
             </h2>
-            <p className="text-xs text-gray-500 mt-0.5">Profissionais da ESF vinculados a esta solicitação</p>
+            <p className="text-xs text-gray-500 mt-0.5">Selecione o médico cadastrado responsável pelo encaminhamento do paciente</p>
           </div>
-          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-gray-700">Responsável pelo Encaminhamento *</label>
-              <input
-                {...register('responsavelEncaminhamento')}
-                placeholder="Nome do profissional que encaminha"
-                className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 transition-all"
-              />
+          <div className="p-6">
+            <div className="flex flex-col gap-1.5 max-w-xl">
+              <label className="text-sm font-medium text-gray-700">Médico Responsável *</label>
+              {medicos.length > 0 ? (
+                <select
+                  {...register('responsavelEncaminhamento')}
+                  className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 transition-all font-medium text-gray-800"
+                >
+                  <option value="">Selecione o Médico Cadastrado...</option>
+                  {medicos.map((m) => (
+                    <option key={m.id} value={m.nome}>
+                      Dr(a). {m.nome}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  {...register('responsavelEncaminhamento')}
+                  placeholder={loadingMedicos ? "Carregando médicos cadastrados..." : "Nome do Médico Responsável"}
+                  className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 transition-all"
+                />
+              )}
               {errors.responsavelEncaminhamento && (
                 <span className="text-xs font-medium text-red-500">{errors.responsavelEncaminhamento.message}</span>
-              )}
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-gray-700">ACS Responsável *</label>
-              <input
-                {...register('acsResponsavel')}
-                placeholder="Nome do Agente Comunitário de Saúde"
-                className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 transition-all"
-              />
-              {errors.acsResponsavel && (
-                <span className="text-xs font-medium text-red-500">{errors.acsResponsavel.message}</span>
               )}
             </div>
           </div>
@@ -753,7 +785,7 @@ export function NovaFichaRegulacao() {
             className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-sm font-bold text-white shadow-sm active:scale-95 transition-all cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed"
           >
             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-            {submitting ? 'Enviando...' : 'Criar Ficha de Regulação'}
+            {submitting ? 'Enviando...' : user?.perfil === 'RECEPCIONISTA_UBS' ? 'Enviar Ficha ao Médico' : 'Criar Ficha de Regulação'}
           </button>
         </div>
       </form>
