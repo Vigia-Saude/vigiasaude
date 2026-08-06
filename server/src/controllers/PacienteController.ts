@@ -22,14 +22,15 @@ function buildPacienteSearchWhere(busca: string, perfil?: string | null, unidade
   const isPosto = perfil ? ubsPerfis.includes(perfil) : false;
 
   const orConditions: Prisma.PacienteWhereInput[] = [
-    { nomeCompleto: { contains: rawTerm, mode: 'insensitive' } },
     { cpf: { contains: rawTerm } },
-    { cartaoSus: { contains: rawTerm } }
+    { cartaoSus: { contains: rawTerm } },
+    { nis: { contains: rawTerm } }
   ];
 
   if (cleanDigits) {
     orConditions.push({ cpf: { contains: cleanDigits } });
     orConditions.push({ cartaoSus: { contains: cleanDigits } });
+    orConditions.push({ nis: { contains: cleanDigits } });
   }
 
   if (formattedCpf) {
@@ -40,12 +41,6 @@ function buildPacienteSearchWhere(busca: string, perfil?: string | null, unidade
   const whereClause: Prisma.PacienteWhereInput = {
     OR: orConditions
   };
-
-  // Se NÃO for busca por documento (CPF/SUS) e o usuário for de UBS, limita os resultados por nome à UBS do usuário.
-  // Se FOR busca por documento (CPF / SUS), a busca é UNIVERSAL (todas as UBSs).
-  if (!isDocumento && isPosto && unidadeId) {
-    whereClause.unidadeOrigemId = unidadeId;
-  }
 
   return whereClause;
 }

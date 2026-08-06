@@ -19,6 +19,7 @@ export function AtendimentosPosto() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFicha, setSelectedFicha] = useState<FilaRegulacao | null>(null);
   const [dadosClinicos, setDadosClinicos] = useState('');
+  const [procedimento, setProcedimento] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const { data: responseData, isLoading, refetch } = useQuery({
@@ -39,6 +40,7 @@ export function AtendimentosPosto() {
   const handleOpenAtendimento = (ficha: FilaRegulacao) => {
     setSelectedFicha(ficha);
     setDadosClinicos(ficha.observacaoClinica || '');
+    setProcedimento(ficha.procedimentoSolicitado || '');
   };
 
   const handleConcluirAtendimento = async () => {
@@ -47,11 +49,16 @@ export function AtendimentosPosto() {
       toast.error('Por favor, preencha os Dados Clínicos antes de concluir o atendimento.');
       return;
     }
+    if (!procedimento.trim() || procedimento.trim().length < 3) {
+      toast.error('Por favor, preencha o Procedimento Solicitado (mín. 3 caracteres).');
+      return;
+    }
 
     try {
       setSubmitting(true);
       await atualizarFichaRegulacao(selectedFicha.id, {
         observacaoClinica: dadosClinicos,
+        procedimentoSolicitado: procedimento,
         statusAgendamento: 'CONFIRMADO',
       });
       toast.success('Atendimento concluído com sucesso na própria UBS!');
@@ -71,11 +78,16 @@ export function AtendimentosPosto() {
       toast.error('Por favor, preencha os Dados Clínicos antes de encaminhar para a regulação.');
       return;
     }
+    if (!procedimento.trim() || procedimento.trim().length < 3) {
+      toast.error('Por favor, preencha o Procedimento Solicitado (mín. 3 caracteres).');
+      return;
+    }
 
     try {
       setSubmitting(true);
       await atualizarFichaRegulacao(selectedFicha.id, {
         observacaoClinica: dadosClinicos,
+        procedimentoSolicitado: procedimento,
         statusAgendamento: 'AGUARDANDO_REGULACAO',
       });
       toast.success('Ficha encaminhada com sucesso para a Regulação Municipal!');
@@ -208,10 +220,22 @@ export function AtendimentosPosto() {
             {/* Modal Body */}
             <div className="p-6 space-y-5 overflow-y-auto">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                <div><span className="font-bold text-gray-500">Procedimento:</span> {selectedFicha.procedimentoSolicitado}</div>
                 <div><span className="font-bold text-gray-500">Encaminhado por:</span> {selectedFicha.responsavelEncaminhamento}</div>
-                <div><span className="font-bold text-gray-500">ACS Responsável:</span> {selectedFicha.acsResponsavel}</div>
                 <div><span className="font-bold text-gray-500">Status Atual:</span> {selectedFicha.statusAgendamento || 'NOVO'}</div>
+              </div>
+
+              {/* Procedimento Solicitado */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-700 uppercase tracking-wider block">
+                  Procedimento Solicitado *
+                </label>
+                <input
+                  type="text"
+                  value={procedimento}
+                  onChange={(e) => setProcedimento(e.target.value)}
+                  placeholder="Ex: Consulta com Cardiologista, Ressonância Magnética..."
+                  className="w-full p-3 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
 
               {/* Textarea Dados Clínicos */}

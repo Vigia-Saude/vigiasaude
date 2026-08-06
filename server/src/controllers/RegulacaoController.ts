@@ -73,10 +73,9 @@ export class RegulacaoController {
     // Validações de campos obrigatórios
     if (
       !responsavelEncaminhamento ||
-      !pacienteId ||
-      !procedimentoSolicitado
+      !pacienteId
     ) {
-      res.status(400).json({ erro: 'Preencha os campos obrigatórios: Responsável pelo Encaminhamento, Paciente e Procedimento.' });
+      res.status(400).json({ erro: 'Preencha os campos obrigatórios: Responsável pelo Encaminhamento e Paciente.' });
       return;
     }
 
@@ -125,7 +124,7 @@ export class RegulacaoController {
           acsResponsavel: finalAcs,
           pacienteId,
           tipoAtendimento: tipoAtendimento || 'SUS',
-          procedimentoSolicitado,
+          procedimentoSolicitado: procedimentoSolicitado || '',
           observacaoClinica: observacaoClinica || null,
           anexoUrl,
           statusAgendamento: 'AGUARDANDO_ATENDIMENTO_MEDICO',
@@ -138,9 +137,10 @@ export class RegulacaoController {
       });
 
       res.status(201).json(ficha);
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ erro: 'Erro ao criar ficha de regulação.' });
+    } catch (err: any) {
+      console.error('Erro ao criar ficha de regulação:', err?.message || err);
+      console.error('Stack:', err?.stack);
+      res.status(500).json({ erro: err?.message || 'Erro ao criar ficha de regulação.' });
     }
   };
 
@@ -153,13 +153,21 @@ export class RegulacaoController {
     try {
       const where: Prisma.FilaRegulacaoWhereInput = {};
 
-      // Filtro por perfil (se pacienteId for informado para histórico, a busca é universal)
-      if (!pacienteId && req.user?.perfil === 'POSTO_SAUDE' && req.user?.unidadeId) {
+      // Filtro por perfil
+      const ubsPerfis = ['POSTO_SAUDE', 'GESTOR_UBS', 'RECEPCIONISTA_UBS', 'MEDICO'];
+      const isUbs = req.user?.perfil ? ubsPerfis.includes(req.user.perfil) : false;
+
+      if (!pacienteId && isUbs && req.user?.unidadeId) {
         where.unidadeEsfId = req.user.unidadeId;
+      }
+
+      // MEDICO vê apenas fichas AGUARDANDO_ATENDIMENTO_MEDICO (a menos que filtro específico seja informado)
+      if (!pacienteId && req.user?.perfil === 'MEDICO' && !status) {
+        where.statusAgendamento = 'AGUARDANDO_ATENDIMENTO_MEDICO';
       }
       // REGULADOR vê tudo (sem filtro de unidade)
 
-      // Filtro por status
+      // Filtro por status (se informado explicitamente, sobrescreve o filtro automático do médico)
       if (status) {
         where.statusAgendamento = status as any;
       }
@@ -473,7 +481,7 @@ export class RegulacaoController {
   // PATCH /api/regulacao/:id — Atualizar campos da ficha (observacaoClinica, statusAgendamento, etc.)
   atualizar = async (req: AuthRequest, res: Response) => {
     const id = req.params.id as string;
-    const { observacaoClinica, statusAgendamento } = req.body;
+    const { observacaoClinica, statusAgendamento, procedimentoSolicitado } = req.body;
 
     try {
       const ficha = await prisma.filaRegulacao.findUnique({ where: { id } });
@@ -486,6 +494,7 @@ export class RegulacaoController {
       const updateData: any = {};
       if (observacaoClinica !== undefined) updateData.observacaoClinica = observacaoClinica;
       if (statusAgendamento !== undefined) updateData.statusAgendamento = statusAgendamento;
+      if (procedimentoSolicitado !== undefined) updateData.procedimentoSolicitado = procedimentoSolicitado;
 
       const fichaAtualizada = await prisma.filaRegulacao.update({
         where: { id },
