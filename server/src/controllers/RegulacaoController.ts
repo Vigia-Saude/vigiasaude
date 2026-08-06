@@ -322,38 +322,37 @@ export class RegulacaoController {
     try {
       const where: Prisma.FilaRegulacaoWhereInput = {};
 
-      // CPF formatado: 000.000.000-00
-      const cpfFormatadoRegex = /^\d{3}\.\d{3}\.\d{3}-\d{2}$/;
-      // CPF apenas dígitos: 11 números
-      const cpfDigitosRegex = /^\d{11}$/;
-      // Cartão SUS: 15 dígitos
-      const cartaoSusRegex = /^\d{15}$/;
+      const cleanDigits = termo.replace(/\D/g, '');
+      let formattedCpf = '';
+      if (cleanDigits.length === 11) {
+        formattedCpf = `${cleanDigits.slice(0, 3)}.${cleanDigits.slice(3, 6)}.${cleanDigits.slice(6, 9)}-${cleanDigits.slice(9, 11)}`;
+      }
 
-      const isCpfFormatado = cpfFormatadoRegex.test(termo);
-      const isCpfDigitos = cpfDigitosRegex.test(termo);
-      const isCartaoSus = cartaoSusRegex.test(termo);
-      const isDocumento = isCpfFormatado || isCpfDigitos || isCartaoSus;
+      const isDocumento = /^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(termo) || cleanDigits.length === 11 || cleanDigits.length === 15;
+      const ubsPerfis = ['POSTO_SAUDE', 'GESTOR_UBS', 'RECEPCIONISTA_UBS', 'MEDICO'];
+      const isPosto = req.user?.perfil ? ubsPerfis.includes(req.user.perfil) : false;
 
-      // Se for busca por documento (CPF ou Cartão SUS/CadÚnico), a consulta é UNIVERSAL (entre todas as UBSs).
-      // Se for busca por nome, limita à unidade do usuário POSTO_SAUDE.
-      if (!isDocumento && req.user?.perfil === 'POSTO_SAUDE' && req.user?.unidadeId) {
+      if (!isDocumento && isPosto && req.user?.unidadeId) {
         where.unidadeEsfId = req.user.unidadeId;
       }
 
-      if (isCpfFormatado) {
-        // CPF formatado → busca exata
-        where.paciente = { cpf: termo };
-      } else if (isCpfDigitos) {
-        // CPF sem formatação → formata e busca exata
-        const cpfFormatado = `${termo.slice(0,3)}.${termo.slice(3,6)}.${termo.slice(6,9)}-${termo.slice(9,11)}`;
-        where.paciente = { cpf: cpfFormatado };
-      } else if (isCartaoSus) {
-        // Cartão SUS (15 dígitos)
-        where.paciente = { cartaoSus: termo };
-      } else {
-        // Nome (busca parcial insensível)
-        where.paciente = { nomeCompleto: { contains: termo, mode: 'insensitive' } };
+      const patientOr: Prisma.PacienteWhereInput[] = [
+        { nomeCompleto: { contains: termo, mode: 'insensitive' } },
+        { cpf: { contains: termo } },
+        { cartaoSus: { contains: termo } }
+      ];
+
+      if (cleanDigits) {
+        patientOr.push({ cpf: { contains: cleanDigits } });
+        patientOr.push({ cartaoSus: { contains: cleanDigits } });
       }
+
+      if (formattedCpf) {
+        patientOr.push({ cpf: { contains: formattedCpf } });
+        patientOr.push({ cpf: formattedCpf });
+      }
+
+      where.paciente = { OR: patientOr };
 
       const fichas = await prisma.filaRegulacao.findMany({
         where,
@@ -436,6 +435,39 @@ export class RegulacaoController {
     } catch (err) {
       console.error(err);
       res.status(500).json({ erro: 'Erro ao atualizar status da ficha.' });
+    }
+  };
+
+  // PATCH /api/regulacao/:id — Atualizar campos da ficha (observacaoClinica, statusAgendamento, etc.)
+  atualizar = async (req: AuthRequest, res: Response) => {
+    const id = req.params.id as string;
+    const { observacaoClinica, statusAgendamento } = req.body;
+
+    try {
+      const ficha = await prisma.filaRegulacao.findUnique({ where: { id } });
+
+      if (!ficha) {
+        res.status(404).json({ erro: 'Ficha de regulação não encontrada.' });
+        return;
+      }
+
+      const updateData: any = {};
+      if (observacaoClinica !== undefined) updateData.observacaoClinica = observacaoClinica;
+      if (statusAgendamento !== undefined) updateData.statusAgendamento = statusAgendamento;
+
+      const fichaAtualizada = await prisma.filaRegulacao.update({
+        where: { id },
+        data: updateData,
+        include: {
+          paciente: true,
+          unidadeEsf: true,
+        },
+      });
+
+      res.json(fichaAtualizada);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ erro: 'Erro ao atualizar ficha de regulação.' });
     }
   };
 }

@@ -3,6 +3,53 @@ import prisma from '../config/prisma';
 import { AuthRequest } from '../middlewares/auth';
 import { Prisma, Sexo } from '@prisma/client';
 
+function buildPacienteSearchWhere(busca: string, perfil?: string | null, unidadeId?: string | null): Prisma.PacienteWhereInput {
+  const rawTerm = busca.trim();
+  if (!rawTerm) return {};
+
+  const cleanDigits = rawTerm.replace(/\D/g, '');
+  
+  let formattedCpf = '';
+  if (cleanDigits.length === 11) {
+    formattedCpf = `${cleanDigits.slice(0, 3)}.${cleanDigits.slice(3, 6)}.${cleanDigits.slice(6, 9)}-${cleanDigits.slice(9, 11)}`;
+  }
+
+  const isExactCpf = /^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(rawTerm) || cleanDigits.length === 11;
+  const isExactSus = cleanDigits.length === 15;
+  const isDocumento = isExactCpf || isExactSus;
+
+  const ubsPerfis = ['POSTO_SAUDE', 'GESTOR_UBS', 'RECEPCIONISTA_UBS', 'MEDICO'];
+  const isPosto = perfil ? ubsPerfis.includes(perfil) : false;
+
+  const orConditions: Prisma.PacienteWhereInput[] = [
+    { nomeCompleto: { contains: rawTerm, mode: 'insensitive' } },
+    { cpf: { contains: rawTerm } },
+    { cartaoSus: { contains: rawTerm } }
+  ];
+
+  if (cleanDigits) {
+    orConditions.push({ cpf: { contains: cleanDigits } });
+    orConditions.push({ cartaoSus: { contains: cleanDigits } });
+  }
+
+  if (formattedCpf) {
+    orConditions.push({ cpf: { contains: formattedCpf } });
+    orConditions.push({ cpf: formattedCpf });
+  }
+
+  const whereClause: Prisma.PacienteWhereInput = {
+    OR: orConditions
+  };
+
+  // Se NÃO for busca por documento (CPF/SUS) e o usuário for de UBS, limita os resultados por nome à UBS do usuário.
+  // Se FOR busca por documento (CPF / SUS), a busca é UNIVERSAL (todas as UBSs).
+  if (!isDocumento && isPosto && unidadeId) {
+    whereClause.unidadeOrigemId = unidadeId;
+  }
+
+  return whereClause;
+}
+
 export class PacienteController {
   /**
    * Criar um novo paciente
@@ -96,9 +143,15 @@ export class PacienteController {
         return res.status(400).json({ error: 'Gênero/Sexo selecionado é inválido.' });
       }
 
-      // Verificar se CPF já está cadastrado
-      const pacienteExistente = await prisma.paciente.findUnique({
-        where: { cpf },
+      // Verificar se CPF já está cadastrado (verifica tanto formatado quanto dígitos puros)
+      const cleanCpf = cpf.replace(/\D/g, '');
+      const pacienteExistente = await prisma.paciente.findFirst({
+        where: {
+          OR: [
+            { cpf: cpf },
+            { cpf: cleanCpf }
+          ]
+        },
       });
       if (pacienteExistente) {
         return res.status(400).json({ error: 'Já existe um paciente cadastrado com este CPF.' });
@@ -131,9 +184,10 @@ export class PacienteController {
       }
       const prontuario = `${prefix}${String(nextNum).padStart(4, '0')}`;
 
-      // Definir unidade de origem caso o criador seja um posto de saúde
+      // Definir unidade de origem caso o criador pertença a uma UBS
       let unidadeOrigemId = null;
-      if (req.user?.perfil === 'POSTO_SAUDE') {
+      const ubsPerfis = ['POSTO_SAUDE', 'GESTOR_UBS', 'RECEPCIONISTA_UBS', 'MEDICO'];
+      if (req.user?.perfil && ubsPerfis.includes(req.user.perfil)) {
         unidadeOrigemId = req.user.unidadeId;
       }
 
@@ -227,42 +281,7 @@ export class PacienteController {
       const skip = (page - 1) * limit;
       const busca = String(req.query.busca || '').trim();
 
-      let whereClause: Prisma.PacienteWhereInput = {};
-
-      if (busca) {
-        const isExactCpf = /^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(busca) || /^\d{11}$/.test(busca);
-        const isExactSus = /^\d{15}$/.test(busca);
-
-        if (isExactCpf || isExactSus) {
-          // Busca global (ignora unidade) por CPF ou SUS exato
-          const cleanBusca = busca.replace(/\D/g, '');
-          whereClause = {
-            OR: [
-              { cpf: busca },
-              { cpf: cleanBusca },
-              { cartaoSus: busca },
-              { cartaoSus: cleanBusca }
-            ]
-          };
-        } else {
-          // Busca parcial (filtra por unidade se for POSTO_SAUDE)
-          whereClause = {
-            OR: [
-              { nomeCompleto: { contains: busca, mode: 'insensitive' } },
-              { cpf: { contains: busca } },
-              { cartaoSus: { contains: busca } }
-            ]
-          };
-          if (req.user?.perfil === 'POSTO_SAUDE') {
-            whereClause.unidadeOrigemId = req.user.unidadeId;
-          }
-        }
-      } else {
-        // Sem busca, filtra por unidade do usuário posto
-        if (req.user?.perfil === 'POSTO_SAUDE') {
-          whereClause.unidadeOrigemId = req.user.unidadeId;
-        }
-      }
+      const whereClause = buildPacienteSearchWhere(busca, req.user?.perfil, req.user?.unidadeId);
 
       const [total, dados] = await prisma.$transaction([
         prisma.paciente.count({ where: whereClause }),
@@ -301,34 +320,7 @@ export class PacienteController {
         return res.json([]);
       }
 
-      const isExactCpf = /^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(busca) || /^\d{11}$/.test(busca);
-      const isExactSus = /^\d{15}$/.test(busca);
-
-      let whereClause: Prisma.PacienteWhereInput = {};
-
-      if (isExactCpf || isExactSus) {
-        // Busca global por documento exato
-        const cleanBusca = busca.replace(/\D/g, '');
-        whereClause = {
-          OR: [
-            { cpf: busca },
-            { cpf: cleanBusca },
-            { cartaoSus: busca },
-            { cartaoSus: cleanBusca }
-          ]
-        };
-      } else {
-        // Busca parcial por nome ou iniciais (filtrado por unidade do usuário)
-        whereClause = {
-          OR: [
-            { nomeCompleto: { contains: busca, mode: 'insensitive' } },
-            { cpf: { contains: busca } }
-          ]
-        };
-        if (req.user?.perfil === 'POSTO_SAUDE') {
-          whereClause.unidadeOrigemId = req.user.unidadeId;
-        }
-      }
+      const whereClause = buildPacienteSearchWhere(busca, req.user?.perfil, req.user?.unidadeId);
 
       const pacientes = await prisma.paciente.findMany({
         where: whereClause,

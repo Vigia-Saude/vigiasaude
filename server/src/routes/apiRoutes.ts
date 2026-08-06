@@ -140,10 +140,18 @@ router.patch('/motorista/coletas/:id/aceitar', roleMiddleware(['ENTREGADOR']), m
 router.patch('/motorista/entregas/:id/confirmar', roleMiddleware(['ENTREGADOR']), motoristaController.confirmarEntrega);
 router.patch('/motorista/entregas/:id/devolver', roleMiddleware(['ENTREGADOR']), motoristaController.devolverEntrega);
 
+// Rotas de Pacientes
+const UBS_PROFILES = ['POSTO_SAUDE', 'GESTOR_UBS', 'RECEPCIONISTA_UBS', 'MEDICO'];
+router.post('/pacientes', roleMiddleware(UBS_PROFILES), pacienteController.criar.bind(pacienteController));
+router.get('/pacientes', roleMiddleware(UBS_PROFILES), pacienteController.listar.bind(pacienteController));
+router.get('/pacientes/busca', roleMiddleware(UBS_PROFILES), pacienteController.buscar.bind(pacienteController));
+router.get('/pacientes/:id', roleMiddleware(UBS_PROFILES), pacienteController.detalhes.bind(pacienteController));
+router.patch('/pacientes/:id', roleMiddleware(['POSTO_SAUDE', 'GESTOR_UBS', 'RECEPCIONISTA_UBS']), pacienteController.atualizar.bind(pacienteController));
+
 // Rotas da Regulação
-router.post('/regulacao', roleMiddleware(['POSTO_SAUDE']), uploadRegulacaoConfig.single('anexo'), regulacaoController.criar);
-router.get('/regulacao', roleMiddleware(['POSTO_SAUDE', 'REGULADOR']), regulacaoController.listar);
-router.get('/regulacao/consulta-rapida', roleMiddleware(['POSTO_SAUDE']), regulacaoController.consultaRapida);
+router.post('/regulacao', roleMiddleware(UBS_PROFILES), uploadRegulacaoConfig.single('anexo'), regulacaoController.criar);
+router.get('/regulacao', roleMiddleware([...UBS_PROFILES, 'REGULADOR']), regulacaoController.listar);
+router.get('/regulacao/consulta-rapida', roleMiddleware(UBS_PROFILES), regulacaoController.consultaRapida);
 
 // Rotas de Importação de PDF (SES-MS) e Confirmações WhatsApp (Apenas REGULADOR)
 // Precisam vir ANTES de /regulacao/:id, senão "imports" é capturado como :id
@@ -167,9 +175,10 @@ router.get('/regulacao/queues/:procedureId', roleMiddleware(['REGULADOR']), queu
 router.post('/regulacao/queues/:procedureId/resend-all', roleMiddleware(['REGULADOR']), queueController.resendAll);
 router.post('/regulacao/queues/entries/:entryId/resend', roleMiddleware(['REGULADOR']), queueController.resendSingle);
 
-router.get('/regulacao/:id', roleMiddleware(['POSTO_SAUDE', 'REGULADOR']), regulacaoController.detalhes);
+router.get('/regulacao/:id', roleMiddleware([...UBS_PROFILES, 'REGULADOR']), regulacaoController.detalhes);
+router.patch('/regulacao/:id', roleMiddleware(UBS_PROFILES), regulacaoController.atualizar);
 router.patch('/regulacao/:id/agendar', roleMiddleware(['REGULADOR']), regulacaoController.agendar);
-router.patch('/regulacao/:id/avisar-paciente', roleMiddleware(['POSTO_SAUDE']), regulacaoController.avisarPaciente);
+router.patch('/regulacao/:id/avisar-paciente', roleMiddleware(UBS_PROFILES), regulacaoController.avisarPaciente);
 router.patch('/regulacao/:id/status', regulacaoController.atualizarStatus);
 
 export default router;
