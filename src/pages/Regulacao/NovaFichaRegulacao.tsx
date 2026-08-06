@@ -38,7 +38,6 @@ const fichaSchema = z.object({
   responsavelEncaminhamento: z.string().min(3, 'Nome do responsável é obrigatório (mín. 3 caracteres)'),
   acsResponsavel: z.string().min(3, 'Nome do ACS responsável é obrigatório (mín. 3 caracteres)'),
   pacienteId: z.string().min(1, 'Selecione um paciente'),
-  tipoAtendimento: z.enum(['SUS', 'PARCERIA'], { message: 'Selecione o tipo de atendimento' }),
   procedimentoSolicitado: z.string().min(3, 'Procedimento solicitado é obrigatório (mín. 3 caracteres)'),
   observacaoClinica: z.string().optional(),
 });
@@ -86,7 +85,6 @@ export function NovaFichaRegulacao() {
   } = useForm<FichaFormData>({
     resolver: zodResolver(fichaSchema),
     defaultValues: {
-      tipoAtendimento: 'SUS',
       pacienteId: '',
     },
   });
@@ -625,32 +623,17 @@ export function NovaFichaRegulacao() {
         {/* Section 2: Dados Clínicos & Anexo */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
-          {/* Dados Clínicos */}
+          {/* Procedimento & Encaminhamento */}
           <div className="bg-white rounded-2xl border border-gray-200/80 shadow-xs overflow-hidden flex flex-col">
             <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-rose-50/50 to-transparent">
               <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
                 <Heart className="h-4.5 w-4.5 text-rose-600" />
-                Dados Clínicos & Pedido
+                Procedimento & Dados Clínicos
               </h2>
-              <p className="text-xs text-gray-500 mt-0.5">Informações sobre o atendimento e o procedimento solicitado</p>
+              <p className="text-xs text-gray-500 mt-0.5">Informações sobre a solicitação e observações de atendimento</p>
             </div>
             
             <div className="p-6 space-y-4 flex-1">
-              {/* Tipo Atendimento */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-gray-700">Tipo de Atendimento *</label>
-                <select
-                  {...register('tipoAtendimento')}
-                  className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-600 focus-visible:ring-offset-2 transition-all"
-                >
-                  <option value="SUS">SUS</option>
-                  <option value="PARCERIA">Parceria</option>
-                </select>
-                {errors.tipoAtendimento && (
-                  <span className="text-xs font-medium text-red-500">{errors.tipoAtendimento.message}</span>
-                )}
-              </div>
-
               {/* Procedimento Solicitado */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-gray-700">Procedimento Solicitado *</label>
@@ -666,10 +649,13 @@ export function NovaFichaRegulacao() {
 
               {/* Observação Clínica */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-gray-700">Observação Clínica</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-gray-700">Observação Clínica</label>
+                  <span className="text-[11px] font-medium text-gray-400">Preenchido pelo médico no atendimento (opcional)</span>
+                </div>
                 <textarea
                   {...register('observacaoClinica')}
-                  placeholder="Observações clínicas relevantes para o regulador médico (opcional)..."
+                  placeholder="Observações clínicas relevantes para a regulação médica (opcional para recepção)..."
                   rows={4}
                   className="flex w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-600 focus-visible:ring-offset-2 transition-all min-h-[100px] resize-y"
                 />

@@ -28,7 +28,6 @@ export default function SidebarPosto({ isOpen, setIsOpen }: SidebarPostoProps) {
     { name: 'Meu Estoque', path: '/posto/meu-estoque', icon: Package },
     { name: 'Pedidos de Recomposição', path: '/posto/pedidos-recomposicao', icon: ShoppingCart },
     { name: 'Entregas de Reposição', path: '/posto/entregas', icon: Truck },
-    { name: 'Pacientes', path: '/posto/pacientes', icon: Users },
     { name: 'Nova Ficha (Regulação)', path: '/posto/regulacao/nova', icon: FilePlus2 },
     { name: 'Painel de Ações', path: '/posto/regulacao/acoes', icon: Send },
     { name: 'Consulta Rápida', path: '/posto/regulacao/consulta', icon: Search },

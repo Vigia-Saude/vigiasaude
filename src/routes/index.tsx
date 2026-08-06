@@ -501,46 +501,6 @@ export const router = createBrowserRouter([
         }
       },
 
-      // Posto de Saude - Pacientes Routes
-      {
-        path: 'posto/pacientes',
-        lazy: async () => {
-          const { PacientesGrid } = await import('../pages/Pacientes/PacientesGrid');
-          return {
-            Component: () => (
-              <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
-                <PacientesGrid />
-              </ProtectedRoute>
-            )
-          };
-        }
-      },
-      {
-        path: 'posto/pacientes/novo',
-        lazy: async () => {
-          const { CadastrarPaciente } = await import('../pages/Pacientes/CadastrarPaciente');
-          return {
-            Component: () => (
-              <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
-                <CadastrarPaciente />
-              </ProtectedRoute>
-            )
-          };
-        }
-      },
-      {
-        path: 'posto/pacientes/editar/:id',
-        lazy: async () => {
-          const { CadastrarPaciente } = await import('../pages/Pacientes/CadastrarPaciente');
-          return {
-            Component: () => (
-              <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
-                <CadastrarPaciente />
-              </ProtectedRoute>
-            )
-          };
-        }
-      },
 
       // Posto de Saude - Regulação Routes
       {
