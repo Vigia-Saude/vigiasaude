@@ -88,9 +88,10 @@ export function AgendamentosPosto() {
             className="px-3 py-2 text-xs font-medium border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
           >
             <option value="TODOS">Todos os Status</option>
+            <option value="AGUARDANDO_ATENDIMENTO_MEDICO">Aguardando Médico</option>
             <option value="AGUARDANDO_REGULACAO">Aguardando Regulação</option>
             <option value="PRE_AGENDADO">Pré-Agendado</option>
-            <option value="CONFIRMADO">Confirmado</option>
+            <option value="CONFIRMADO">Atendimento Concluído</option>
           </select>
         </div>
       </div>
@@ -116,7 +117,7 @@ export function AgendamentosPosto() {
                   <th className="px-6 py-3.5">Paciente</th>
                   <th className="px-6 py-3.5">CPF</th>
                   <th className="px-6 py-3.5">Procedimento</th>
-                  <th className="px-6 py-3.5">Profissional / ACS</th>
+                  <th className="px-6 py-3.5">Médico Responsável</th>
                   <th className="px-6 py-3.5">Status</th>
                   <th className="px-6 py-3.5 text-right">Ação</th>
                 </tr>
@@ -136,15 +137,31 @@ export function AgendamentosPosto() {
                     <td className="px-6 py-4 font-medium text-gray-800">
                       {item.procedimentoSolicitado}
                     </td>
-                    <td className="px-6 py-4 text-xs text-gray-500">
-                      <div><span className="font-semibold text-gray-700">Resp:</span> {item.responsavelEncaminhamento}</div>
-                      <div><span className="font-semibold text-gray-700">ACS:</span> {item.acsResponsavel}</div>
+                    <td className="px-6 py-4 text-xs font-semibold text-gray-700">
+                      Dr(a). {item.responsavelEncaminhamento}
                     </td>
                     <td className="px-6 py-4">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                        <Clock className="h-3 w-3" />
-                        {item.statusAgendamento || 'REGULAÇÃO'}
-                      </span>
+                      {item.statusAgendamento === 'AGUARDANDO_ATENDIMENTO_MEDICO' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                          <Clock className="h-3 w-3" />
+                          Aguardando Médico
+                        </span>
+                      ) : item.statusAgendamento === 'AGUARDANDO_REGULACAO' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                          <Clock className="h-3 w-3" />
+                          Encaminhado à Regulação
+                        </span>
+                      ) : item.statusAgendamento === 'CONFIRMADO' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <Clock className="h-3 w-3" />
+                          Concluído na UBS
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-gray-50 text-gray-700 border border-gray-200">
+                          <Clock className="h-3 w-3" />
+                          {item.statusAgendamento}
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <Link

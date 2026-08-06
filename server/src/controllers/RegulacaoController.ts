@@ -128,7 +128,7 @@ export class RegulacaoController {
           procedimentoSolicitado,
           observacaoClinica: observacaoClinica || null,
           anexoUrl,
-          statusAgendamento: 'AGUARDANDO_REGULACAO',
+          statusAgendamento: 'AGUARDANDO_ATENDIMENTO_MEDICO',
           criadoPorUsuarioId: req.user!.id,
         },
         include: {

@@ -195,6 +195,7 @@ export interface User {
 // ─── Módulo Regulação ───────────────────────────────────────────────────────────
 
 export type StatusAgendamento = 
+  | 'AGUARDANDO_ATENDIMENTO_MEDICO'
   | 'AGUARDANDO_REGULACAO'
   | 'PRE_AGENDADO' 
   | 'AGUARDANDO_RESPOSTA_PACIENTE'

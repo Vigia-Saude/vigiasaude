@@ -73,7 +73,8 @@ function getTimeline(currentStatus: StatusAgendamento): TimelineStep[] {
   ];
 
   const labels: Record<StatusAgendamento, string> = {
-    AGUARDANDO_REGULACAO: 'Solicitação Recebida',
+    AGUARDANDO_ATENDIMENTO_MEDICO: 'Aguardando Atendimento Médico',
+    AGUARDANDO_REGULACAO: 'Solicitação Recebida na Regulação',
     PRE_AGENDADO: 'Pré-Agendado pela Secretaria',
     AGUARDANDO_RESPOSTA_PACIENTE: 'Paciente Notificado',
     CONFIRMADO: 'Agendamento Confirmado',
@@ -81,7 +82,8 @@ function getTimeline(currentStatus: StatusAgendamento): TimelineStep[] {
   };
 
   const descriptions: Record<StatusAgendamento, string> = {
-    AGUARDANDO_REGULACAO: 'Ficha inserida na fila de regulação',
+    AGUARDANDO_ATENDIMENTO_MEDICO: 'Pré-ficha criada pela recepção da UBS',
+    AGUARDANDO_REGULACAO: 'Ficha encaminhada à fila de regulação',
     PRE_AGENDADO: 'Data e local definidos pela Secretaria',
     AGUARDANDO_RESPOSTA_PACIENTE: 'ESF notificou o paciente sobre o agendamento',
     CONFIRMADO: 'Paciente confirmou presença no agendamento',
