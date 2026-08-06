@@ -22,7 +22,7 @@ import {
   Power
 } from 'lucide-react';
 
-type Perfil = 'SECRETARIO_SAUDE' | 'GESTOR_ESTOQUE' | 'FARMACIA' | 'MEDICO' | 'ENTREGADOR' | 'POSTO_SAUDE';
+type Perfil = 'SECRETARIO_SAUDE' | 'GESTOR_ESTOQUE' | 'FARMACIA' | 'MEDICO' | 'ENTREGADOR' | 'POSTO_SAUDE' | 'REGULADOR';
 type Aba = 'pendentes' | 'ativos' | 'desativados';
 
 interface PendingUser {
@@ -68,6 +68,7 @@ const PERFIS: Array<{ value: Perfil; label: string }> = [
   { value: 'GESTOR_ESTOQUE', label: 'Gestor de Estoque' },
   { value: 'FARMACIA', label: 'Farmácia' },
   { value: 'POSTO_SAUDE', label: 'Posto de Saúde' },
+  { value: 'REGULADOR', label: 'Regulador (Secretaria)' },
   { value: 'MEDICO', label: 'Médico' },
   { value: 'ENTREGADOR', label: 'Entregador' },
 ];
@@ -103,6 +104,12 @@ const PERFIL_PERMISSOES_PREVIEW: Record<Perfil, string[]> = {
     'Dispensação de Medicamentos',
     'Estoque do Posto de Saúde',
     'Atendimento ao Cidadão'
+  ],
+  REGULADOR: [
+    'Gestão de Filas de Regulação',
+    'Agendamento de Consultas/Exames',
+    'Importação de PDFs de Regulação',
+    'Confirmação por WhatsApp'
   ],
   MEDICO: [
     'Prescrição Médica',
@@ -166,6 +173,8 @@ function getPerfilBadgeClass(perfil: Perfil | null) {
       return 'bg-purple-50 text-purple-700 border-purple-100';
     case 'POSTO_SAUDE':
       return 'bg-cyan-50 text-cyan-700 border-cyan-100';
+    case 'REGULADOR':
+      return 'bg-indigo-50 text-indigo-700 border-indigo-100';
     case 'MEDICO':
       return 'bg-blue-50 text-blue-700 border-blue-100';
     case 'ENTREGADOR':
@@ -225,7 +234,8 @@ function ModalAprovacao({ usuario, unidades, onClose, onFinished, onAuthError }:
     const isGlobalOrSupplier =
       usuario.role === 'FORNECEDOR' ||
       perfil === 'SECRETARIO_SAUDE' ||
-      perfil === 'GESTOR_ESTOQUE';
+      perfil === 'GESTOR_ESTOQUE' ||
+      perfil === 'REGULADOR';
 
     if (!isGlobalOrSupplier && !unidadeSelecionada && unidades.length > 0) {
       setErrorMsg('Selecione uma unidade para aprovar o cadastro.');
