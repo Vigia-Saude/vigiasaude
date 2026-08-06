@@ -22,6 +22,9 @@ export default function Layout() {
       case 'FARMACIA':
         return <SidebarFarmacia isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />;
       case 'POSTO_SAUDE':
+      case 'GESTOR_UBS':
+      case 'RECEPCIONISTA_UBS':
+      case 'MEDICO':
         return <SidebarPosto isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />;
       case 'ENTREGADOR':
         return <SidebarMotorista isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />;

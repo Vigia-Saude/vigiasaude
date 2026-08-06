@@ -35,6 +35,11 @@ export async function atualizarStatusRegulacao(id: string, status: string) {
   return response.data;
 }
 
+export async function atualizarFichaRegulacao(id: string, data: any) {
+  const response = await apiClient.patch(`/api/regulacao/${id}`, data);
+  return response.data;
+}
+
 export async function historicoRegulacaoPaciente(pacienteId: string) {
   const response = await apiClient.get('/api/regulacao', { params: { pacienteId, limit: 50 } });
   return response.data;

@@ -1,18 +1,19 @@
 import { Link, useLocation } from 'react-router';
+import { useAuth } from '../../context/AuthContext';
 import { 
   Home, 
   Package, 
   ShoppingCart, 
-  Pill, 
   Truck, 
   Bell, 
   Settings,
   ChevronLeft,
   Shield,
   FilePlus2,
-  Send,
   Search,
-  Users
+  Calendar,
+  UserPlus,
+  Stethoscope
 } from 'lucide-react';
 
 interface SidebarPostoProps {
@@ -22,17 +23,34 @@ interface SidebarPostoProps {
 
 export default function SidebarPosto({ isOpen, setIsOpen }: SidebarPostoProps) {
   const location = useLocation();
+  const { user } = useAuth();
+
+  const isRecepcionista = user?.perfil === 'RECEPCIONISTA_UBS';
+  const isMedico = user?.perfil === 'MEDICO';
+  const isGestor = user?.perfil === 'GESTOR_UBS' || user?.perfil === 'POSTO_SAUDE' || !user?.perfil;
 
   const links = [
-    { name: 'Dashboard', path: '/posto/dashboard', icon: Home },
-    { name: 'Meu Estoque', path: '/posto/meu-estoque', icon: Package },
-    { name: 'Pedidos de Recomposição', path: '/posto/pedidos-recomposicao', icon: ShoppingCart },
-    { name: 'Entregas de Reposição', path: '/posto/entregas', icon: Truck },
-    { name: 'Nova Ficha (Regulação)', path: '/posto/regulacao/nova', icon: FilePlus2 },
+    ...(isGestor ? [{ name: 'Dashboard', path: '/posto/dashboard', icon: Home }] : []),
+    ...(isGestor ? [{ name: 'Meu Estoque', path: '/posto/meu-estoque', icon: Package }] : []),
+    ...(isGestor ? [{ name: 'Pedidos de Recomposição', path: '/posto/pedidos-recomposicao', icon: ShoppingCart }] : []),
+    ...(isGestor ? [{ name: 'Entregas de Reposição', path: '/posto/entregas', icon: Truck }] : []),
+    
+    ...(isMedico ? [{ name: 'Atendimentos do Dia', path: '/posto/atendimentos', icon: Stethoscope }] : []),
+    ...(isRecepcionista || isGestor ? [{ name: 'Agendamentos do Dia', path: '/posto/agendamentos', icon: Calendar }] : []),
+    ...(isRecepcionista || isGestor ? [{ name: 'Cadastrar Paciente', path: '/posto/pacientes/novo', icon: UserPlus }] : []),
+    
+    { name: 'Nova Ficha (Encaminhamento)', path: '/posto/regulacao/nova', icon: FilePlus2 },
     { name: 'Consulta Rápida', path: '/posto/regulacao/consulta', icon: Search },
     { name: 'Notificações', path: '/posto/notificacoes', icon: Bell },
-    { name: 'Configurações', path: '/posto/configuracoes', icon: Settings },
+    
+    ...(isGestor ? [{ name: 'Configurações', path: '/posto/configuracoes', icon: Settings }] : []),
   ];
+
+  const profileSubtitle = isRecepcionista 
+    ? 'Recepção UBS' 
+    : isMedico 
+      ? 'Médico UBS' 
+      : 'Posto de Saúde';
 
   return (
     <>
@@ -50,11 +68,11 @@ export default function SidebarPosto({ isOpen, setIsOpen }: SidebarPostoProps) {
         }`}
       >
         <div className="flex h-20 items-center justify-between pl-5 pr-4 border-b border-slate-800">
-          <Link to="/posto/dashboard" className="flex items-center gap-3 select-none">
+          <Link to={isMedico ? "/posto/atendimentos" : isRecepcionista ? "/posto/agendamentos" : "/posto/dashboard"} className="flex items-center gap-3 select-none">
             <Shield className="h-9 w-9 text-cyan-500 stroke-[1.5]" />
             <div className="flex flex-col">
               <span className="font-semibold text-white text-base leading-tight">Vigia Saúde</span>
-              <span className="text-xs text-cyan-400 font-normal mt-0.5">Posto de Saúde</span>
+              <span className="text-xs text-cyan-400 font-normal mt-0.5">{profileSubtitle}</span>
             </div>
           </Link>
           <button 

@@ -651,13 +651,20 @@ export function NovaFichaRegulacao() {
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
                   <label className="text-sm font-medium text-gray-700">Observação Clínica</label>
-                  <span className="text-[11px] font-medium text-gray-400">Preenchido pelo médico no atendimento (opcional)</span>
+                  <span className="text-[11px] font-medium text-gray-400">
+                    {user?.perfil === 'RECEPCIONISTA_UBS' ? 'Reservado ao Atendimento Médico' : 'Preenchido pelo médico no atendimento'}
+                  </span>
                 </div>
                 <textarea
                   {...register('observacaoClinica')}
-                  placeholder="Observações clínicas relevantes para a regulação médica (opcional para recepção)..."
+                  disabled={user?.perfil === 'RECEPCIONISTA_UBS'}
+                  placeholder={
+                    user?.perfil === 'RECEPCIONISTA_UBS'
+                      ? 'Este campo é reservado para preenchimento pelo médico durante a consulta.'
+                      : 'Observações clínicas relevantes para a regulação médica...'
+                  }
                   rows={4}
-                  className="flex w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-600 focus-visible:ring-offset-2 transition-all min-h-[100px] resize-y"
+                  className="flex w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-600 focus-visible:ring-offset-2 transition-all min-h-[100px] resize-y disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
                 />
               </div>
             </div>

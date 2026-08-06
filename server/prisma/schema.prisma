@@ -22,6 +22,8 @@ enum Perfil {
   ENTREGADOR
   POSTO_SAUDE
   REGULADOR
+  RECEPCIONISTA_UBS
+  GESTOR_UBS
 }
 
 enum UsuarioStatus {

@@ -24,7 +24,7 @@ export default function LoginPage() {
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
   const [showRegValidation, setShowRegValidation] = useState(false);
-  const [regPerfil, setRegPerfil] = useState('SECRETARIO_SAUDE');
+  const [regPerfil, setRegPerfil] = useState('RECEPCIONISTA_UBS');
   const [regJustificativa, setRegJustificativa] = useState('');
   const [isRegLoading, setIsRegLoading] = useState(false);
 
@@ -556,12 +556,13 @@ export default function LoginPage() {
                           onChange={(e) => setRegPerfil(e.target.value)}
                           className="mt-1 block w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 sm:text-sm"
                         >
-                          <option value="SECRETARIO_SAUDE">Secretário de Saúde</option>
-                          <option value="GESTOR_ESTOQUE">Gestor de Estoque</option>
-                          <option value="FARMACIA">Farmácia</option>
-                          <option value="POSTO_SAUDE">Posto de Saúde</option>
-                          <option value="REGULADOR">Regulador (Secretaria)</option>
+                          <option value="RECEPCIONISTA_UBS">Recepcionista da UBS</option>
                           <option value="MEDICO">Médico</option>
+                          <option value="GESTOR_UBS">Gestor da UBS</option>
+                          <option value="SECRETARIO_SAUDE">Secretário de Saúde</option>
+                          <option value="GESTOR_ESTOQUE">Gestor de Estoque (CD)</option>
+                          <option value="FARMACIA">Farmácia</option>
+                          <option value="REGULADOR">Regulador (Secretaria)</option>
                           <option value="ENTREGADOR">Entregador</option>
                         </select>
                       </div>

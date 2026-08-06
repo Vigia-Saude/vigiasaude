@@ -409,13 +409,14 @@ export const router = createBrowserRouter([
       },
 
       // Posto de Saude Protected Routes
+      // Posto de Saude Protected Routes
       {
         path: 'posto/dashboard',
         lazy: async () => {
           const { DashboardPosto } = await import('../pages/Posto/DashboardPosto');
           return {
             Component: () => (
-              <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+              <ProtectedRoute allowedPerfil={['POSTO_SAUDE', 'GESTOR_UBS']}>
                 <DashboardPosto />
               </ProtectedRoute>
             )
@@ -428,7 +429,7 @@ export const router = createBrowserRouter([
           const { MeuEstoquePosto } = await import('../pages/Posto/MeuEstoquePosto');
           return {
             Component: () => (
-              <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+              <ProtectedRoute allowedPerfil={['POSTO_SAUDE', 'GESTOR_UBS']}>
                 <MeuEstoquePosto />
               </ProtectedRoute>
             )
@@ -441,7 +442,7 @@ export const router = createBrowserRouter([
           const { PedidosRecomposicao: PedidosRecomposicaoPosto } = await import('../pages/Posto/PedidosRecomposicao');
           return {
             Component: () => (
-              <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+              <ProtectedRoute allowedPerfil={['POSTO_SAUDE', 'GESTOR_UBS']}>
                 <PedidosRecomposicaoPosto />
               </ProtectedRoute>
             )
@@ -454,7 +455,7 @@ export const router = createBrowserRouter([
           const { Dispensacao: DispensacaoPosto } = await import('../pages/Posto/Dispensacao');
           return {
             Component: () => (
-              <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+              <ProtectedRoute allowedPerfil={['POSTO_SAUDE', 'GESTOR_UBS']}>
                 <DispensacaoPosto />
               </ProtectedRoute>
             )
@@ -467,7 +468,7 @@ export const router = createBrowserRouter([
           const { EntregasReposicao: EntregasReposicaoPosto } = await import('../pages/Posto/EntregasReposicao');
           return {
             Component: () => (
-              <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+              <ProtectedRoute allowedPerfil={['POSTO_SAUDE', 'GESTOR_UBS']}>
                 <EntregasReposicaoPosto />
               </ProtectedRoute>
             )
@@ -480,7 +481,7 @@ export const router = createBrowserRouter([
           const { NotificacoesPosto } = await import('../pages/Posto/NotificacoesPosto');
           return {
             Component: () => (
-              <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+              <ProtectedRoute allowedPerfil={['POSTO_SAUDE', 'GESTOR_UBS', 'RECEPCIONISTA_UBS', 'MEDICO']}>
                 <NotificacoesPosto />
               </ProtectedRoute>
             )
@@ -493,7 +494,7 @@ export const router = createBrowserRouter([
           const { ConfiguracoesPosto } = await import('../pages/Posto/ConfiguracoesPosto');
           return {
             Component: () => (
-              <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+              <ProtectedRoute allowedPerfil={['POSTO_SAUDE', 'GESTOR_UBS']}>
                 <ConfiguracoesPosto />
               </ProtectedRoute>
             )
@@ -501,6 +502,46 @@ export const router = createBrowserRouter([
         }
       },
 
+      // Posto de Saude - Agendamentos, Atendimentos & Pacientes
+      {
+        path: 'posto/agendamentos',
+        lazy: async () => {
+          const { AgendamentosPosto } = await import('../pages/Posto/AgendamentosPosto');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['POSTO_SAUDE', 'GESTOR_UBS', 'RECEPCIONISTA_UBS', 'MEDICO']}>
+                <AgendamentosPosto />
+              </ProtectedRoute>
+            )
+          };
+        }
+      },
+      {
+        path: 'posto/atendimentos',
+        lazy: async () => {
+          const { AtendimentosPosto } = await import('../pages/Posto/AtendimentosPosto');
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['POSTO_SAUDE', 'GESTOR_UBS', 'MEDICO']}>
+                <AtendimentosPosto />
+              </ProtectedRoute>
+            )
+          };
+        }
+      },
+      {
+        path: 'posto/pacientes/novo',
+        lazy: async () => {
+          const CadastrarPaciente = (await import('../pages/Pacientes/CadastrarPaciente')).default;
+          return {
+            Component: () => (
+              <ProtectedRoute allowedPerfil={['POSTO_SAUDE', 'GESTOR_UBS', 'RECEPCIONISTA_UBS']}>
+                <CadastrarPaciente />
+              </ProtectedRoute>
+            )
+          };
+        }
+      },
 
       // Posto de Saude - Regulação Routes
       {
@@ -509,7 +550,7 @@ export const router = createBrowserRouter([
           const { NovaFichaRegulacao } = await import('../pages/Regulacao/NovaFichaRegulacao');
           return {
             Component: () => (
-              <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+              <ProtectedRoute allowedPerfil={['POSTO_SAUDE', 'GESTOR_UBS', 'RECEPCIONISTA_UBS', 'MEDICO']}>
                 <NovaFichaRegulacao />
               </ProtectedRoute>
             )
@@ -522,7 +563,7 @@ export const router = createBrowserRouter([
           const { ConsultaRapidaRegulacao } = await import('../pages/Regulacao/ConsultaRapidaRegulacao');
           return {
             Component: () => (
-              <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+              <ProtectedRoute allowedPerfil={['POSTO_SAUDE', 'GESTOR_UBS', 'RECEPCIONISTA_UBS', 'MEDICO']}>
                 <ConsultaRapidaRegulacao />
               </ProtectedRoute>
             )
@@ -535,7 +576,7 @@ export const router = createBrowserRouter([
           const { DetalhesFichaRegulacao } = await import('../pages/Regulacao/DetalhesFichaRegulacao');
           return {
             Component: () => (
-              <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
+              <ProtectedRoute allowedPerfil={['POSTO_SAUDE', 'GESTOR_UBS', 'RECEPCIONISTA_UBS', 'MEDICO']}>
                 <DetalhesFichaRegulacao />
               </ProtectedRoute>
             )

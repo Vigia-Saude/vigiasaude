@@ -22,7 +22,7 @@ import {
   Power
 } from 'lucide-react';
 
-type Perfil = 'SECRETARIO_SAUDE' | 'GESTOR_ESTOQUE' | 'FARMACIA' | 'MEDICO' | 'ENTREGADOR' | 'POSTO_SAUDE' | 'REGULADOR';
+type Perfil = 'SECRETARIO_SAUDE' | 'GESTOR_ESTOQUE' | 'FARMACIA' | 'MEDICO' | 'ENTREGADOR' | 'POSTO_SAUDE' | 'REGULADOR' | 'RECEPCIONISTA_UBS' | 'GESTOR_UBS';
 type Aba = 'pendentes' | 'ativos' | 'desativados';
 
 interface PendingUser {
@@ -48,6 +48,12 @@ interface PendingUser {
   motivoRecusa?: string | null;
 }
 
+interface UserModalData extends PendingUser {
+  status: 'PENDENTE' | 'ATIVO' | 'RECUSADO' | 'DESATIVADO';
+  unidadeName?: string | null;
+  permissoesExtra?: Record<string, boolean>;
+}
+
 interface Unidade {
   id: string;
   nome: string;
@@ -65,11 +71,13 @@ interface PermissaoExtra {
 
 const PERFIS: Array<{ value: Perfil; label: string }> = [
   { value: 'SECRETARIO_SAUDE', label: 'Secretário de Saúde' },
-  { value: 'GESTOR_ESTOQUE', label: 'Gestor de Estoque' },
+  { value: 'GESTOR_ESTOQUE', label: 'Gestor de Estoque (CD)' },
   { value: 'FARMACIA', label: 'Farmácia' },
-  { value: 'POSTO_SAUDE', label: 'Posto de Saúde' },
-  { value: 'REGULADOR', label: 'Regulador (Secretaria)' },
+  { value: 'RECEPCIONISTA_UBS', label: 'Recepcionista da UBS' },
   { value: 'MEDICO', label: 'Médico' },
+  { value: 'GESTOR_UBS', label: 'Gestor da UBS' },
+  { value: 'POSTO_SAUDE', label: 'Posto de Saúde (Geral)' },
+  { value: 'REGULADOR', label: 'Regulador (Secretaria)' },
   { value: 'ENTREGADOR', label: 'Entregador' },
 ];
 
@@ -100,6 +108,26 @@ const PERFIL_PERMISSOES_PREVIEW: Record<Perfil, string[]> = {
     'Estoque da Farmácia',
     'Atendimento ao Cidadão'
   ],
+  RECEPCIONISTA_UBS: [
+    'Cadastro de Pacientes',
+    'Ficha de Encaminhamento (Dados Gerais)',
+    'Agenda de Atendimentos do Dia',
+    'Consulta Rápida por CPF/SUS',
+    'Central de Notificações'
+  ],
+  MEDICO: [
+    'Agenda de Atendimentos do Dia',
+    'Preenchimento de Dados Clínicos',
+    'Encaminhamento para Regulação ou Encerramento Local',
+    'Consulta Rápida por CPF/SUS',
+    'Central de Notificações'
+  ],
+  GESTOR_UBS: [
+    'Dashboard e Estoque da UBS',
+    'Pedidos e Entregas de Reposição',
+    'Visão Geral de Agendamentos e Pacientes',
+    'Central de Notificações e Configurações'
+  ],
   POSTO_SAUDE: [
     'Dispensação de Medicamentos',
     'Estoque do Posto de Saúde',
@@ -110,11 +138,6 @@ const PERFIL_PERMISSOES_PREVIEW: Record<Perfil, string[]> = {
     'Agendamento de Consultas/Exames',
     'Importação de PDFs de Regulação',
     'Confirmação por WhatsApp'
-  ],
-  MEDICO: [
-    'Prescrição Médica',
-    'Histórico de Pacientes',
-    'Consulta CATMAT'
   ],
   ENTREGADOR: [
     'Minhas Entregas',
@@ -172,7 +195,10 @@ function getPerfilBadgeClass(perfil: Perfil | null) {
     case 'FARMACIA':
       return 'bg-purple-50 text-purple-700 border-purple-100';
     case 'POSTO_SAUDE':
+    case 'GESTOR_UBS':
       return 'bg-cyan-50 text-cyan-700 border-cyan-100';
+    case 'RECEPCIONISTA_UBS':
+      return 'bg-emerald-50 text-emerald-700 border-emerald-100';
     case 'REGULADOR':
       return 'bg-indigo-50 text-indigo-700 border-indigo-100';
     case 'MEDICO':

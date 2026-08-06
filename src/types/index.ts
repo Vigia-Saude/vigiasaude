@@ -178,13 +178,15 @@ export interface Auditoria {
 
 export type UserRole = 'COMPRADOR' | 'FORNECEDOR';
 
+export type Perfil = 'SECRETARIO_SAUDE' | 'GESTOR_ESTOQUE' | 'FARMACIA' | 'MEDICO' | 'ENTREGADOR' | 'POSTO_SAUDE' | 'REGULADOR' | 'RECEPCIONISTA_UBS' | 'GESTOR_UBS';
+
 export interface User {
   id: string;
   nome: string;
   role: UserRole;
   email?: string;
   cpf?: string;
-  perfil?: 'SECRETARIO_SAUDE' | 'GESTOR_ESTOQUE' | 'FARMACIA' | 'MEDICO' | 'ENTREGADOR' | 'POSTO_SAUDE' | 'REGULADOR' | null;
+  perfil?: Perfil | null;
   tenantSchema?: string | null;
   unidadeId?: string | null;
   unidadeNome?: string;
