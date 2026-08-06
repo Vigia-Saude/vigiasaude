@@ -517,19 +517,6 @@ export const router = createBrowserRouter([
         }
       },
       {
-        path: 'posto/regulacao/acoes',
-        lazy: async () => {
-          const { PainelAcoesRegulacao } = await import('../pages/Regulacao/PainelAcoesRegulacao');
-          return {
-            Component: () => (
-              <ProtectedRoute allowedPerfil={['POSTO_SAUDE']}>
-                <PainelAcoesRegulacao />
-              </ProtectedRoute>
-            )
-          };
-        }
-      },
-      {
         path: 'posto/regulacao/consulta',
         lazy: async () => {
           const { ConsultaRapidaRegulacao } = await import('../pages/Regulacao/ConsultaRapidaRegulacao');

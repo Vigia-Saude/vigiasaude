@@ -465,7 +465,7 @@ export function ConsultaRapidaRegulacao() {
           Consulta Rápida — Regulação
         </h1>
         <p className="text-sm text-gray-500 font-medium">
-          Pesquise por nome, CPF ou Cartão SUS do paciente para verificar agendamentos
+          Pesquise por CPF ou Cartão SUS / CadÚnico para acesso universal aos encaminhamentos de qualquer unidade de saúde
         </p>
       </div>
 

@@ -269,7 +269,7 @@ export function NovaFichaRegulacao() {
 
       await criarFichaRegulacao(formData);
       toast.success('Ficha de regulação criada com sucesso!');
-      navigate('/posto/regulacao/acoes');
+      navigate('/posto/regulacao/consulta');
     } catch (err: any) {
       console.error(err);
       toast.error(err.response?.data?.erro || 'Erro ao criar ficha de regulação.');

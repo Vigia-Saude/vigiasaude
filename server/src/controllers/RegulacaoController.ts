@@ -116,8 +116,8 @@ export class RegulacaoController {
     try {
       const where: Prisma.FilaRegulacaoWhereInput = {};
 
-      // Filtro por perfil
-      if (req.user?.perfil === 'POSTO_SAUDE' && req.user?.unidadeId) {
+      // Filtro por perfil (se pacienteId for informado para histórico, a busca é universal)
+      if (!pacienteId && req.user?.perfil === 'POSTO_SAUDE' && req.user?.unidadeId) {
         where.unidadeEsfId = req.user.unidadeId;
       }
       // REGULADOR vê tudo (sem filtro de unidade)
@@ -317,11 +317,6 @@ export class RegulacaoController {
     try {
       const where: Prisma.FilaRegulacaoWhereInput = {};
 
-      // POSTO_SAUDE filtra pela unidade
-      if (req.user?.perfil === 'POSTO_SAUDE' && req.user?.unidadeId) {
-        where.unidadeEsfId = req.user.unidadeId;
-      }
-
       // CPF formatado: 000.000.000-00
       const cpfFormatadoRegex = /^\d{3}\.\d{3}\.\d{3}-\d{2}$/;
       // CPF apenas dígitos: 11 números
@@ -329,14 +324,25 @@ export class RegulacaoController {
       // Cartão SUS: 15 dígitos
       const cartaoSusRegex = /^\d{15}$/;
 
-      if (cpfFormatadoRegex.test(termo)) {
+      const isCpfFormatado = cpfFormatadoRegex.test(termo);
+      const isCpfDigitos = cpfDigitosRegex.test(termo);
+      const isCartaoSus = cartaoSusRegex.test(termo);
+      const isDocumento = isCpfFormatado || isCpfDigitos || isCartaoSus;
+
+      // Se for busca por documento (CPF ou Cartão SUS/CadÚnico), a consulta é UNIVERSAL (entre todas as UBSs).
+      // Se for busca por nome, limita à unidade do usuário POSTO_SAUDE.
+      if (!isDocumento && req.user?.perfil === 'POSTO_SAUDE' && req.user?.unidadeId) {
+        where.unidadeEsfId = req.user.unidadeId;
+      }
+
+      if (isCpfFormatado) {
         // CPF formatado → busca exata
         where.paciente = { cpf: termo };
-      } else if (cpfDigitosRegex.test(termo)) {
+      } else if (isCpfDigitos) {
         // CPF sem formatação → formata e busca exata
         const cpfFormatado = `${termo.slice(0,3)}.${termo.slice(3,6)}.${termo.slice(6,9)}-${termo.slice(9,11)}`;
         where.paciente = { cpf: cpfFormatado };
-      } else if (cartaoSusRegex.test(termo)) {
+      } else if (isCartaoSus) {
         // Cartão SUS (15 dígitos)
         where.paciente = { cartaoSus: termo };
       } else {
