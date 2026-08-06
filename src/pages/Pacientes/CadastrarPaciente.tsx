@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate, useParams } from 'react-router';
@@ -46,7 +46,7 @@ const pacienteSchema = z.object({
   subarea: z.string().optional().or(z.literal('')),
   escolaridade: z.string().optional().or(z.literal('')),
   
-  celular: z.string().regex(/^\(\d{2}\) 9\d{4}-\d{4}$/, 'Formato inválido. Use (XX) 9XXXX-XXXX'),
+  celular: z.string().regex(/^\(\d{2}\) \d{4,5}-\d{4}$/, 'Formato inválido. Use (XX) 9XXXX-XXXX ou (XX) XXXX-XXXX'),
   telefone: z.string().optional().or(z.literal('')),
   email: z.string().email('E-mail em formato inválido').optional().or(z.literal('')),
   nomeMae: z.string().optional().or(z.literal('')),
@@ -100,7 +100,7 @@ export function CadastrarPaciente({ onSuccess, isModal = false }: CadastrarPacie
     register,
     handleSubmit,
     setValue,
-    watch,
+    control,
     getValues,
     reset,
     formState: { errors },
@@ -159,14 +159,10 @@ export function CadastrarPaciente({ onSuccess, isModal = false }: CadastrarPacie
     }
   });
 
-  const cpfValue = watch('cpf');
-  const susValue = watch('cartaoSus');
-  const celularValue = watch('celular');
-  const telefoneValue = watch('telefone');
-  const cepValue = watch('cep');
-  const maeDesconhecida = watch('maeDesconhecida');
-  const paiDesconhecido = watch('paiDesconhecido');
-  const situacaoRua = watch('situacaoRua');
+  const cepValue = useWatch({ control, name: 'cep' });
+  const maeDesconhecida = useWatch({ control, name: 'maeDesconhecida' });
+  const paiDesconhecido = useWatch({ control, name: 'paiDesconhecido' });
+  const situacaoRua = useWatch({ control, name: 'situacaoRua' });
 
   // Carregar dados para edição caso haja ID
   useEffect(() => {
@@ -530,13 +526,18 @@ export function CadastrarPaciente({ onSuccess, isModal = false }: CadastrarPacie
                 {/* Cartão SUS */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-gray-500 uppercase">Cartão SUS</label>
-                  <input
-                    {...register('cartaoSus')}
-                    value={susValue}
-                    onChange={(e) => setValue('cartaoSus', e.target.value.replace(/\D/g, '').substring(0, 15))}
-                    placeholder="CNS"
-                    maxLength={15}
-                    className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-all"
+                  <Controller
+                    name="cartaoSus"
+                    control={control}
+                    render={({ field }) => (
+                      <input
+                        {...field}
+                        onChange={(e) => field.onChange(e.target.value.replace(/\D/g, '').substring(0, 15))}
+                        placeholder="CNS"
+                        maxLength={15}
+                        className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-all"
+                      />
+                    )}
                   />
                 </div>
 
@@ -544,12 +545,18 @@ export function CadastrarPaciente({ onSuccess, isModal = false }: CadastrarPacie
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-gray-500 uppercase">CPF *</label>
                   <div className="flex gap-2">
-                    <input
-                      value={cpfValue}
-                      onChange={handleCpfChange}
-                      placeholder="000.000.000-00"
-                      maxLength={14}
-                      className="flex h-10 w-full rounded-md border border-gray-350 bg-white px-3 py-2 text-sm placeholder:text-gray-405 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-all"
+                    <Controller
+                      name="cpf"
+                      control={control}
+                      render={({ field }) => (
+                        <input
+                          {...field}
+                          onChange={(e) => field.onChange(formatCPF(e.target.value))}
+                          placeholder="000.000.000-00"
+                          maxLength={14}
+                          className="flex h-10 w-full rounded-md border border-gray-350 bg-white px-3 py-2 text-sm placeholder:text-gray-405 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-all"
+                        />
+                      )}
                     />
                     <button
                       type="button"
@@ -820,17 +827,24 @@ export function CadastrarPaciente({ onSuccess, isModal = false }: CadastrarPacie
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Celular (Celular) */}
+                {/* Celular (Celular) */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-gray-500 uppercase flex items-center gap-1.5">
                     <Smartphone className="h-3.5 w-3.5 text-gray-400" />
                     Celular *
                   </label>
-                  <input
-                    value={celularValue}
-                    onChange={handleCelularChange}
-                    placeholder="(XX) 9XXXX-XXXX"
-                    maxLength={15}
-                    className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-all"
+                  <Controller
+                    name="celular"
+                    control={control}
+                    render={({ field }) => (
+                      <input
+                        {...field}
+                        onChange={(e) => field.onChange(formatPhone(e.target.value))}
+                        placeholder="(XX) 9XXXX-XXXX"
+                        maxLength={15}
+                        className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-all"
+                      />
+                    )}
                   />
                   {errors.celular && (
                     <span className="text-[10px] font-medium text-red-500">{(errors.celular.message as string)}</span>
@@ -843,12 +857,25 @@ export function CadastrarPaciente({ onSuccess, isModal = false }: CadastrarPacie
                     <Phone className="h-3.5 w-3.5 text-gray-400" />
                     Telefone
                   </label>
-                  <input
-                    value={telefoneValue}
-                    onChange={handleTelefoneChange}
-                    placeholder="(XX) 0000-0000"
-                    maxLength={14}
-                    className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-all"
+                  <Controller
+                    name="telefone"
+                    control={control}
+                    render={({ field }) => (
+                      <input
+                        {...field}
+                        onChange={(e) => {
+                          let value = e.target.value.replace(/\D/g, '');
+                          if (value.length > 10) value = value.substring(0, 10);
+                          if (value.length > 2) {
+                            value = `(${value.substring(0, 2)}) ${value.substring(2, 6)}-${value.substring(6)}`;
+                          }
+                          field.onChange(value);
+                        }}
+                        placeholder="(XX) 0000-0000"
+                        maxLength={14}
+                        className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 transition-all"
+                      />
+                    )}
                   />
                 </div>
               </div>

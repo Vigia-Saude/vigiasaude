@@ -80,9 +80,9 @@ export class PacienteController {
       }
 
       // Validação de formato de Celular
-      const phoneRegex = /^\(\d{2}\) 9\d{4}-\d{4}$/;
+      const phoneRegex = /^\(\d{2}\) \d{4,5}-\d{4}$/;
       if (!phoneRegex.test(celular)) {
-        return res.status(400).json({ error: 'Celular em formato inválido. Formato: (XX) 9XXXX-XXXX' });
+        return res.status(400).json({ error: 'Celular em formato inválido. Formato: (XX) 9XXXX-XXXX ou (XX) XXXX-XXXX' });
       }
 
       // Validação de formato de CEP
@@ -428,9 +428,9 @@ export class PacienteController {
 
       // Validar celular se enviado
       if (celular) {
-        const phoneRegex = /^\(\d{2}\) 9\d{4}-\d{4}$/;
+        const phoneRegex = /^\(\d{2}\) \d{4,5}-\d{4}$/;
         if (!phoneRegex.test(celular)) {
-          return res.status(400).json({ error: 'Celular em formato inválido. Formato: (XX) 9XXXX-XXXX' });
+          return res.status(400).json({ error: 'Celular em formato inválido. Formato: (XX) 9XXXX-XXXX ou (XX) XXXX-XXXX' });
         }
       }
 
