@@ -394,41 +394,40 @@ export class CdController {
 
     try {
       const isUnidade = req.user?.perfil === 'FARMACIA' || req.user?.perfil === 'POSTO_SAUDE';
-      if (isUnidade && req.user?.unidadeId) {
+      if (isUnidade && req.user?.unidadeId && req.user?.tenantSchema) {
         const tenantSchema = req.user.tenantSchema;
-        if (!tenantSchema) {
-          res.status(400).json({ erro: 'Tenant não identificado para esta unidade.' });
+        try {
+          const tenant = getPrismaForSchema(tenantSchema);
+          let query = `
+            SELECT
+              m.nome            AS "medicamentoNome",
+              m.catmat_codigo   AS "catmatCodigo",
+              m.estoque_minimo  AS "estoqueMinimo",
+              l.id,
+              l.numero_lote     AS "numeroLote",
+              l.validade        AS "dataValidade",
+              l.quantidade_atual AS "quantidadeAtual",
+              'DISPONIVEL'      AS "status"
+            FROM medicamentos m
+            INNER JOIN lotes l ON l.medicamento_id = m.id AND l.deleted_at IS NULL AND l.quantidade_atual > 0
+            WHERE m.deleted_at IS NULL
+          `;
+
+          const params: unknown[] = [];
+          if (busca) {
+            params.push(`%${busca}%`, `%${busca}%`, `%${busca}%`);
+            query += ` AND (m.nome ILIKE $1 OR m.catmat_codigo ILIKE $2 OR l.numero_lote ILIKE $3)`;
+          }
+          
+          query += ` ORDER BY m.nome, l.validade ASC`;
+
+          const lotes: any[] = await tenant.$queryRawUnsafe(query, ...params);
+
+          res.json({ total: lotes.length, pagina: 1, dados: lotes });
           return;
+        } catch (tenantErr) {
+          console.warn(`[CdController] Falha ao consultar tenant schema (${tenantSchema}), caindo para estoque central:`, tenantErr);
         }
-
-        const tenant = getPrismaForSchema(tenantSchema);
-        let query = `
-          SELECT
-            m.nome            AS "medicamentoNome",
-            m.catmat_codigo   AS "catmatCodigo",
-            m.estoque_minimo  AS "estoqueMinimo",
-            l.id,
-            l.numero_lote     AS "numeroLote",
-            l.validade        AS "dataValidade",
-            l.quantidade_atual AS "quantidadeAtual",
-            'DISPONIVEL'      AS "status"
-          FROM medicamentos m
-          INNER JOIN lotes l ON l.medicamento_id = m.id AND l.deleted_at IS NULL AND l.quantidade_atual > 0
-          WHERE m.deleted_at IS NULL
-        `;
-
-        const params: unknown[] = [];
-        if (busca) {
-          params.push(`%${busca}%`, `%${busca}%`, `%${busca}%`);
-          query += ` AND (m.nome ILIKE $1 OR m.catmat_codigo ILIKE $2 OR l.numero_lote ILIKE $3)`;
-        }
-        
-        query += ` ORDER BY m.nome, l.validade ASC`;
-
-        const lotes: any[] = await tenant.$queryRawUnsafe(query, ...params);
-
-        res.json({ total: lotes.length, pagina: 1, dados: lotes });
-        return;
       }
 
       const where: Prisma.CdEstoqueLoteWhereInput = { deletedAt: null };

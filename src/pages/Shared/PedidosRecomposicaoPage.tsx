@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   ShoppingCart, 
   Search, 
@@ -89,7 +89,7 @@ export function PedidosRecomposicaoPage() {
   // Confirm Receipt State
   const [confirmingReceipt, setConfirmingReceipt] = useState(false);
 
-  const fetchPedidos = async () => {
+  const fetchPedidos = useCallback(async () => {
     if (!user?.unidadeId) return;
 
     try {
@@ -117,21 +117,11 @@ export function PedidosRecomposicaoPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, statusFilter, dataFilter, busca, user?.unidadeId]);
 
   useEffect(() => {
     fetchPedidos();
-  }, [page, statusFilter, dataFilter, user?.unidadeId]);
-
-  // Debounce search
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      setPage(1);
-      fetchPedidos();
-    }, 400);
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [busca]);
+  }, [fetchPedidos]);
 
   // Debounce CATMAT medication search in modal
   useEffect(() => {
@@ -150,7 +140,7 @@ export function PedidosRecomposicaoPage() {
       } finally {
         setSuggestionsLoading(false);
       }
-    }, 300);
+    }, 250);
 
     return () => clearTimeout(delayDebounceFn);
   }, [catmatSearch]);
@@ -788,7 +778,7 @@ export function PedidosRecomposicaoPage() {
 
                   {/* Suggestions List */}
                   {catmatSuggestions.length > 0 && (
-                    <div className="absolute left-0 right-0 top-[68px] bg-white border border-gray-250 rounded-xl shadow-lg z-25 max-h-60 overflow-y-auto divide-y divide-gray-100">
+                    <div className="absolute left-0 right-0 top-[68px] bg-white border border-gray-200 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto divide-y divide-gray-100">
                       {catmatSuggestions.map((med) => (
                         <button
                           key={med.id}
@@ -806,7 +796,7 @@ export function PedidosRecomposicaoPage() {
                   )}
 
                   {catmatSearch.trim().length >= 2 && catmatSuggestions.length === 0 && !suggestionsLoading && (
-                    <div className="absolute left-0 right-0 top-[68px] bg-white border border-gray-200 rounded-xl shadow-lg p-4 text-center text-xs text-gray-400 z-25">
+                    <div className="absolute left-0 right-0 top-[68px] bg-white border border-gray-200 rounded-xl shadow-xl p-4 text-center text-xs text-gray-400 z-50">
                       Nenhum medicamento encontrado para "{catmatSearch}"
                     </div>
                   )}
