@@ -43,5 +43,13 @@ server/src/test-*.ts
 # Uploads
 server/uploads/
 
+# Documentos com dados de paciente (LGPD art. 11) - nunca versionar
+# Agendas, laudos, listas de atendimento e notas fiscais sao dado sensivel.
+*.pdf
+*.PDF
+NotaFiscal*.xml
+nota-fiscal*.xml
+
 # IDE/Assistant directories
 .claude/
+graphify-out/
