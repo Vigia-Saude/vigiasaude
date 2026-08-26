@@ -7,20 +7,27 @@ export class FilaWhatsappController {
   // GET /api/regulacao/whatsapp/filas
   obterResumoFilas = async (_req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const entries = await prisma.queueEntry.findMany({
-        select: { status: true }
+      const grouped = await prisma.queueEntry.groupBy({
+        by: ['status'],
+        _count: { _all: true },
       });
 
-      const count = (status: string) => entries.filter(e => e.status === status).length;
+      const counts: Record<string, number> = {};
+      let total = 0;
+
+      for (const item of grouped) {
+        counts[item.status] = item._count._all;
+        total += item._count._all;
+      }
 
       const summary = {
-        total: entries.length,
-        pending: count('PENDING'),
-        awaitingResponse: count('AWAITING_RESPONSE'),
-        confirmed: count('CONFIRMED'),
-        declined: count('DECLINED'),
-        expired: count('EXPIRED'),
-        cancelled: count('CANCELLED')
+        total,
+        pending: counts['PENDING'] || 0,
+        awaitingResponse: counts['AWAITING_RESPONSE'] || 0,
+        confirmed: counts['CONFIRMED'] || 0,
+        declined: counts['DECLINED'] || 0,
+        expired: counts['EXPIRED'] || 0,
+        cancelled: counts['CANCELLED'] || 0
       };
 
       res.json(summary);

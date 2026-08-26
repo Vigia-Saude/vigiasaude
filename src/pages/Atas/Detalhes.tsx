@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router';
 import { toast } from 'sonner';
 import { getAtaFullDetails } from '../../services/ataService';
 import type { AtaFullDetails } from '../../services/ataService';
+import { getApiBaseUrl } from '../../services/apiClient';
 import { DataTable } from '../../components/ui/DataTable';
 import type { ColumnDef } from '../../components/ui/DataTable';
 import { AlertBanner } from '../../components/ui/AlertBanner';
@@ -278,7 +279,7 @@ export function AtasDetalhes() {
         <div className="flex items-center gap-3 shrink-0">
           {ata.documentoPdfUrl && (
             <a
-              href={`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}${ata.documentoPdfUrl}`}
+              href={`${getApiBaseUrl()}${ata.documentoPdfUrl}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 rounded-md bg-white text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"

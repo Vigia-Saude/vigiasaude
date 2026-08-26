@@ -94,40 +94,40 @@ router.put('/fornecedores/:id', roleMiddleware(['COMPRADOR']), fornecedorControl
 router.patch('/fornecedores/:id/status', roleMiddleware(['COMPRADOR']), fornecedorController.toggleStatus);
 
 // Rotas do Centro de Distribuição (CD)
-router.get('/cd/dashboard/stats', cdController.getDashboardStats);
-router.post('/cd/notas-fiscais/xml', roleMiddleware(['GESTOR_ESTOQUE']), cdController.lerNfXml);
-router.post('/cd/notas-fiscais', roleMiddleware(['GESTOR_ESTOQUE']), cdController.registrarNf);
-router.get('/cd/notas-fiscais', cdController.listarNfs);
-router.get('/cd/notas-fiscais/:id', cdController.obterNf);
-router.post('/cd/notas-fiscais/:id/conferir', roleMiddleware(['GESTOR_ESTOQUE']), cdController.conferirNf);
-router.get('/cd/estoque/detalhes', cdController.obterDetalhesMedicamento);
-router.get('/cd/estoque', cdController.listarEstoque);
-router.put('/cd/estoque/minimo', roleMiddleware(['GESTOR_ESTOQUE']), cdController.atualizarEstoqueMinimo);
-router.post('/cd/recalls', roleMiddleware(['COMPRADOR']), cdController.registrarRecall);
-router.get('/cd/recalls', cdController.listarRecalls);
-router.patch('/cd/recalls/:id/encerrar', roleMiddleware(['COMPRADOR']), cdController.encerrarRecall);
-router.get('/cd/alertas', cdController.listarAlertas);
-router.patch('/cd/alertas/:id/lido', cdController.marcarAlertaLido);
-router.get('/cd/auditoria', cdController.listarAuditoria);
+router.get('/cd/dashboard/stats', roleMiddleware(['GESTOR_ESTOQUE', 'COMPRADOR', 'SECRETARIO_SAUDE']), cdController.getDashboardStats);
+router.post('/cd/notas-fiscais/xml', roleMiddleware(['GESTOR_ESTOQUE', 'COMPRADOR']), cdController.lerNfXml);
+router.post('/cd/notas-fiscais', roleMiddleware(['GESTOR_ESTOQUE', 'COMPRADOR']), cdController.registrarNf);
+router.get('/cd/notas-fiscais', roleMiddleware(['GESTOR_ESTOQUE', 'COMPRADOR', 'SECRETARIO_SAUDE']), cdController.listarNfs);
+router.get('/cd/notas-fiscais/:id', roleMiddleware(['GESTOR_ESTOQUE', 'COMPRADOR', 'SECRETARIO_SAUDE']), cdController.obterNf);
+router.post('/cd/notas-fiscais/:id/conferir', roleMiddleware(['GESTOR_ESTOQUE', 'COMPRADOR']), cdController.conferirNf);
+router.get('/cd/estoque/detalhes', roleMiddleware(['GESTOR_ESTOQUE', 'COMPRADOR', 'FARMACIA', 'POSTO_SAUDE', 'SECRETARIO_SAUDE']), cdController.obterDetalhesMedicamento);
+router.get('/cd/estoque', roleMiddleware(['GESTOR_ESTOQUE', 'COMPRADOR', 'FARMACIA', 'POSTO_SAUDE', 'SECRETARIO_SAUDE']), cdController.listarEstoque);
+router.put('/cd/estoque/minimo', roleMiddleware(['GESTOR_ESTOQUE', 'COMPRADOR']), cdController.atualizarEstoqueMinimo);
+router.post('/cd/recalls', roleMiddleware(['COMPRADOR', 'SECRETARIO_SAUDE']), cdController.registrarRecall);
+router.get('/cd/recalls', roleMiddleware(['GESTOR_ESTOQUE', 'COMPRADOR', 'FARMACIA', 'POSTO_SAUDE', 'SECRETARIO_SAUDE']), cdController.listarRecalls);
+router.patch('/cd/recalls/:id/encerrar', roleMiddleware(['COMPRADOR', 'SECRETARIO_SAUDE']), cdController.encerrarRecall);
+router.get('/cd/alertas', roleMiddleware(['GESTOR_ESTOQUE', 'COMPRADOR', 'SECRETARIO_SAUDE']), cdController.listarAlertas);
+router.patch('/cd/alertas/:id/lido', roleMiddleware(['GESTOR_ESTOQUE', 'COMPRADOR', 'SECRETARIO_SAUDE']), cdController.marcarAlertaLido);
+router.get('/cd/auditoria', roleMiddleware(['GESTOR_ESTOQUE', 'COMPRADOR', 'SECRETARIO_SAUDE']), cdController.listarAuditoria);
 
 // Rotas de Pedidos de Recomposição de Estoque (CD)
-router.get('/cd/pedidos-reposicao', pedidoReposicaoController.listar);
-router.get('/cd/pedidos-reposicao/motoristas', pedidoReposicaoController.listarMotoristas);
-router.get('/cd/pedidos-reposicao/:id', pedidoReposicaoController.detalhes);
-router.post('/cd/pedidos-reposicao', roleMiddleware(['FARMACIA', 'POSTO_SAUDE', 'GESTOR_ESTOQUE']), pedidoReposicaoController.criar);
-router.patch('/cd/pedidos-reposicao/:id/status', roleMiddleware(['GESTOR_ESTOQUE', 'ENTREGADOR', 'FARMACIA', 'POSTO_SAUDE']), pedidoReposicaoController.atualizarStatus);
+router.get('/cd/pedidos-reposicao', roleMiddleware(['GESTOR_ESTOQUE', 'ENTREGADOR', 'FARMACIA', 'POSTO_SAUDE', 'COMPRADOR', 'SECRETARIO_SAUDE']), pedidoReposicaoController.listar);
+router.get('/cd/pedidos-reposicao/motoristas', roleMiddleware(['GESTOR_ESTOQUE', 'ENTREGADOR', 'FARMACIA', 'POSTO_SAUDE', 'COMPRADOR', 'SECRETARIO_SAUDE']), pedidoReposicaoController.listarMotoristas);
+router.get('/cd/pedidos-reposicao/:id', roleMiddleware(['GESTOR_ESTOQUE', 'ENTREGADOR', 'FARMACIA', 'POSTO_SAUDE', 'COMPRADOR', 'SECRETARIO_SAUDE']), pedidoReposicaoController.detalhes);
+router.post('/cd/pedidos-reposicao', roleMiddleware(['FARMACIA', 'POSTO_SAUDE', 'GESTOR_ESTOQUE', 'COMPRADOR']), pedidoReposicaoController.criar);
+router.patch('/cd/pedidos-reposicao/:id/status', roleMiddleware(['GESTOR_ESTOQUE', 'ENTREGADOR', 'FARMACIA', 'POSTO_SAUDE', 'COMPRADOR']), pedidoReposicaoController.atualizarStatus);
 
 // Rotas da Farmácia (Dispensação)
-router.get('/farmacia/estoque', farmaciaController.buscarEstoque);
+router.get('/farmacia/estoque', roleMiddleware(['FARMACIA', 'POSTO_SAUDE', 'COMPRADOR', 'GESTOR_ESTOQUE', 'SECRETARIO_SAUDE']), farmaciaController.buscarEstoque);
 router.post('/farmacia/dispensar', roleMiddleware(['FARMACIA', 'POSTO_SAUDE']), farmaciaController.dispensar);
-router.get('/farmacia/dispensacoes/recentes', farmaciaController.dispensacoesRecentes);
-router.get('/farmacia/pacientes', farmaciaController.buscarPacientes);
+router.get('/farmacia/dispensacoes/recentes', roleMiddleware(['FARMACIA', 'POSTO_SAUDE', 'COMPRADOR', 'SECRETARIO_SAUDE']), farmaciaController.dispensacoesRecentes);
+router.get('/farmacia/pacientes', roleMiddleware(['FARMACIA', 'POSTO_SAUDE', 'COMPRADOR', 'SECRETARIO_SAUDE']), farmaciaController.buscarPacientes);
 router.post('/farmacia/validar-qr', roleMiddleware(['FARMACIA', 'POSTO_SAUDE']), farmaciaController.validarQrCode);
 router.get('/farmacia/embalagem/:id/etiqueta', roleMiddleware(['FARMACIA', 'POSTO_SAUDE']), farmaciaController.gerarEtiqueta);
 
 // Rotas da Farmácia (Entregas Domiciliares)
-router.get('/farmacia/entregas', farmaciaController.listarEntregas);
-router.get('/farmacia/entregas/stats', farmaciaController.statsEntregas);
+router.get('/farmacia/entregas', roleMiddleware(['FARMACIA', 'POSTO_SAUDE', 'COMPRADOR', 'ENTREGADOR', 'SECRETARIO_SAUDE']), farmaciaController.listarEntregas);
+router.get('/farmacia/entregas/stats', roleMiddleware(['FARMACIA', 'POSTO_SAUDE', 'COMPRADOR', 'ENTREGADOR', 'SECRETARIO_SAUDE']), farmaciaController.statsEntregas);
 router.post('/farmacia/entregas', roleMiddleware(['FARMACIA', 'POSTO_SAUDE']), farmaciaController.criarEntrega);
 router.patch('/farmacia/entregas/:id/coletar', roleMiddleware(['ENTREGADOR', 'FARMACIA', 'POSTO_SAUDE']), farmaciaController.confirmarColeta);
 router.patch('/farmacia/entregas/:id/status', roleMiddleware(['ENTREGADOR', 'FARMACIA', 'POSTO_SAUDE']), farmaciaController.atualizarStatusEntrega);
@@ -193,7 +193,7 @@ router.get('/regulacao/:id', roleMiddleware([...UBS_PROFILES, 'REGULADOR']), reg
 router.patch('/regulacao/:id', roleMiddleware(UBS_PROFILES), regulacaoController.atualizar);
 router.patch('/regulacao/:id/agendar', roleMiddleware(['REGULADOR']), regulacaoController.agendar);
 router.patch('/regulacao/:id/avisar-paciente', roleMiddleware(UBS_PROFILES), regulacaoController.avisarPaciente);
-router.patch('/regulacao/:id/status', regulacaoController.atualizarStatus);
+router.patch('/regulacao/:id/status', roleMiddleware([...UBS_PROFILES, 'REGULADOR', 'SECRETARIO_SAUDE']), regulacaoController.atualizarStatus);
 
 export default router;
 

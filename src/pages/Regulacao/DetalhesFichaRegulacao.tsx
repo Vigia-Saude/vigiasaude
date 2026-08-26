@@ -19,6 +19,7 @@ import {
   Circle,
 } from 'lucide-react';
 import { detalhesFichaRegulacao } from '../../services/regulacaoService';
+import { getApiBaseUrl } from '../../services/apiClient';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { formatCPF, formatPhone } from '../../lib/utils';
 import type { FilaRegulacao, StatusAgendamento } from '../../types';
@@ -120,7 +121,7 @@ export function DetalhesFichaRegulacao() {
   });
 
   // Build anexo URL
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  const baseUrl = getApiBaseUrl();
   const token = localStorage.getItem('vigiasaude_token');
   const anexoUrl = ficha?.anexoUrl ? `${baseUrl}${ficha.anexoUrl}` : null;
   const isAnexoPdf = ficha?.anexoUrl?.toLowerCase().endsWith('.pdf');

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { detalhesFichaRegulacao, agendarFichaRegulacao } from '../../services/regulacaoService';
+import { getApiBaseUrl } from '../../services/apiClient';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { formatCPF } from '../../lib/utils';
 import type { FilaRegulacao } from '../../types';
@@ -77,7 +78,7 @@ export function AgendamentoRegulacao() {
   };
 
   // Build anexo URL
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  const baseUrl = getApiBaseUrl();
   const token = localStorage.getItem('vigiasaude_token');
   const anexoUrl = ficha?.anexoUrl ? `${baseUrl}${ficha.anexoUrl}` : null;
   const isAnexoPdf = ficha?.anexoUrl?.toLowerCase().endsWith('.pdf');

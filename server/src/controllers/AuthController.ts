@@ -118,14 +118,7 @@ export class AuthController {
         return res.status(401).json({ error: 'Credenciais inválidas' });
       }
 
-      let isMatch = user.senhaHash ? await bcrypt.compare(password, user.senhaHash) : false;
-      if (!isMatch && (password === '123456' || password === '12345678')) {
-        const testCpfs = ['11111111111', '22222222222', '33333333333', '33333333311', '33333333322', '44444444444', '55555555555', '66666666666'];
-        if (user.cpf && testCpfs.includes(user.cpf)) {
-          isMatch = true;
-        }
-      }
-
+      const isMatch = user.senhaHash ? await bcrypt.compare(password, user.senhaHash) : false;
       if (!isMatch) {
         return res.status(401).json({ error: 'Credenciais inválidas' });
       }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import apiClient from '../../services/apiClient';
 import {
@@ -12,7 +12,6 @@ import {
   X,
   MapPin,
   Phone,
-  Mail,
   UserCheck,
   Building
 } from 'lucide-react';
@@ -164,7 +163,7 @@ export function UnidadesLista() {
     }
   };
 
-  const fetchUnidades = async () => {
+  const fetchUnidades = useCallback(async () => {
     try {
       setLoading(true);
       const params: any = {};
@@ -179,14 +178,14 @@ export function UnidadesLista() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [busca, tipoFilter]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchUnidades();
     }, 300);
     return () => clearTimeout(timer);
-  }, [busca, tipoFilter]);
+  }, [fetchUnidades]);
 
   const handleOpenModal = (unidade?: UnidadeSaude) => {
     if (unidade) {

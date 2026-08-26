@@ -473,24 +473,7 @@ export class CdController {
     }
 
     try {
-      // 1. Garantir existência da tabela no banco PostgreSQL
-      await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS public.cd_estoque_minimo (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          medicamento_nome TEXT UNIQUE NOT NULL,
-          catmat_codigo TEXT,
-          quantidade_minima INTEGER NOT NULL DEFAULT 0,
-          atualizado_em TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          criado_em TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-        );
-      `).catch(() => null);
-
-      // 2. Garantir valor ESTOQUE_MINIMO no enum AlertaCdTipo
-      await prisma.$executeRawUnsafe(`
-        ALTER TYPE "AlertaCdTipo" ADD VALUE IF NOT EXISTS 'ESTOQUE_MINIMO';
-      `).catch(() => null);
-
-      // 3. Upsert do estoque mínimo
+      // Upsert do estoque mínimo usando o modelo formal do Prisma
       const registro = await prisma.cdEstoqueMinimo.upsert({
         where: { medicamentoNome },
         update: {
