@@ -2,7 +2,6 @@ import { PrismaClient } from '@prisma/client'
 import { Pool } from 'pg'
 import { PrismaPg } from '@prisma/adapter-pg'
 import * as dotenv from 'dotenv'
-import dns from 'dns'
 
 dotenv.config()
 
@@ -10,31 +9,21 @@ if (!process.env.DATABASE_URL) {
   console.error('❌ DATABASE_URL não encontrada nas variáveis de ambiente!')
 }
 
-let cachedPoolerIp: string | null = null
-
-// Pre-resolve pooler IPv4 address at startup to keep it dynamic and robust
-dns.lookup('aws-0-sa-east-1.pooler.supabase.com', { family: 4 }, (err, address) => {
-  if (!err && address) {
-    cachedPoolerIp = address
-    console.log(`[Database DNS] Pre-resolved pooler to IPv4: ${address}`)
-  } else {
-    cachedPoolerIp = '52.67.1.88'
-    console.error('[Database DNS] Failed to resolve pooler dynamically, using fallback:', err)
-  }
-})
-
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   max: 10,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
+  connectionTimeoutMillis: 10000,
 })
+
 const adapter = new PrismaPg(pool)
 
 const prisma = new PrismaClient({
   adapter,
-  log: ['error', 'warn'],
+  log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
 })
 
 export default prisma
+export { prisma }
+
 

@@ -1,7 +1,21 @@
 import axios from 'axios';
 
+export const getApiBaseUrl = (): string => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl && typeof envUrl === 'string' && envUrl.trim().length > 0) {
+    return envUrl.trim();
+  }
+
+  // Se estiver rodando no navegador em domínio online (como *.vercel.app), aponta para o Railway
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return 'https://vigiasaude-production-a091.up.railway.app';
+  }
+
+  return 'http://localhost:3001';
+};
+
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001',
+  baseURL: getApiBaseUrl(),
 });
 
 // Interceptor de Request: Injetar JWT

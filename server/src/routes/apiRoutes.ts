@@ -19,6 +19,7 @@ import { PacienteController } from '../controllers/PacienteController';
 import { ImportPdfController } from '../controllers/ImportPdfController';
 import { FilaWhatsappController } from '../controllers/FilaWhatsappController';
 import { QueueController } from '../controllers/QueueController';
+import { ViagemTransporteController } from '../controllers/ViagemTransporteController';
 
 const router = Router();
 const pedidoController = new PedidoController();
@@ -38,6 +39,7 @@ const pacienteController = new PacienteController();
 const importPdfController = new ImportPdfController();
 const filaWhatsappController = new FilaWhatsappController();
 const queueController = new QueueController();
+const viagemTransporteController = new ViagemTransporteController();
 
 
 // Todas as rotas da API requerem autenticação
@@ -130,15 +132,26 @@ router.post('/farmacia/entregas', roleMiddleware(['FARMACIA', 'POSTO_SAUDE']), f
 router.patch('/farmacia/entregas/:id/coletar', roleMiddleware(['ENTREGADOR', 'FARMACIA', 'POSTO_SAUDE']), farmaciaController.confirmarColeta);
 router.patch('/farmacia/entregas/:id/status', roleMiddleware(['ENTREGADOR', 'FARMACIA', 'POSTO_SAUDE']), farmaciaController.atualizarStatusEntrega);
 
-// Rotas do Motorista (Entregador)
-router.get('/motorista/dashboard', roleMiddleware(['ENTREGADOR']), motoristaController.dashboard);
-router.get('/motorista/dashboard/grafico', roleMiddleware(['ENTREGADOR']), motoristaController.dashboardGrafico);
+// Rotas do Motorista (Entregador e Transporte de Pacientes)
+router.get('/motorista/dashboard', roleMiddleware(['ENTREGADOR', 'REGULADOR', 'SECRETARIO_SAUDE']), motoristaController.dashboard);
+router.get('/motorista/dashboard/grafico', roleMiddleware(['ENTREGADOR', 'REGULADOR', 'SECRETARIO_SAUDE']), motoristaController.dashboardGrafico);
 router.get('/motorista/coletas', roleMiddleware(['ENTREGADOR']), motoristaController.coletasPendentes);
 router.get('/motorista/entregas', roleMiddleware(['ENTREGADOR']), motoristaController.entregasAtivas);
 router.get('/motorista/historico', roleMiddleware(['ENTREGADOR']), motoristaController.historico);
 router.patch('/motorista/coletas/:id/aceitar', roleMiddleware(['ENTREGADOR']), motoristaController.aceitarColeta);
 router.patch('/motorista/entregas/:id/confirmar', roleMiddleware(['ENTREGADOR']), motoristaController.confirmarEntrega);
 router.patch('/motorista/entregas/:id/devolver', roleMiddleware(['ENTREGADOR']), motoristaController.devolverEntrega);
+
+// Rotas de Viagens e Transporte de Pacientes (TFD / Rotas com GPS e Assinatura Digital)
+const TRANSPORTE_ROLES = ['ENTREGADOR', 'REGULADOR', 'SECRETARIO_SAUDE', 'POSTO_SAUDE', 'GESTOR_UBS', 'RECEPCIONISTA_UBS'];
+router.get('/motorista/viagens', roleMiddleware(TRANSPORTE_ROLES), viagemTransporteController.listar);
+router.post('/motorista/viagens', roleMiddleware(TRANSPORTE_ROLES), viagemTransporteController.criar);
+router.get('/motorista/viagens/:id', roleMiddleware(TRANSPORTE_ROLES), viagemTransporteController.obterPorId);
+router.patch('/motorista/viagens/:id/etapa', roleMiddleware(['ENTREGADOR']), viagemTransporteController.avancarEtapa);
+router.post('/motorista/viagens/:id/gps', roleMiddleware(['ENTREGADOR']), viagemTransporteController.registrarPontoGps);
+router.patch('/motorista/viagens/passageiro/:passageiroId', roleMiddleware(['ENTREGADOR']), viagemTransporteController.atualizarStatusPassageiro);
+router.get('/motorista/viagens/:id/relatorio', roleMiddleware(TRANSPORTE_ROLES), viagemTransporteController.relatorio);
+
 
 // Rotas de Pacientes
 const UBS_PROFILES = ['POSTO_SAUDE', 'GESTOR_UBS', 'RECEPCIONISTA_UBS', 'MEDICO'];

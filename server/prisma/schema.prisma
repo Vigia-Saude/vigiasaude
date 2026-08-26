@@ -138,6 +138,7 @@ model EtlBps {
   qtdItensComprados             BigInt   @map("qtd_itens_comprados")
   precoUnitario                 Decimal  @map("preco_unitario")
   precoTotal                    Decimal  @map("preco_total")
+  quantidadeComprimidosCaixa    Int?     @map("quantidade_comprimidos_caixa")
   extraidoEm                    DateTime @default(now()) @map("extraido_em") @db.Timestamp(6)
   arquivoOrigem                 String   @map("arquivo_origem")
 
@@ -290,6 +291,7 @@ model User {
   pedidosEntregar    PedidoReposicao[] @relation("MotoristaPedidos")
   filaCriadaPor      FilaRegulacao[]   @relation("FilaCriadaPor")
   filaAgendadaPor    FilaRegulacao[]   @relation("FilaAgendadaPor")
+  viagensMotorista   ViagemTransporte[] @relation("ViagensMotorista")
 
   @@index([fornecedorId])
   @@index([status])
@@ -728,6 +730,7 @@ model Paciente {
   atualizadoEm        DateTime        @updatedAt @map("atualizado_em")
   
   fichasRegulacao     FilaRegulacao[]
+  viagensPassageiro   ViagemPassageiro[]
 
   @@index([unidadeOrigemId])
   @@map("pacientes")
@@ -885,4 +888,78 @@ model MessageLog {
   @@index([wamid])
   @@map("messages_log")
 }
+
+enum ViagemStatus {
+  AGENDADA
+  SAIDA_CIDADE
+  CHEGADA_DESTINO
+  RETORNO_DESTINO
+  CONCLUIDA
+  CANCELADA
+}
+
+enum PassageiroStatus {
+  PENDENTE
+  EMBARCOU
+  NAO_COMPARECEU
+  DESEMBARCOU
+}
+
+model ViagemTransporte {
+  id                  String               @id @default(uuid())
+  motoristaId         String               @map("motorista_id")
+  motorista           User                 @relation("ViagensMotorista", fields: [motoristaId], references: [id])
+  veiculo             String
+  placa               String?
+  origem              String               @default("UBS Central / Regulação")
+  destino             String
+  dataViagem          DateTime             @map("data_viagem")
+  status              ViagemStatus         @default(AGENDADA)
+  
+  // 4 Etapas da Jornada
+  saidaOrigemEm       DateTime?            @map("saida_origem_em")
+  chegadaDestinoEm    DateTime?            @map("chegada_destino_em")
+  saidaDestinoEm      DateTime?            @map("saida_destino_em")
+  chegadaOrigemEm     DateTime?            @map("chegada_origem_em")
+  
+  // Rastreamento GPS
+  gpsInicioLat        Float?               @map("gps_inicio_lat")
+  gpsInicioLng        Float?               @map("gps_inicio_lng")
+  gpsFimLat           Float?               @map("gps_fim_lat")
+  gpsFimLng           Float?               @map("gps_fim_lng")
+  gpsPontos           Json?                @map("gps_pontos") // Array de [{ lat, lng, timestamp, precisao, etapa }]
+  
+  // Confirmação e Assinatura Digital do Motorista/Equipe
+  assinaturaBase64    String?              @map("assinatura_base64")
+  observacoes         String?
+  
+  iniciadaEm          DateTime?            @map("iniciada_em")
+  concluidaEm         DateTime?            @map("concluida_em")
+  criadoEm            DateTime             @default(now()) @map("criado_em")
+  atualizadoEm        DateTime             @updatedAt @map("atualizado_em")
+  
+  passageiros         ViagemPassageiro[]
+
+  @@index([motoristaId])
+  @@index([status])
+  @@map("viagens_transporte")
+}
+
+model ViagemPassageiro {
+  id              String           @id @default(uuid())
+  viagemId        String           @map("viagem_id")
+  viagem          ViagemTransporte @relation(fields: [viagemId], references: [id], onDelete: Cascade)
+  pacienteId      String?          @map("paciente_id")
+  paciente        Paciente?        @relation(fields: [pacienteId], references: [id])
+  nomePaciente    String           @map("nome_paciente")
+  cartaoSus       String?          @map("cartao_sus")
+  acompanhante    String?
+  status          PassageiroStatus @default(PENDENTE)
+  motivoAusencia  String?          @map("motivo_ausencia")
+
+  @@index([viagemId])
+  @@index([pacienteId])
+  @@map("viagem_passageiros")
+}
+
 
