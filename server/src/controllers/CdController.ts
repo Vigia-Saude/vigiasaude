@@ -440,11 +440,17 @@ export class CdController {
         ];
       }
 
-      const [total, lotes, minimos] = await Promise.all([
+      const [total, lotes] = await Promise.all([
         prisma.cdEstoqueLote.count({ where }),
         prisma.cdEstoqueLote.findMany({ where, skip, take, orderBy: { dataValidade: 'asc' } }),
-        prisma.cdEstoqueMinimo.findMany().catch(() => []),
       ]);
+
+      const nomesMedicamentos = Array.from(new Set(lotes.map(l => l.medicamentoNome).filter(Boolean)));
+      const minimos = nomesMedicamentos.length > 0
+        ? await prisma.cdEstoqueMinimo.findMany({
+            where: { medicamentoNome: { in: nomesMedicamentos } },
+          }).catch(() => [])
+        : [];
 
       const minimosMap: Record<string, number> = {};
       minimos.forEach(m => {

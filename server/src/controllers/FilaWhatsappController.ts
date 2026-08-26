@@ -37,9 +37,15 @@ export class FilaWhatsappController {
   };
 
   // GET /api/regulacao/whatsapp/filas/detalhes
-  detalhesFila = async (_req: AuthRequest, res: Response): Promise<void> => {
+  detalhesFila = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+      const take = req.query.limit ? Number(req.query.limit) : 100;
+      const page = req.query.page ? Number(req.query.page) : 1;
+      const skip = (page - 1) * take;
+
       const entries = await prisma.queueEntry.findMany({
+        take: Math.min(take, 200),
+        skip: Math.max(skip, 0),
         orderBy: { posicao: 'asc' },
         include: {
           import: { select: { originalFilename: true } },

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import apiClient from '../../services/apiClient';
@@ -1459,14 +1459,16 @@ export function SolicitacoesMembro() {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedId = searchParams.get('id');
+  const processedSelectedIdRef = useRef<string | null>(null);
 
   // Handle URL selectedId param to automatically open details/approval modal
   useEffect(() => {
-    if (selectedId && !loading) {
+    if (selectedId && !loading && processedSelectedIdRef.current !== selectedId) {
       const userToSelect = pendentes.find(u => u.id === selectedId) || 
                            ativos.find(u => u.id === selectedId) || 
                            desativados.find(u => u.id === selectedId);
       if (userToSelect) {
+        processedSelectedIdRef.current = selectedId;
         if (pendentes.some(u => u.id === selectedId)) {
           setAbaAtiva('pendentes');
         } else if (ativos.some(u => u.id === selectedId)) {
@@ -1476,9 +1478,10 @@ export function SolicitacoesMembro() {
         }
         setSelectedUser(userToSelect);
         
-        // Remove param from URL
-        searchParams.delete('id');
-        setSearchParams(searchParams);
+        // Clean param from URL without trigger loop
+        const newParams = new URLSearchParams(searchParams);
+        newParams.delete('id');
+        setSearchParams(newParams, { replace: true });
       }
     }
   }, [selectedId, loading, pendentes, ativos, desativados, searchParams, setSearchParams]);
