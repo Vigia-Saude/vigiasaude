@@ -221,6 +221,42 @@ export class ImportPdfController {
     }
   };
 
+  // PATCH /api/regulacao/imports/:importId/rows-bulk
+  bulkAtualizarRows = async (req: AuthRequest, res: Response): Promise<void> => {
+    const importId = getParam(req.params.importId);
+    const { scheduled_date_raw, approvedAll } = req.body;
+
+    try {
+      const rows = await prisma.pdfImportRow.findMany({
+        where: { importId }
+      });
+
+      for (const r of rows) {
+        const raw = (r.rawData || {}) as any;
+        const updatedRaw = {
+          ...raw,
+          ...(scheduled_date_raw ? { scheduled_date_raw } : {})
+        };
+        await prisma.pdfImportRow.update({
+          where: { id: r.id },
+          data: {
+            rawData: updatedRaw,
+            ...(typeof approvedAll === 'boolean' ? { approved: approvedAll } : {})
+          }
+        });
+      }
+
+      const updatedRows = await prisma.pdfImportRow.findMany({
+        where: { importId },
+        orderBy: { id: 'asc' }
+      });
+
+      res.json(updatedRows);
+    } catch (err: any) {
+      res.status(500).json({ erro: err.message });
+    }
+  };
+
   // POST /api/regulacao/imports/:importId/approve
   aprovarImport = async (req: AuthRequest, res: Response): Promise<void> => {
     const importId = getParam(req.params.importId);

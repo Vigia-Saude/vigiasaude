@@ -178,6 +178,7 @@ router.get('/regulacao/imports/:id/pdf-url', roleMiddleware(['REGULADOR']), impo
 router.get('/regulacao/imports/:id/pdf', roleMiddleware(['REGULADOR']), importPdfController.servirPdf);
 router.post('/regulacao/imports/:importId/rows', roleMiddleware(['REGULADOR']), importPdfController.criarRowManual);
 router.patch('/regulacao/imports/:importId/rows/:rowId', roleMiddleware(['REGULADOR']), importPdfController.atualizarRow);
+router.patch('/regulacao/imports/:importId/rows-bulk', roleMiddleware(['REGULADOR']), importPdfController.bulkAtualizarRows);
 router.post('/regulacao/imports/:importId/approve', roleMiddleware(['REGULADOR']), importPdfController.aprovarImport);
 
 router.get('/regulacao/whatsapp/filas', roleMiddleware(['REGULADOR']), filaWhatsappController.obterResumoFilas);

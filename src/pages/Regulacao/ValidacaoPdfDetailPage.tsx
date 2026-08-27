@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
-import { ArrowLeft, CheckCircle, Plus, Check, Loader2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Plus, Check, Loader2, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import apiClient from '../../services/apiClient';
 import { PatientCard, type PdfImportRow } from '../../components/Regulacao/PatientCard';
@@ -13,6 +13,14 @@ interface ImportDetail {
   rows: PdfImportRow[];
 }
 
+function formatDateInput(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+  if (digits.length === 0) return '';
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
 export function ValidacaoPdfDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -22,15 +30,21 @@ export function ValidacaoPdfDetailPage() {
   const [rowsImported, setRowsImported] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [addingManual, setAddingManual] = useState(false);
+  const [globalDate, setGlobalDate] = useState('');
+  const [applyingDate, setApplyingDate] = useState(false);
   const [error, setError] = useState('');
 
   const loadData = useCallback(() => {
     if (!id) return;
     apiClient.get<ImportDetail>(`/api/regulacao/imports/${id}`).then((res) => {
       const d = res.data;
-      setRows(d.rows || []);
+      const loadedRows = d.rows || [];
+      setRows(loadedRows);
       setFilename(d.originalFilename);
       setRowsImported(d.rowsImported);
+      if (loadedRows.length > 0 && loadedRows[0]?.rawData?.scheduled_date_raw) {
+        setGlobalDate(loadedRows[0].rawData.scheduled_date_raw);
+      }
     }).catch(() => {
       setError('Falha ao carregar os dados da importação.');
     });
@@ -98,6 +112,29 @@ export function ValidacaoPdfDetailPage() {
       }
     }
     toast.success('Todos os pacientes aprovados!');
+  };
+
+  const handleApplyGlobalDate = async () => {
+    if (!globalDate || !id) return;
+    setApplyingDate(true);
+    try {
+      const res = await apiClient.patch<PdfImportRow[]>(`/api/regulacao/imports/${id}/rows-bulk`, {
+        scheduled_date_raw: globalDate
+      });
+      setRows(res.data);
+      toast.success(`Data ${globalDate} aplicada para todos os ${res.data.length} pacientes!`);
+    } catch {
+      // Fallback otimista
+      setRows((prev) =>
+        prev.map((r) => ({
+          ...r,
+          rawData: { ...r.rawData, scheduled_date_raw: globalDate }
+        }))
+      );
+      toast.success(`Data ${globalDate} aplicada para todos os pacientes!`);
+    } finally {
+      setApplyingDate(false);
+    }
   };
 
   const submit = async () => {
@@ -214,6 +251,31 @@ export function ValidacaoPdfDetailPage() {
                 className="text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-3 py-1.5 rounded-xl font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1">
                 <Plus className="h-3.5 w-3.5" />
                 {addingManual ? 'Adicionando...' : '+ Adicionar Paciente'}
+              </button>
+            </div>
+          </div>
+
+          {/* Barra de Ação Rápida: Data Específica de Agendamento */}
+          <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3 shrink-0">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-emerald-600 shrink-0" />
+              <span className="text-xs font-bold text-slate-700">Data Agendada Específica:</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                disabled={isAlreadyImported || applyingDate}
+                value={globalDate}
+                onChange={(e) => setGlobalDate(formatDateInput(e.target.value))}
+                placeholder="DD/MM/AAAA (ex: 13/07/2026)"
+                className="w-44 border border-slate-300 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-medium focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+              />
+              <button
+                type="button"
+                disabled={!globalDate || isAlreadyImported || applyingDate}
+                onClick={handleApplyGlobalDate}
+                className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
+                {applyingDate ? 'Aplicando...' : 'Aplicar a Todos'}
               </button>
             </div>
           </div>

@@ -41,6 +41,8 @@ export function extractTableRows(text: string): ParsedRow[] {
     text.match(/(?:DATA|AGENDAMENTO):\s*(\d{2}\/\d{2}\/\d{4})/i);
   const scheduledDateRaw = agendaMatch?.[1] ?? null;
 
+  const UNIT_REGEX = /(?:SECRETARIA|CENTRO|UNIDADE|POSTO|ESF|UBS|HOSPITAL|CLINICA|POLICLINICA|LABORATORIO|AMBULATORIO)[\s\S]*?\/\s*[A-ZÀ-Ú\s]+/i;
+
   const unidadeMatchHeader = text.match(/(?:UNIDADE|POSTO|UBS|SOLICITANTE):\s*([^\n\r]+)/i);
   const unidadeSolicitanteHeader = unidadeMatchHeader?.[1]?.trim() || null;
 
@@ -52,8 +54,16 @@ export function extractTableRows(text: string): ParsedRow[] {
     const chunk = parts[i + 1];
     if (!chunk) continue;
 
-    const unidadeMatchChunk = chunk.match(/(?:UNIDADE|POSTO|UBS|SOLICITANTE):\s*([^\n\r]+)/i);
-    const unidadeSolicitante = unidadeMatchChunk?.[1]?.trim() || unidadeSolicitanteHeader;
+    // Extrai Unidade Solicitante da linha/chunk antes de OCI / AVALIAÇÃO / ESPECIALIDADE
+    let unidadeSolicitante: string | null = null;
+    const preOci = chunk.split(/\n\s*(?:OCI|AVALIAÇÃO|AVALIACAO|CONSULTA|ESPECIALIDADE\s*:|CID|Z\d{3})/i)[0] || chunk;
+    const matchUnidade = preOci.match(UNIT_REGEX);
+    if (matchUnidade) {
+      unidadeSolicitante = matchUnidade[0].replace(/\s+/g, ' ').trim();
+    } else {
+      const unidadeMatchChunk = chunk.match(/(?:UNIDADE|POSTO|UBS|SOLICITANTE):\s*([^\n\r]+)/i);
+      unidadeSolicitante = unidadeMatchChunk?.[1]?.trim() || unidadeSolicitanteHeader;
+    }
 
     const hora = timeHeader?.match(/(\d{2}:\d{2})/)?.[1] ?? null;
 
@@ -112,6 +122,8 @@ export function extractTableRows(text: string): ParsedRow[] {
     if (!cnsMatch && !fichaMatch) continue;
 
     const birthDateStr = birthMatch?.[1] ?? null;
+    const matchUnidadeBlock = block.match(UNIT_REGEX);
+    const fallbackUnidade = matchUnidadeBlock ? matchUnidadeBlock[0].replace(/\s+/g, ' ').trim() : unidadeSolicitanteHeader;
 
     rows.push({
       ficha: fichaMatch?.[1] ?? null,
@@ -121,7 +133,7 @@ export function extractTableRows(text: string): ParsedRow[] {
       birth_date_raw: birthDateStr,
       age: calculateAgeFromBirthDate(birthDateStr),
       procedure_name: null,
-      unidade_solicitante: unidadeSolicitanteHeader,
+      unidade_solicitante: fallbackUnidade,
       cid10: null,
       scheduled_date_raw: scheduledDateRaw,
       hora_raw: null,
