@@ -154,31 +154,31 @@ model EtlBps {
 
 /// Catálogo de medicamentos regulados pela CMED (um registro por apresentação).
 model EtlCmed {
-  codigoGgrem        String    @id @map("codigo_ggrem")
-  registro           String
-  ean1               String?   @map("ean_1")
-  ean2               String?   @map("ean_2")
-  ean3               String?   @map("ean_3")
-  substancia         String?
-  produto            String?
-  apresentacao       String?
-  cnpj               String
-  laboratorio        String?
-  classeTerapeutica  String?   @map("classe_terapeutica")
-  tipoProduto        String?   @map("tipo_produto")
-  regimeDePreco      String?   @map("regime_de_preco")
+  codigoGgrem         String   @id @map("codigo_ggrem")
+  registro            String
+  ean1                String?  @map("ean_1")
+  ean2                String?  @map("ean_2")
+  ean3                String?  @map("ean_3")
+  substancia          String?
+  produto             String?
+  apresentacao        String?
+  cnpj                String
+  laboratorio         String?
+  classeTerapeutica   String?  @map("classe_terapeutica")
+  tipoProduto         String?  @map("tipo_produto")
+  regimeDePreco       String?  @map("regime_de_preco")
   restricaoHospitalar Boolean? @map("restricao_hospitalar")
-  cap                Boolean?
-  confaz87           Boolean?  @map("confaz_87")
-  icms0Percentual    Boolean?  @map("icms_0_percentual")
-  analiseRecursal    String?   @map("analise_recursal")
-  creditoTributario  String?   @map("credito_tributario")
-  comercializado     Boolean?
-  anoComercializacao Int?      @map("ano_comercializacao")
-  tarja              String?
-  publicadoEm        DateTime  @map("publicado_em") @db.Timestamp(6)
-  extraidoEm         DateTime  @map("extraido_em") @db.Timestamp(6)
-  arquivoOrigem      String    @map("arquivo_origem")
+  cap                 Boolean?
+  confaz87            Boolean? @map("confaz_87")
+  icms0Percentual     Boolean? @map("icms_0_percentual")
+  analiseRecursal     String?  @map("analise_recursal")
+  creditoTributario   String?  @map("credito_tributario")
+  comercializado      Boolean?
+  anoComercializacao  Int?     @map("ano_comercializacao")
+  tarja               String?
+  publicadoEm         DateTime @map("publicado_em") @db.Timestamp(6)
+  extraidoEm          DateTime @map("extraido_em") @db.Timestamp(6)
+  arquivoOrigem       String   @map("arquivo_origem")
 
   precos EtlCmedPreco[]
 
@@ -227,7 +227,7 @@ model CatmatMedicamento {
   unidadeFornecimento String?  @map("unidade_fornecimento")
   ativo               Boolean  @default(true)
   criadoEm            DateTime @default(now()) @map("criado_em") @db.Timestamp(6)
-  atualizadoEm        DateTime @updatedAt @default(now()) @map("atualizado_em") @db.Timestamp(6)
+  atualizadoEm        DateTime @default(now()) @updatedAt @map("atualizado_em") @db.Timestamp(6)
 
   @@unique([codigoBr, principioAtivo, concentracao, formaFarmaceutica, unidadeFornecimento])
   @@index([codigoBr])
@@ -237,60 +237,58 @@ model CatmatMedicamento {
 }
 
 model Fornecedor {
-  id            String   @id @default(uuid())
-  cnpj          String   @unique
-  razaoSocial   String   @map("razao_social")
-  nomeFantasia  String   @map("nome_fantasia")
+  id            String    @id @default(uuid())
+  cnpj          String    @unique
+  razaoSocial   String    @map("razao_social")
+  nomeFantasia  String    @map("nome_fantasia")
   email         String
   whatsapp      String
   status        String    @default("ATIVO")
-  taxaAceitacao Decimal   @default(100.00) @db.Decimal(5, 2) @map("taxa_aceitacao")
+  taxaAceitacao Decimal   @default(100.00) @map("taxa_aceitacao") @db.Decimal(5, 2)
   categorias    String[]
   criadoEm      DateTime  @default(now()) @map("criado_em")
   atualizadoEm  DateTime  @default(now()) @updatedAt @map("atualizado_em")
   deletedAt     DateTime? @map("deleted_at")
 
   // Relacionamentos
-  usuarios      User[]
-  atas          Ata[]         @relation("FornecedorAtas")
-  pedidos       PedidoCompra[] @relation("FornecedorPedidos")
-  notasFiscais  NotaFiscal[]
+  usuarios     User[]
+  atas         Ata[]          @relation("FornecedorAtas")
+  pedidos      PedidoCompra[] @relation("FornecedorPedidos")
+  notasFiscais NotaFiscal[]
 
   @@map("fornecedores")
 }
 
-
-
 model User {
-  id               String        @id @default(uuid())
-  nome             String
-  cpf              String?       @unique
-  email            String?       @unique
-  senhaHash        String        @map("senha_hash")
-  role             Role          @default(COMPRADOR)
-  perfil           Perfil?
-  status           UsuarioStatus @default(PENDENTE)
-  unidadeId        String?       @map("unidade_id")
-  unidade          Unidade?      @relation(fields: [unidadeId], references: [id])
-  tenantSchema     String?       @map("tenant_schema")
-  permissoesExtras Json?         @map("permissoes_extras")
-  justificativa    String?
-  motivoRecusa     String?       @map("motivo_recusa")
-  aprovadoPor      String?       @map("aprovado_por")
-  aprovadoEm       DateTime?     @map("aprovado_em")
-  fornecedorId     String?       @map("fornecedor_id")
-  fornecedor       Fornecedor?   @relation(fields: [fornecedorId], references: [id])
-  telefone         String?
-  resetToken       String?       @map("reset_token")
-  resetTokenExpiry DateTime?     @map("reset_token_expiry")
-  criadoEm         DateTime      @default(now()) @map("criado_em")
-  atualizadoEm     DateTime      @updatedAt @map("atualizado_em")
-  deletedAt        DateTime?     @map("deleted_at")
-  auditorias       Auditoria[]
-  pedidosSolicitados PedidoReposicao[] @relation("SolicitadoPor")
-  pedidosEntregar    PedidoReposicao[] @relation("MotoristaPedidos")
-  filaCriadaPor      FilaRegulacao[]   @relation("FilaCriadaPor")
-  filaAgendadaPor    FilaRegulacao[]   @relation("FilaAgendadaPor")
+  id                 String             @id @default(uuid())
+  nome               String
+  cpf                String?            @unique
+  email              String?            @unique
+  senhaHash          String             @map("senha_hash")
+  role               Role               @default(COMPRADOR)
+  perfil             Perfil?
+  status             UsuarioStatus      @default(PENDENTE)
+  unidadeId          String?            @map("unidade_id")
+  unidade            Unidade?           @relation(fields: [unidadeId], references: [id])
+  tenantSchema       String?            @map("tenant_schema")
+  permissoesExtras   Json?              @map("permissoes_extras")
+  justificativa      String?
+  motivoRecusa       String?            @map("motivo_recusa")
+  aprovadoPor        String?            @map("aprovado_por")
+  aprovadoEm         DateTime?          @map("aprovado_em")
+  fornecedorId       String?            @map("fornecedor_id")
+  fornecedor         Fornecedor?        @relation(fields: [fornecedorId], references: [id])
+  telefone           String?
+  resetToken         String?            @map("reset_token")
+  resetTokenExpiry   DateTime?          @map("reset_token_expiry")
+  criadoEm           DateTime           @default(now()) @map("criado_em")
+  atualizadoEm       DateTime           @updatedAt @map("atualizado_em")
+  deletedAt          DateTime?          @map("deleted_at")
+  auditorias         Auditoria[]
+  pedidosSolicitados PedidoReposicao[]  @relation("SolicitadoPor")
+  pedidosEntregar    PedidoReposicao[]  @relation("MotoristaPedidos")
+  filaCriadaPor      FilaRegulacao[]    @relation("FilaCriadaPor")
+  filaAgendadaPor    FilaRegulacao[]    @relation("FilaAgendadaPor")
   viagensMotorista   ViagemTransporte[] @relation("ViagensMotorista")
 
   @@index([fornecedorId])
@@ -299,85 +297,85 @@ model User {
 }
 
 model Ata {
-  id                  String           @id @default(uuid())
-  numero              String           @unique
-  fornecedorNome      String           @map("fornecedor_nome") // Campo textual
-  fornecedorCnpj      String?          @map("fornecedor_cnpj") // Campo textual
-  fornecedor          Fornecedor?      @relation("FornecedorAtas", fields: [fornecedorCnpj], references: [cnpj])
-  processoLicitatorio String?          @map("processo_licitatorio")
-  numeroPregao        String?          @map("numero_pregao")
-  numeroEdital        String?          @map("numero_edital")
-  vigenciaInicio      DateTime         @map("vigencia_inicio")
-  vigenciaFim         DateTime         @map("vigencia_fim")
-  valorTeto           Decimal          @db.Decimal(12, 2) @map("valor_teto")
-  valorConsumido      Decimal          @default(0.00) @db.Decimal(12, 2) @map("valor_consumido")
-  status              AtaStatus        @default(ATIVA)
-  documentoPdfUrl     String?          @map("documento_pdf_url")
+  id                  String      @id @default(uuid())
+  numero              String      @unique
+  fornecedorNome      String      @map("fornecedor_nome") // Campo textual
+  fornecedorCnpj      String?     @map("fornecedor_cnpj") // Campo textual
+  fornecedor          Fornecedor? @relation("FornecedorAtas", fields: [fornecedorCnpj], references: [cnpj])
+  processoLicitatorio String?     @map("processo_licitatorio")
+  numeroPregao        String?     @map("numero_pregao")
+  numeroEdital        String?     @map("numero_edital")
+  vigenciaInicio      DateTime    @map("vigencia_inicio")
+  vigenciaFim         DateTime    @map("vigencia_fim")
+  valorTeto           Decimal     @map("valor_teto") @db.Decimal(12, 2)
+  valorConsumido      Decimal     @default(0.00) @map("valor_consumido") @db.Decimal(12, 2)
+  status              AtaStatus   @default(ATIVA)
+  documentoPdfUrl     String?     @map("documento_pdf_url")
   observacoes         String?
-  criadoEm            DateTime         @default(now()) @map("criado_em")
-  atualizadoEm        DateTime         @updatedAt @map("atualizado_em")
-  deletedAt           DateTime?        @map("deleted_at")
-  
-  medicamentos        MedicamentoAta[]
-  pedidos             PedidoCompra[]
-  consumos            AtaConsumo[]
+  criadoEm            DateTime    @default(now()) @map("criado_em")
+  atualizadoEm        DateTime    @updatedAt @map("atualizado_em")
+  deletedAt           DateTime?   @map("deleted_at")
+
+  medicamentos MedicamentoAta[]
+  pedidos      PedidoCompra[]
+  consumos     AtaConsumo[]
 
   @@index([fornecedorCnpj])
   @@map("atas")
 }
 
 model MedicamentoAta {
-  id                  String       @id @default(uuid())
-  ataId               String       @map("ata_id")
-  ata                 Ata          @relation(fields: [ataId], references: [id], onDelete: Cascade)
-  
+  id    String @id @default(uuid())
+  ataId String @map("ata_id")
+  ata   Ata    @relation(fields: [ataId], references: [id], onDelete: Cascade)
+
   // Integração CATMAT
-  catmatCodigo        String?      @map("catmat_codigo")
+  catmatCodigo        String? @map("catmat_codigo")
   nome                String
-  unidadeFornecimento String?      @map("unidade_fornecimento")
-  
+  unidadeFornecimento String? @map("unidade_fornecimento")
+
   // Informados manualmente na ATA
-  unidadeAta          String?      @map("unidade_ata")
-  marca               String?
-  modelo              String?
-  precoUnitario       Decimal      @db.Decimal(10, 2) @map("preco_unitario")
-  qtdeInicial         Int          @map("qtde_inicial")
-  
+  unidadeAta    String? @map("unidade_ata")
+  marca         String?
+  modelo        String?
+  precoUnitario Decimal @map("preco_unitario") @db.Decimal(10, 2)
+  qtdeInicial   Int     @map("qtde_inicial")
+
   // Saldos e Progressos reais (atualizados sob demanda/triggers)
-  quantidadeUsada     Int          @default(0) @map("quantidade_usada")
-  saldoAtual          Int?         @map("saldo_atual")
-  valorTotalItem      Decimal?     @db.Decimal(12, 2) @map("valor_total_item")
-  
-  precoBPS            Decimal?     @db.Decimal(10, 2) @map("preco_bps")
-  precoCMED           Decimal?     @db.Decimal(10, 2) @map("preco_cmed")
-  
-  observacoes         String?
-  criadoEm            DateTime     @default(now()) @map("criado_em")
-  atualizadoEm        DateTime     @updatedAt @default(now()) @map("atualizado_em")
-  
-  consumos            AtaConsumo[]
-  pedidoItens         PedidoCompraItem[]
+  quantidadeUsada Int      @default(0) @map("quantidade_usada")
+  saldoAtual      Int?     @map("saldo_atual")
+  valorTotalItem  Decimal? @map("valor_total_item") @db.Decimal(12, 2)
+
+  precoBPS  Decimal? @map("preco_bps") @db.Decimal(10, 2)
+  precoCMED Decimal? @map("preco_cmed") @db.Decimal(10, 2)
+
+  observacoes  String?
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @default(now()) @updatedAt @map("atualizado_em")
+
+  consumos    AtaConsumo[]
+  pedidoItens PedidoCompraItem[]
 
   @@index([ataId])
   @@map("medicamentos_ata")
 }
 
 model AtaConsumo {
-  id                  String         @id @default(uuid())
-  ataId               String         @map("ata_id")
-  ata                 Ata            @relation(fields: [ataId], references: [id], onDelete: Cascade)
-  ataItemId           String         @map("ata_item_id")
-  ataItem             MedicamentoAta @relation(fields: [ataItemId], references: [id], onDelete: Cascade)
-  pedidoId            String?        @map("pedido_id") // Opcional (integração futura com módulo PedidoCompra)
-  pedido              PedidoCompra?  @relation(fields: [pedidoId], references: [id])
-  
-  dataConsumo         DateTime       @default(now()) @map("data_consumo")
-  quantidade          Int            
-  valorUnitario       Decimal        @db.Decimal(10, 2) @map("valor_unitario")
-  valorTotal          Decimal        @db.Decimal(12, 2) @map("valor_total")
-  setorSolicitante    String?        @map("setor_solicitante")
-  observacao          String?
-  criadoEm            DateTime       @default(now()) @map("criado_em")
+  id        String         @id @default(uuid())
+  ataId     String         @map("ata_id")
+  ata       Ata            @relation(fields: [ataId], references: [id], onDelete: Cascade)
+  ataItemId String         @map("ata_item_id")
+  ataItem   MedicamentoAta @relation(fields: [ataItemId], references: [id], onDelete: Cascade)
+  pedidoId  String?        @map("pedido_id") // Opcional (integração futura com módulo PedidoCompra)
+  pedido    PedidoCompra?  @relation(fields: [pedidoId], references: [id])
+
+  dataConsumo      DateTime @default(now()) @map("data_consumo")
+  quantidade       Int
+  valorUnitario    Decimal  @map("valor_unitario") @db.Decimal(10, 2)
+  valorTotal       Decimal  @map("valor_total") @db.Decimal(12, 2)
+  setorSolicitante String?  @map("setor_solicitante")
+  observacao       String?
+  criadoEm         DateTime @default(now()) @map("criado_em")
 
   @@index([ataId])
   @@index([ataItemId])
@@ -393,7 +391,7 @@ model PedidoCompra {
   ata             Ata?               @relation(fields: [ataId], references: [id])
   fornecedorId    String?            @map("fornecedor_id")
   fornecedor      Fornecedor?        @relation("FornecedorPedidos", fields: [fornecedorId], references: [id])
-  valorTotal      Decimal            @db.Decimal(12, 2) @map("valor_total")
+  valorTotal      Decimal            @map("valor_total") @db.Decimal(12, 2)
   dataSolicitacao DateTime           @default(now()) @map("data_solicitacao")
   justificativa   String?
   criadoEm        DateTime           @default(now()) @map("criado_em")
@@ -416,12 +414,12 @@ model PedidoCompraItem {
   medicamentoId   String?         @map("medicamento_id")
   medicamentoNome String          @map("medicamento_nome")
   quantidade      Int
-  precoUnitario   Decimal         @db.Decimal(10, 2) @map("preco_unitario")
-  valorTotal      Decimal         @db.Decimal(12, 2) @map("valor_total")
+  precoUnitario   Decimal         @map("preco_unitario") @db.Decimal(10, 2)
+  valorTotal      Decimal         @map("valor_total") @db.Decimal(12, 2)
   ataItemId       String?         @map("ata_item_id")
   ataItem         MedicamentoAta? @relation(fields: [ataItemId], references: [id])
   criadoEm        DateTime        @default(now()) @map("criado_em")
-  atualizadoEm    DateTime        @updatedAt        @default(now()) @map("atualizado_em")
+  atualizadoEm    DateTime        @default(now()) @updatedAt @map("atualizado_em")
 
   @@index([pedidoId])
   @@index([ataItemId])
@@ -458,7 +456,7 @@ model NotaFiscal {
   pedidoCompraId  String?          @map("pedido_compra_id")
   pedidoCompra    PedidoCompra?    @relation(fields: [pedidoCompraId], references: [id])
   status          NotaFiscalStatus @default(PENDENTE)
-  valorTotal      Decimal          @db.Decimal(12, 2) @map("valor_total")
+  valorTotal      Decimal          @map("valor_total") @db.Decimal(12, 2)
   xmlUrl          String?          @map("xml_url")
   observacoes     String?
   conferidoPor    String?          @map("conferido_por")
@@ -467,7 +465,7 @@ model NotaFiscal {
   atualizadoEm    DateTime         @updatedAt @map("atualizado_em")
   deletedAt       DateTime?        @map("deleted_at")
 
-  itens           NotaFiscalItem[]
+  itens NotaFiscalItem[]
 
   @@index([fornecedorId])
   @@index([pedidoCompraId])
@@ -476,21 +474,21 @@ model NotaFiscal {
 }
 
 model NotaFiscalItem {
-  id                    String         @id @default(uuid())
-  notaFiscalId          String         @map("nota_fiscal_id")
-  notaFiscal            NotaFiscal     @relation(fields: [notaFiscalId], references: [id], onDelete: Cascade)
-  catmatCodigo          String?        @map("catmat_codigo")
-  medicamentoNome       String         @map("medicamento_nome")
-  numeroLote            String         @map("numero_lote")
-  dataValidade          DateTime       @db.Date @map("data_validade")
-  quantidadeEsperada    Int            @map("quantidade_esperada")
-  quantidadeRecebida    Int?           @map("quantidade_recebida")
-  precoUnitario         Decimal        @db.Decimal(10, 2) @map("preco_unitario")
-  divergencia           Boolean        @default(false)
-  observacaoDivergencia String?        @map("observacao_divergencia")
-  criadoEm              DateTime       @default(now()) @map("criado_em")
+  id                    String     @id @default(uuid())
+  notaFiscalId          String     @map("nota_fiscal_id")
+  notaFiscal            NotaFiscal @relation(fields: [notaFiscalId], references: [id], onDelete: Cascade)
+  catmatCodigo          String?    @map("catmat_codigo")
+  medicamentoNome       String     @map("medicamento_nome")
+  numeroLote            String     @map("numero_lote")
+  dataValidade          DateTime   @map("data_validade") @db.Date
+  quantidadeEsperada    Int        @map("quantidade_esperada")
+  quantidadeRecebida    Int?       @map("quantidade_recebida")
+  precoUnitario         Decimal    @map("preco_unitario") @db.Decimal(10, 2)
+  divergencia           Boolean    @default(false)
+  observacaoDivergencia String?    @map("observacao_divergencia")
+  criadoEm              DateTime   @default(now()) @map("criado_em")
 
-  estoqueLote           CdEstoqueLote?
+  estoqueLote CdEstoqueLote?
 
   @@index([notaFiscalId])
   @@index([catmatCodigo])
@@ -504,7 +502,7 @@ model CdEstoqueLote {
   catmatCodigo      String?             @map("catmat_codigo")
   medicamentoNome   String              @map("medicamento_nome")
   numeroLote        String              @map("numero_lote")
-  dataValidade      DateTime            @db.Date @map("data_validade")
+  dataValidade      DateTime            @map("data_validade") @db.Date
   quantidadeInicial Int                 @map("quantidade_inicial")
   quantidadeAtual   Int                 @map("quantidade_atual")
   status            CdEstoqueLoteStatus @default(DISPONIVEL)
@@ -568,7 +566,6 @@ model CdEstoqueMinimo {
   @@map("cd_estoque_minimo")
 }
 
-
 enum PedidoReposicaoStatus {
   PENDENTE
   EM_ANALISE
@@ -594,10 +591,10 @@ enum TipoUnidade {
 }
 
 model Unidade {
-  id           String            @id @default(uuid())
+  id           String      @id @default(uuid())
   nome         String
-  cnes         String?           @unique
-  tipo         TipoUnidade       @default(UBS)
+  cnes         String?     @unique
+  tipo         TipoUnidade @default(UBS)
   endereco     String?
   telefone     String?
   email        String?
@@ -608,14 +605,14 @@ model Unidade {
   bairro       String?
   cidade       String?
   uf           String?
-  tenantSchema String            @unique @map("tenant_schema")
-  ativa        Boolean           @default(true)
-  criadoEm     DateTime          @default(now()) @map("criado_em") @db.Timestamptz(6)
-  atualizadoEm DateTime          @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
-  deletedAt    DateTime?         @map("deleted_at") @db.Timestamptz(6)
-  
-  usuarios     User[]
-  pedidos      PedidoReposicao[]
+  tenantSchema String      @unique @map("tenant_schema")
+  ativa        Boolean     @default(true)
+  criadoEm     DateTime    @default(now()) @map("criado_em") @db.Timestamptz(6)
+  atualizadoEm DateTime    @default(now()) @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+  deletedAt    DateTime?   @map("deleted_at") @db.Timestamptz(6)
+
+  usuarios       User[]
+  pedidos        PedidoReposicao[]
   filasRegulacao FilaRegulacao[]
   pacientes      Paciente[]
 
@@ -631,18 +628,18 @@ model PedidoReposicao {
   unidade         Unidade                 @relation(fields: [unidadeId], references: [id])
   solicitadoPorId String                  @map("solicitado_por_id")
   solicitadoPor   User                    @relation("SolicitadoPor", fields: [solicitadoPorId], references: [id])
-  
-  motoristaId     String?                 @map("motorista_id")
-  motorista       User?                   @relation("MotoristaPedidos", fields: [motoristaId], references: [id])
-  
-  justificativa   String?
-  motivoRejeicao  String?                 @map("motivo_rejeicao")
-  
-  criadoEm        DateTime                @default(now()) @map("criado_em")
-  atualizadoEm    DateTime                @updatedAt @map("atualizado_em")
-  deletedAt       DateTime?               @map("deleted_at")
-  
-  itens           PedidoReposicaoItem[]
+
+  motoristaId String? @map("motorista_id")
+  motorista   User?   @relation("MotoristaPedidos", fields: [motoristaId], references: [id])
+
+  justificativa  String?
+  motivoRejeicao String? @map("motivo_rejeicao")
+
+  criadoEm     DateTime  @default(now()) @map("criado_em")
+  atualizadoEm DateTime  @updatedAt @map("atualizado_em")
+  deletedAt    DateTime? @map("deleted_at")
+
+  itens PedidoReposicaoItem[]
 
   @@index([unidadeId])
   @@index([status])
@@ -651,16 +648,16 @@ model PedidoReposicao {
 }
 
 model PedidoReposicaoItem {
-  id              String          @id @default(uuid())
-  pedidoId        String          @map("pedido_id")
-  pedido          PedidoReposicao @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
-  
-  catmatCodigo    String?         @map("catmat_codigo")
-  medicamentoNome String          @map("medicamento_nome")
+  id       String          @id @default(uuid())
+  pedidoId String          @map("pedido_id")
+  pedido   PedidoReposicao @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+
+  catmatCodigo    String? @map("catmat_codigo")
+  medicamentoNome String  @map("medicamento_nome")
   quantidade      Int
-  
-  criadoEm        DateTime        @default(now()) @map("criado_em")
-  atualizadoEm    DateTime        @updatedAt @map("atualizado_em")
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
   @@index([pedidoId])
   @@index([catmatCodigo])
@@ -668,110 +665,114 @@ model PedidoReposicaoItem {
 }
 
 model Paciente {
-  id                  String          @id @default(uuid())
-  prontuario          String          @unique
-  cpf                 String          @unique
-  cartaoSus           String?         @map("cartao_sus")
-  nomeCompleto        String          @map("nome_completo")
-  dataNascimento      DateTime        @db.Date @map("data_nascimento")
+  id                  String   @id @default(uuid())
+  prontuario          String   @unique
+  cpf                 String   @unique
+  cartaoSus           String?  @map("cartao_sus")
+  nomeCompleto        String   @map("nome_completo")
+  dataNascimento      DateTime @map("data_nascimento") @db.Date
   sexo                Sexo
-  orientacaoSexual    String?         @map("orientacao_sexual")
-  identidadeGenero    String?         @map("identidade_genero")
-  nomeSocial          String?         @map("nome_social")
-  municipioNascimento String?         @map("municipio_nascimento")
-  nacionalidade       String          @default("BRASILEIRA")
-  paisNascimento      String          @default("BRASIL") @map("pais_nascimento")
-  corRaca             String          @default("Não informada") @map("cor_raca")
+  orientacaoSexual    String?  @map("orientacao_sexual")
+  identidadeGenero    String?  @map("identidade_genero")
+  nomeSocial          String?  @map("nome_social")
+  municipioNascimento String?  @map("municipio_nascimento")
+  nacionalidade       String   @default("BRASILEIRA")
+  paisNascimento      String   @default("BRASIL") @map("pais_nascimento")
+  corRaca             String   @default("Não informada") @map("cor_raca")
   etnia               String?
-  tipoSanguineo       String?         @map("tipo_sanguineo")
-  prontuariosAntigos  String?         @map("prontuarios_antigos")
+  tipoSanguineo       String?  @map("tipo_sanguineo")
+  prontuariosAntigos  String?  @map("prontuarios_antigos")
   alergias            String?
   familia             String?
   area                String?
   subarea             String?
   escolaridade        String?
 
-  celular             String          @default("")
-  telefone            String?
-  email               String?
-  nomeMae             String?         @map("nome_mae")
-  maeDesconhecida     Boolean         @default(false) @map("mae_desconhecida")
-  nomePai             String?         @map("nome_pai")
-  paiDesconhecido     Boolean         @default(false) @map("pai_desconhecido")
-  
-  rg                  String?
-  orgaoEmissor        String?         @map("orgao_emissor")
-  ufRg                String?         @map("uf_rg")
-  dataExpedicaoRg     DateTime?       @db.Date @map("data_expedicao_rg")
-  nis                 String?
-  certidaoNascimento  String?         @map("certidao_nascimento")
-  dataObito           DateTime?       @db.Date @map("data_obito")
-  tituloEleitor       String?         @map("titulo_eleitor")
-  estadoCivil         String?         @map("estado_civil")
-  funcionarioExterno  Boolean         @default(false) @map("funcionario_externo")
-  observacao          String?
-  profissaoCbo        String?         @map("profissao_cbo")
-  localTrabalho       String?         @map("local_trabalho")
+  celular         String  @default("")
+  telefone        String?
+  email           String?
+  nomeMae         String? @map("nome_mae")
+  maeDesconhecida Boolean @default(false) @map("mae_desconhecida")
+  nomePai         String? @map("nome_pai")
+  paiDesconhecido Boolean @default(false) @map("pai_desconhecido")
 
-  situacaoRua         Boolean         @default(false) @map("situacao_rua")
-  cep                 String
-  tipoLogradouro      String          @default("RUA") @map("tipo_logradouro")
-  logradouro          String
-  numero              String
-  bairro              String
-  complemento         String?
-  municipio           String
-  localizacao         String          @default("URBANA")
+  rg                 String?
+  orgaoEmissor       String?   @map("orgao_emissor")
+  ufRg               String?   @map("uf_rg")
+  dataExpedicaoRg    DateTime? @map("data_expedicao_rg") @db.Date
+  nis                String?
+  certidaoNascimento String?   @map("certidao_nascimento")
+  dataObito          DateTime? @map("data_obito") @db.Date
+  tituloEleitor      String?   @map("titulo_eleitor")
+  estadoCivil        String?   @map("estado_civil")
+  funcionarioExterno Boolean   @default(false) @map("funcionario_externo")
+  observacao         String?
+  profissaoCbo       String?   @map("profissao_cbo")
+  localTrabalho      String?   @map("local_trabalho")
 
-  unidadeOrigemId     String?         @map("unidade_origem_id")
-  unidadeOrigem       Unidade?        @relation(fields: [unidadeOrigemId], references: [id])
-  
-  criadoEm            DateTime        @default(now()) @map("criado_em")
-  atualizadoEm        DateTime        @updatedAt @map("atualizado_em")
-  
-  fichasRegulacao     FilaRegulacao[]
-  viagensPassageiro   ViagemPassageiro[]
+  situacaoRua    Boolean @default(false) @map("situacao_rua")
+  cep            String
+  tipoLogradouro String  @default("RUA") @map("tipo_logradouro")
+  logradouro     String
+  numero         String
+  bairro         String
+  complemento    String?
+  municipio      String
+  localizacao    String  @default("URBANA")
+
+  unidadeOrigemId String?  @map("unidade_origem_id")
+  unidadeOrigem   Unidade? @relation(fields: [unidadeOrigemId], references: [id])
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  // Score de confiabilidade / absenteísmo (0-100, padrão 100)
+  scoreConfianca Int @default(100) @map("score_confianca")
+
+  fichasRegulacao      FilaRegulacao[]
+  viagensPassageiro    ViagemPassageiro[]
+  historicoAbsenteismo HistoricoAbsenteismo[]
 
   @@index([unidadeOrigemId])
   @@map("pacientes")
 }
 
 model FilaRegulacao {
-  id                        String              @id @default(uuid())
-  
+  id String @id @default(uuid())
+
   // Dados da Unidade e Responsáveis
-  unidadeEsfId              String              @map("unidade_esf_id")
-  unidadeEsf                Unidade             @relation(fields: [unidadeEsfId], references: [id])
-  responsavelEncaminhamento String              @map("responsavel_encaminhamento")
-  acsResponsavel            String              @map("acs_responsavel")
-  
+  unidadeEsfId              String  @map("unidade_esf_id")
+  unidadeEsf                Unidade @relation(fields: [unidadeEsfId], references: [id])
+  responsavelEncaminhamento String  @map("responsavel_encaminhamento")
+  acsResponsavel            String  @map("acs_responsavel")
+
   // Relação com Paciente
-  pacienteId                String              @map("paciente_id")
-  paciente                  Paciente            @relation(fields: [pacienteId], references: [id])
-  tipoAtendimento           TipoAtendimento     @default(SUS) @map("tipo_atendimento")
-  
+  pacienteId      String          @map("paciente_id")
+  paciente        Paciente        @relation(fields: [pacienteId], references: [id])
+  tipoAtendimento TipoAtendimento @default(SUS) @map("tipo_atendimento")
+
   // Dados Clínicos e Anexos
-  procedimentoSolicitado    String              @map("procedimento_solicitado")
-  observacaoClinica         String?             @map("observacao_clinica")
-  anexoUrl                  String?             @map("anexo_url")
-  
+  procedimentoSolicitado String  @map("procedimento_solicitado")
+  observacaoClinica      String? @map("observacao_clinica")
+  anexoUrl               String? @map("anexo_url")
+
   // Dados de Agendamento (Secretaria)
-  dataAgendada              DateTime?           @db.Date @map("data_agendada")
-  horaAgendada              String?             @map("hora_agendada")
-  localAgendamento          String?             @map("local_agendamento")
-  
+  dataAgendada     DateTime? @map("data_agendada") @db.Date
+  horaAgendada     String?   @map("hora_agendada")
+  localAgendamento String?   @map("local_agendamento")
+
   // Controle de Fluxo
-  statusAgendamento         StatusAgendamento   @default(AGUARDANDO_REGULACAO) @map("status_agendamento")
-  
+  statusAgendamento StatusAgendamento @default(AGUARDANDO_REGULACAO) @map("status_agendamento")
+
   // Auditoria
-  criadoPorUsuarioId        String              @map("criado_por_usuario_id")
-  criadoPor                 User                @relation("FilaCriadaPor", fields: [criadoPorUsuarioId], references: [id])
-  agendadoPorUsuarioId      String?             @map("agendado_por_usuario_id")
-  agendadoPor               User?               @relation("FilaAgendadaPor", fields: [agendadoPorUsuarioId], references: [id])
-  
-  criadoEm                  DateTime            @default(now()) @map("criado_em")
-  atualizadoEm              DateTime            @updatedAt @map("atualizado_em")
-  
+  criadoPorUsuarioId   String  @map("criado_por_usuario_id")
+  criadoPor            User    @relation("FilaCriadaPor", fields: [criadoPorUsuarioId], references: [id])
+  agendadoPorUsuarioId String? @map("agendado_por_usuario_id")
+  agendadoPor          User?   @relation("FilaAgendadaPor", fields: [agendadoPorUsuarioId], references: [id])
+
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
   @@index([unidadeEsfId])
   @@index([statusAgendamento])
   @@index([pacienteId])
@@ -817,6 +818,46 @@ enum MessageStatus {
   RECEIVED
 }
 
+// ------------------------------------------------------------------
+// Confirmação Automatizada de Agendamentos (ciclo de confirmação)
+// ------------------------------------------------------------------
+
+// Situação do paciente dentro da fila de confirmação
+enum PacienteFilaStatus {
+  AGUARDANDO // Na fila, nunca convocado
+  CONVOCADO // Mensagem enviada, aguardando resposta
+  CONFIRMADO // Confirmou presença (passou por todas as etapas)
+  RECONFIRMADO // Reconfirmou na última etapa
+  RECUSOU // Recusou em alguma etapa
+  NAO_RESPONDEU // Timeout após todas as tentativas de reenvio
+  CANCELADO // Cancelado manualmente pelo regulador
+}
+
+// Nível de urgência usado na ordenação da convocação
+enum NivelUrgencia {
+  NORMAL
+  AMARELO
+  VERMELHO
+}
+
+// Motivos pré-definidos de recusa (seção 4.3)
+enum MotivoRecusa {
+  MELHORA_SINTOMAS
+  SEM_TRANSPORTE
+  COMPROMISSO_TRABALHO
+  PROBLEMAS_FAMILIARES
+  JA_CONSULTOU_PARTICULAR
+  OUTRO
+}
+
+// Situação de um ciclo/etapa de confirmação individual
+enum CicloStatus {
+  CONVOCADO // Mensagem enviada, aguardando resposta do paciente
+  CONFIRMADO // Paciente respondeu SIM
+  RECUSADO // Paciente respondeu NÃO
+  EXPIRADO // Timeout sem resposta
+}
+
 model PdfImport {
   id               String         @id @default(uuid())
   storagePath      String         @map("storage_path")
@@ -857,7 +898,7 @@ model QueueEntry {
   import         PdfImport?       @relation(fields: [importId], references: [id])
   posicao        Int
   status         QueueEntryStatus @default(PENDING)
-  dataAgendada   DateTime?        @db.Date @map("data_agendada")
+  dataAgendada   DateTime?        @map("data_agendada") @db.Date
   notificadoEm   DateTime?        @map("notificado_em")
   respondidoEm   DateTime?        @map("respondido_em")
   expiraEm       DateTime?        @map("expira_em")
@@ -865,8 +906,16 @@ model QueueEntry {
   atualizadoEm   DateTime         @updatedAt @map("atualizado_em")
   messages       MessageLog[]
 
+  // Módulo de Confirmação Automatizada
+  unidadeId        String?            @map("unidade_id") // escopo por município (row-level)
+  statusPaciente   PacienteFilaStatus @default(AGUARDANDO) @map("status_paciente")
+  nivelUrgencia    NivelUrgencia      @default(NORMAL) @map("nivel_urgencia")
+  procedimentoNome String?            @map("procedimento_nome") // nome legível p/ agrupar a fila
+  ciclos           CicloConfirmacao[]
+
   @@index([procedimentoId, status, posicao])
   @@index([pacienteId])
+  @@index([unidadeId, statusPaciente, nivelUrgencia, posicao])
   @@map("queue_entries")
 }
 
@@ -889,6 +938,72 @@ model MessageLog {
   @@map("messages_log")
 }
 
+// Cada etapa/ciclo de confirmação disparado para uma entrada da fila.
+// É o que o cron de timeout (regra 7.1) varre por expiraEm < agora.
+model CicloConfirmacao {
+  id               String        @id @default(uuid())
+  queueEntryId     String        @map("queue_entry_id")
+  queueEntry       QueueEntry    @relation(fields: [queueEntryId], references: [id], onDelete: Cascade)
+  unidadeId        String?       @map("unidade_id")
+  etapa            Int // 1 = confirmação inicial, 2 = reconfirmação, ...
+  tentativa        Int           @default(1) // nº de disparos desta etapa (reenvios)
+  status           CicloStatus   @default(CONVOCADO)
+  templateName     String        @map("template_name")
+  callbackId       String        @unique @map("callback_id") // uuid correlacionado no callback do ChatBot
+  messageId        String?       @map("message_id") // id devolvido pelo gateway
+  enviadoEm        DateTime      @default(now()) @map("enviado_em")
+  expiraEm         DateTime      @map("expira_em")
+  respondidoEm     DateTime?     @map("respondido_em")
+  resposta         String? // "SIM" | "NAO"
+  motivoRecusa     MotivoRecusa? @map("motivo_recusa")
+  motivoTextoLivre String?       @map("motivo_texto_livre")
+  criadoEm         DateTime      @default(now()) @map("criado_em")
+
+  @@index([queueEntryId])
+  @@index([status, expiraEm])
+  @@index([callbackId])
+  @@map("ciclos_confirmacao")
+}
+
+// Configurações do módulo de confirmação por município (seção 4.9).
+model ConfiguracaoRegulacao {
+  id                    String   @id @default(uuid())
+  unidadeId             String   @unique @map("unidade_id")
+  qtdConfirmacoes       Int      @default(2) @map("qtd_confirmacoes")
+  diasAntesConfirmacao  Int[]    @default([7, 1]) @map("dias_antes_confirmacao")
+  qtdReenvios           Int      @default(2) @map("qtd_reenvios")
+  intervaloReenvioHoras Int      @default(12) @map("intervalo_reenvio_horas")
+  timeoutRespostaHoras  Int      @default(24) @map("timeout_resposta_horas")
+  horarioInicio         String   @default("07:00") @map("horario_inicio")
+  horarioFim            String   @default("20:00") @map("horario_fim")
+  timezone              String   @default("America/Campo_Grande")
+  templateConfirmacao   String   @default("confirmacao_agendamento") @map("template_confirmacao")
+  templateReconfirmacao String   @default("reconfirmacao_agendamento") @map("template_reconfirmacao")
+  templateColetaMotivo  String   @default("coleta_motivo_recusa") @map("template_coleta_motivo")
+  templateConvocacao    String   @default("convocacao_vaga") @map("template_convocacao")
+  criadoEm              DateTime @default(now()) @map("criado_em")
+  atualizadoEm          DateTime @updatedAt @map("atualizado_em")
+
+  @@map("configuracoes_regulacao")
+}
+
+// Histórico de desfechos que alimentam o score de absenteísmo (seção 4.7).
+model HistoricoAbsenteismo {
+  id              String   @id @default(uuid())
+  pacienteId      String   @map("paciente_id")
+  paciente        Paciente @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
+  unidadeId       String?  @map("unidade_id")
+  queueEntryId    String?  @map("queue_entry_id")
+  tipo            String // CONFIRMOU | RECUSOU | NAO_RESPONDEU
+  motivo          String?
+  delta           Int // variação aplicada ao score
+  scoreResultante Int      @map("score_resultante")
+  criadoEm        DateTime @default(now()) @map("criado_em")
+
+  @@index([pacienteId])
+  @@map("historico_absenteismo")
+}
+
 enum ViagemStatus {
   AGENDADA
   SAIDA_CIDADE
@@ -906,39 +1021,39 @@ enum PassageiroStatus {
 }
 
 model ViagemTransporte {
-  id                  String               @id @default(uuid())
-  motoristaId         String               @map("motorista_id")
-  motorista           User                 @relation("ViagensMotorista", fields: [motoristaId], references: [id])
-  veiculo             String
-  placa               String?
-  origem              String               @default("UBS Central / Regulação")
-  destino             String
-  dataViagem          DateTime             @map("data_viagem")
-  status              ViagemStatus         @default(AGENDADA)
-  
+  id          String       @id @default(uuid())
+  motoristaId String       @map("motorista_id")
+  motorista   User         @relation("ViagensMotorista", fields: [motoristaId], references: [id])
+  veiculo     String
+  placa       String?
+  origem      String       @default("UBS Central / Regulação")
+  destino     String
+  dataViagem  DateTime     @map("data_viagem")
+  status      ViagemStatus @default(AGENDADA)
+
   // 4 Etapas da Jornada
-  saidaOrigemEm       DateTime?            @map("saida_origem_em")
-  chegadaDestinoEm    DateTime?            @map("chegada_destino_em")
-  saidaDestinoEm      DateTime?            @map("saida_destino_em")
-  chegadaOrigemEm     DateTime?            @map("chegada_origem_em")
-  
+  saidaOrigemEm    DateTime? @map("saida_origem_em")
+  chegadaDestinoEm DateTime? @map("chegada_destino_em")
+  saidaDestinoEm   DateTime? @map("saida_destino_em")
+  chegadaOrigemEm  DateTime? @map("chegada_origem_em")
+
   // Rastreamento GPS
-  gpsInicioLat        Float?               @map("gps_inicio_lat")
-  gpsInicioLng        Float?               @map("gps_inicio_lng")
-  gpsFimLat           Float?               @map("gps_fim_lat")
-  gpsFimLng           Float?               @map("gps_fim_lng")
-  gpsPontos           Json?                @map("gps_pontos") // Array de [{ lat, lng, timestamp, precisao, etapa }]
-  
+  gpsInicioLat Float? @map("gps_inicio_lat")
+  gpsInicioLng Float? @map("gps_inicio_lng")
+  gpsFimLat    Float? @map("gps_fim_lat")
+  gpsFimLng    Float? @map("gps_fim_lng")
+  gpsPontos    Json?  @map("gps_pontos") // Array de [{ lat, lng, timestamp, precisao, etapa }]
+
   // Confirmação e Assinatura Digital do Motorista/Equipe
-  assinaturaBase64    String?              @map("assinatura_base64")
-  observacoes         String?
-  
-  iniciadaEm          DateTime?            @map("iniciada_em")
-  concluidaEm         DateTime?            @map("concluida_em")
-  criadoEm            DateTime             @default(now()) @map("criado_em")
-  atualizadoEm        DateTime             @updatedAt @map("atualizado_em")
-  
-  passageiros         ViagemPassageiro[]
+  assinaturaBase64 String? @map("assinatura_base64")
+  observacoes      String?
+
+  iniciadaEm   DateTime? @map("iniciada_em")
+  concluidaEm  DateTime? @map("concluida_em")
+  criadoEm     DateTime  @default(now()) @map("criado_em")
+  atualizadoEm DateTime  @updatedAt @map("atualizado_em")
+
+  passageiros ViagemPassageiro[]
 
   @@index([motoristaId])
   @@index([status])
@@ -946,20 +1061,18 @@ model ViagemTransporte {
 }
 
 model ViagemPassageiro {
-  id              String           @id @default(uuid())
-  viagemId        String           @map("viagem_id")
-  viagem          ViagemTransporte @relation(fields: [viagemId], references: [id], onDelete: Cascade)
-  pacienteId      String?          @map("paciente_id")
-  paciente        Paciente?        @relation(fields: [pacienteId], references: [id])
-  nomePaciente    String           @map("nome_paciente")
-  cartaoSus       String?          @map("cartao_sus")
-  acompanhante    String?
-  status          PassageiroStatus @default(PENDENTE)
-  motivoAusencia  String?          @map("motivo_ausencia")
+  id             String           @id @default(uuid())
+  viagemId       String           @map("viagem_id")
+  viagem         ViagemTransporte @relation(fields: [viagemId], references: [id], onDelete: Cascade)
+  pacienteId     String?          @map("paciente_id")
+  paciente       Paciente?        @relation(fields: [pacienteId], references: [id])
+  nomePaciente   String           @map("nome_paciente")
+  cartaoSus      String?          @map("cartao_sus")
+  acompanhante   String?
+  status         PassageiroStatus @default(PENDENTE)
+  motivoAusencia String?          @map("motivo_ausencia")
 
   @@index([viagemId])
   @@index([pacienteId])
   @@map("viagem_passageiros")
 }
-
-

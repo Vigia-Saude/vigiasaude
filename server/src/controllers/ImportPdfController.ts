@@ -320,7 +320,11 @@ export class ImportPdfController {
               importId,
               posicao: nextPos,
               status: 'PENDING',
-              dataAgendada: dataAgendada
+              dataAgendada: dataAgendada,
+              // Módulo de Confirmação Automatizada: escopo por município + grupo
+              unidadeId: defaultUnidadeId,
+              procedimentoNome: procedimento,
+              statusPaciente: 'AGUARDANDO'
             }
           });
 

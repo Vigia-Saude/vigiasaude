@@ -84,12 +84,17 @@ const apiLimiter = rateLimit({
 })
 
 import { FilaWhatsappController } from './controllers/FilaWhatsappController'
+import { ConfirmacaoController } from './controllers/ConfirmacaoController'
 
 const filaWhatsappController = new FilaWhatsappController()
+const confirmacaoController = new ConfirmacaoController()
 
 // Webhook da Meta/WhatsApp (público)
 app.get('/webhooks/whatsapp', filaWhatsappController.verifyWebhook)
 app.post('/webhooks/whatsapp', filaWhatsappController.receiveWebhook)
+
+// Callback do ChatBot (público) — respostas dos pacientes ao ciclo de confirmação
+app.post('/api/regulacao/confirmacao/callback', confirmacaoController.callback)
 
 // Rotas
 app.use('/auth', authRoutes)
@@ -133,8 +138,13 @@ const server = app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando em http://localhost:${PORT}`)
 })
 
+// Cron jobs do módulo de Confirmação Automatizada (seção 7)
+import { startSchedulers, stopSchedulers } from './jobs/scheduler'
+startSchedulers()
+
 async function gracefulShutdown(signal: string) {
   console.log(`\n${signal} recebido — encerrando servidor...`)
+  stopSchedulers()
   server.close(async () => {
     const { disposeAllPrismaClients } = await import('./lib/prismaFactory.js')
     await disposeAllPrismaClients()

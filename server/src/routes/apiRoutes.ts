@@ -19,6 +19,7 @@ import { PacienteController } from '../controllers/PacienteController';
 import { ImportPdfController } from '../controllers/ImportPdfController';
 import { FilaWhatsappController } from '../controllers/FilaWhatsappController';
 import { QueueController } from '../controllers/QueueController';
+import { ConfirmacaoController } from '../controllers/ConfirmacaoController';
 import { ViagemTransporteController } from '../controllers/ViagemTransporteController';
 
 const router = Router();
@@ -39,6 +40,7 @@ const pacienteController = new PacienteController();
 const importPdfController = new ImportPdfController();
 const filaWhatsappController = new FilaWhatsappController();
 const queueController = new QueueController();
+const confirmacaoController = new ConfirmacaoController();
 const viagemTransporteController = new ViagemTransporteController();
 
 
@@ -181,6 +183,16 @@ router.post('/regulacao/imports/:importId/approve', roleMiddleware(['REGULADOR']
 router.get('/regulacao/whatsapp/filas', roleMiddleware(['REGULADOR']), filaWhatsappController.obterResumoFilas);
 router.get('/regulacao/whatsapp/filas/detalhes', roleMiddleware(['REGULADOR']), filaWhatsappController.detalhesFila);
 router.post('/regulacao/whatsapp/filas/disparar-proximo', roleMiddleware(['REGULADOR']), filaWhatsappController.dispararProximo);
+
+// Módulo de Confirmação Automatizada (Apenas REGULADOR)
+// Precisam vir ANTES de /regulacao/:id, senão os segmentos viram :id
+router.get('/regulacao/config', roleMiddleware(['REGULADOR']), confirmacaoController.obterConfig);
+router.patch('/regulacao/config', roleMiddleware(['REGULADOR']), confirmacaoController.salvarConfig);
+router.get('/regulacao/confirmacao/filas/detalhes', roleMiddleware(['REGULADOR']), confirmacaoController.detalhes);
+router.post('/regulacao/confirmacao/disparar-manual', roleMiddleware(['REGULADOR']), confirmacaoController.dispararManual);
+router.post('/regulacao/confirmacao/convocar/:queueEntryId', roleMiddleware(['REGULADOR']), confirmacaoController.convocar);
+router.post('/regulacao/confirmacao/simular-resposta', roleMiddleware(['REGULADOR']), confirmacaoController.simularResposta);
+router.get('/regulacao/pacientes/:id/absenteismo', roleMiddleware(['REGULADOR']), confirmacaoController.absenteismo);
 
 // Rotas de Gestão de Filas por Procedimento / Especialidade (Apenas REGULADOR)
 // Também precisam vir ANTES de /regulacao/:id, senão "queues" é capturado como :id
