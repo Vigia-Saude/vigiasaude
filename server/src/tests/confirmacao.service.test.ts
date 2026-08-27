@@ -19,6 +19,7 @@ vi.mock('../config/prisma', () => {
     historicoAbsenteismo: { create: vi.fn() },
     messageLog: { create: vi.fn() },
     configuracaoRegulacao: { findUnique: vi.fn() },
+    slotAgenda: { findUnique: vi.fn() },
     $transaction: vi.fn(),
   };
   mock.$transaction.mockImplementation((ops: any) =>
@@ -33,6 +34,8 @@ import {
   calcularNovoScore,
   ordenarFila,
   processarResposta,
+  vagasInfo,
+  temVaga,
   CONFIG_PADRAO,
   type ConfigResolvida,
 } from '../services/confirmacao.service';
@@ -196,5 +199,44 @@ describe('processarResposta', () => {
     p.cicloConfirmacao.findUnique.mockResolvedValue({ id: 'ciclo-1', status: 'CONFIRMADO' });
     const r = await processarResposta('cb-1', { resposta: 'SIM' });
     expect(r.ok).toBe(false);
+  });
+});
+
+// ====================================================================
+// 5. Capacidade / vagas (seção 4.8)
+// ====================================================================
+describe('vagasInfo / temVaga', () => {
+  const data = new Date('2026-09-10T00:00:00Z');
+
+  it('capacidade indefinida (sem slot) → não bloqueia', async () => {
+    p.slotAgenda.findUnique.mockResolvedValue(null);
+    p.queueEntry.findMany.mockResolvedValue([]);
+    const info = await vagasInfo('uni-1', 'Cardiologia', data);
+    expect(info.definido).toBe(false);
+    expect(info.disponiveis).toBeNull();
+    expect(await temVaga('uni-1', 'Cardiologia', data)).toBe(true);
+  });
+
+  it('disponiveis = capacidade - confirmados - convocados', async () => {
+    p.slotAgenda.findUnique.mockResolvedValue({ capacidadeTotal: 5 });
+    p.queueEntry.findMany.mockResolvedValue([
+      { procedimentoNome: 'Cardiologia', procedimentoId: null, statusPaciente: 'CONFIRMADO' },
+      { procedimentoNome: 'Cardiologia', procedimentoId: null, statusPaciente: 'RECONFIRMADO' },
+      { procedimentoNome: 'Cardiologia', procedimentoId: null, statusPaciente: 'CONVOCADO' },
+    ]);
+    const info = await vagasInfo('uni-1', 'Cardiologia', data);
+    expect(info.confirmados).toBe(2);
+    expect(info.convocados).toBe(1);
+    expect(info.disponiveis).toBe(2); // 5 - 2 - 1
+    expect(await temVaga('uni-1', 'Cardiologia', data)).toBe(true);
+  });
+
+  it('capacidade esgotada → temVaga false', async () => {
+    p.slotAgenda.findUnique.mockResolvedValue({ capacidadeTotal: 2 });
+    p.queueEntry.findMany.mockResolvedValue([
+      { procedimentoNome: 'Cardiologia', procedimentoId: null, statusPaciente: 'CONFIRMADO' },
+      { procedimentoNome: 'Cardiologia', procedimentoId: null, statusPaciente: 'CONVOCADO' },
+    ]);
+    expect(await temVaga('uni-1', 'Cardiologia', data)).toBe(false);
   });
 });

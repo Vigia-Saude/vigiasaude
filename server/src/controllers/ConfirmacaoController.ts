@@ -8,6 +8,8 @@ import {
   convocarEntrada,
   getConfig,
   CONFIG_PADRAO,
+  vagasInfo,
+  grupoDe,
   type RespostaPayload,
 } from '../services/confirmacao.service';
 
@@ -29,6 +31,12 @@ const configSchema = z
     templateConvocacao: z.string().min(1).max(120),
   })
   .partial();
+
+const slotSchema = z.object({
+  procedimento: z.string().min(1).max(200),
+  data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  capacidadeTotal: z.number().int().min(0).max(1000),
+});
 
 const respostaSchema = z.object({
   callbackId: z.string().uuid().optional(),
@@ -178,6 +186,83 @@ export class ConfirmacaoController {
         cicloAtual: e.ciclos[0] ?? null,
       }));
       res.json(enriched);
+    } catch (err: any) {
+      res.status(500).json({ erro: err.message });
+    }
+  };
+
+  // GET /api/regulacao/slots  — capacidade/vagas + grupos sem capacidade definida
+  listarSlots = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const unidadeId = req.user?.unidadeId ?? null;
+      const slots = await prisma.slotAgenda.findMany({
+        where: unidadeId ? { unidadeId } : {},
+        orderBy: [{ data: 'asc' }, { procedimento: 'asc' }],
+      });
+
+      const comUso = await Promise.all(
+        slots.map(async (s) => ({
+          id: s.id,
+          procedimento: s.procedimento,
+          data: s.data,
+          origem: s.origem,
+          ...(await vagasInfo(unidadeId, s.procedimento, s.data)),
+        }))
+      );
+
+      // Grupos com fila ativa mas sem capacidade definida (alerta — seção 4.8)
+      const entries = await prisma.queueEntry.findMany({
+        where: {
+          unidadeId: unidadeId ?? undefined,
+          statusPaciente: { in: ['AGUARDANDO', 'CONVOCADO'] },
+          dataAgendada: { not: null },
+        },
+        select: { procedimentoNome: true, procedimentoId: true, dataAgendada: true },
+      });
+      const mapa = new Map<string, { procedimento: string; data: string; pacientes: number }>();
+      for (const e of entries) {
+        if (!e.dataAgendada) continue;
+        const procedimento = grupoDe(e);
+        const dataStr = e.dataAgendada.toISOString().slice(0, 10);
+        const chave = `${procedimento}__${dataStr}`;
+        const atual = mapa.get(chave) ?? { procedimento, data: dataStr, pacientes: 0 };
+        atual.pacientes++;
+        mapa.set(chave, atual);
+      }
+      const pendentes = [...mapa.values()].filter(
+        (g) => !slots.some((s) => s.procedimento === g.procedimento && s.data.toISOString().slice(0, 10) === g.data)
+      );
+
+      res.json({ slots: comUso, pendentes });
+    } catch (err: any) {
+      res.status(500).json({ erro: err.message });
+    }
+  };
+
+  // PUT /api/regulacao/slots  — define/atualiza a capacidade de um procedimento/dia
+  salvarSlot = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const unidadeId = req.user?.unidadeId ?? null;
+      if (!unidadeId) {
+        res.status(400).json({ erro: 'Usuário sem unidade associada.' });
+        return;
+      }
+      const parsed = slotSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ erro: 'Dados inválidos', detalhes: parsed.error.issues });
+        return;
+      }
+      const { procedimento, data, capacidadeTotal } = parsed.data;
+      const dataDate = new Date(`${data}T00:00:00.000Z`);
+
+      const slot = await prisma.slotAgenda.upsert({
+        where: { unidadeId_procedimento_data: { unidadeId, procedimento, data: dataDate } },
+        create: { unidadeId, procedimento, data: dataDate, capacidadeTotal, origem: 'MANUAL' },
+        update: { capacidadeTotal },
+      });
+
+      const info = await vagasInfo(unidadeId, procedimento, dataDate);
+      res.json({ ...slot, ...info });
     } catch (err: any) {
       res.status(500).json({ erro: err.message });
     }

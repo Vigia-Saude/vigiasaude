@@ -146,7 +146,7 @@ function formatarData(data: Date | null | undefined): string {
   }).format(data);
 }
 
-function grupoDe(entry: Pick<QueueEntry, 'procedimentoNome' | 'procedimentoId'>): string {
+export function grupoDe(entry: Pick<QueueEntry, 'procedimentoNome' | 'procedimentoId'>): string {
   return entry.procedimentoNome || entry.procedimentoId || 'Regulação';
 }
 
@@ -354,6 +354,73 @@ export async function processarResposta(
 }
 
 // ====================================================================
+// Capacidade / vagas por procedimento/dia (seção 4.8)
+// ====================================================================
+
+export interface VagasInfo {
+  definido: boolean;
+  capacidadeTotal: number | null;
+  confirmados: number;
+  convocados: number;
+  disponiveis: number | null; // null quando a capacidade não foi definida
+}
+
+/** Uso atual de um grupo (confirmados ocupam vaga; convocados a reservam). */
+async function contarUso(
+  unidadeId: string | null,
+  grupo: string,
+  dataAgendada: Date | null
+): Promise<{ confirmados: number; convocados: number }> {
+  const entries = await prisma.queueEntry.findMany({
+    where: {
+      unidadeId: unidadeId ?? undefined,
+      ...(dataAgendada ? { dataAgendada } : {}),
+      statusPaciente: { in: ['CONVOCADO', 'CONFIRMADO', 'RECONFIRMADO'] },
+    },
+  });
+  const doGrupo = entries.filter((e) => grupoDe(e) === grupo);
+  return {
+    confirmados: doGrupo.filter((e) => e.statusPaciente === 'CONFIRMADO' || e.statusPaciente === 'RECONFIRMADO').length,
+    convocados: doGrupo.filter((e) => e.statusPaciente === 'CONVOCADO').length,
+  };
+}
+
+export async function vagasInfo(
+  unidadeId: string | null,
+  grupo: string,
+  dataAgendada: Date | null
+): Promise<VagasInfo> {
+  const slot =
+    unidadeId && dataAgendada
+      ? await prisma.slotAgenda.findUnique({
+          where: { unidadeId_procedimento_data: { unidadeId, procedimento: grupo, data: dataAgendada } },
+        })
+      : null;
+  const { confirmados, convocados } = await contarUso(unidadeId, grupo, dataAgendada);
+  if (!slot) {
+    return { definido: false, capacidadeTotal: null, confirmados, convocados, disponiveis: null };
+  }
+  return {
+    definido: true,
+    capacidadeTotal: slot.capacidadeTotal,
+    confirmados,
+    convocados,
+    disponiveis: Math.max(0, slot.capacidadeTotal - confirmados - convocados),
+  };
+}
+
+/**
+ * Há vaga para convocar mais um paciente? Quando a capacidade não foi definida,
+ * NÃO bloqueia (retorna true) — o regulador é alertado em separado (seção 4.8).
+ * Quando definida, exige disponiveis > 0.
+ */
+export async function temVaga(unidadeId: string | null, grupo: string, dataAgendada: Date | null): Promise<boolean> {
+  const info = await vagasInfo(unidadeId, grupo, dataAgendada);
+  if (!info.definido) return true;
+  return (info.disponiveis ?? 0) > 0;
+}
+
+// ====================================================================
 // Convocação automática do próximo da fila (seção 4.6)
 // ====================================================================
 
@@ -393,6 +460,12 @@ export async function convocarProximo(
   const proximo = await proximoElegivel(unidadeId, grupo, dataAgendada);
   if (!proximo) {
     console.log(`[Confirmacao] Nenhum paciente AGUARDANDO para convocar no grupo "${grupo}".`);
+    return null;
+  }
+
+  // Verifica capacidade/vagas (seção 4.6.4). Capacidade indefinida não bloqueia.
+  if (!(await temVaga(unidadeId, grupo, dataAgendada))) {
+    console.log(`[Confirmacao] Sem vagas disponíveis no grupo "${grupo}" — convocação não realizada.`);
     return null;
   }
 
@@ -512,6 +585,9 @@ export async function dispararProgramados(agora: Date = new Date()): Promise<num
     if (dias < 0) continue; // consulta no passado
     if (!config.diasAntesConfirmacao.includes(dias)) continue;
 
+    // Respeita a capacidade do slot (capacidade indefinida não bloqueia).
+    if (!(await temVaga(entry.unidadeId, grupoDe(entry), entry.dataAgendada))) continue;
+
     // Evita duplicar disparo no mesmo dia para a mesma entrada.
     const jaDisparadoHoje = await prisma.cicloConfirmacao.findFirst({
       where: {
@@ -558,6 +634,12 @@ export async function convocarEntrada(unidadeId: string | null, queueEntryId: st
   const proximo = await proximoElegivel(entry.unidadeId, grupoDe(entry), entry.dataAgendada);
   if (proximo && proximo.id !== entry.id) {
     throw new Error('Não é possível pular a fila: há paciente com prioridade/ordem anterior.');
+  }
+
+  // Capacidade definida e esgotada bloqueia a convocação manual (seção 4.8).
+  const info = await vagasInfo(entry.unidadeId, grupoDe(entry), entry.dataAgendada);
+  if (info.definido && (info.disponiveis ?? 0) <= 0) {
+    throw new Error('Sem vagas disponíveis para este procedimento/dia. Ajuste a capacidade antes de convocar.');
   }
 
   const config = await getConfig(entry.unidadeId);

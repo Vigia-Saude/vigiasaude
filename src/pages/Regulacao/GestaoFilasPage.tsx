@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { ChevronRight, Calendar, CheckCircle2, Clock, XCircle, Users, Megaphone, ThumbsDown, PhoneOff } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '../../services/apiClient';
-import { listarConfirmacaoDetalhes } from '../../services/confirmacaoService';
+import { listarConfirmacaoDetalhes, getSlots } from '../../services/confirmacaoService';
 
 interface QueueSummary {
   procedureId: string;
@@ -40,6 +40,12 @@ export function GestaoFilasPage() {
     }
     return c;
   }, [confirmacaoEntradas]);
+
+  const { data: slotsData } = useQuery({ queryKey: ['slots'], queryFn: getSlots });
+  const vagas = useMemo(() => {
+    const disponiveis = (slotsData?.slots ?? []).reduce((acc, s) => acc + (s.disponiveis ?? 0), 0);
+    return { disponiveis, pendentes: slotsData?.pendentes.length ?? 0 };
+  }, [slotsData]);
 
   const totals = queues.reduce(
     (acc, q) => ({
@@ -140,8 +146,11 @@ export function GestaoFilasPage() {
           <div className="bg-blue-50/70 border border-blue-200/70 rounded-2xl px-5 py-3 flex items-center gap-3 shadow-sm text-blue-700">
             <div className="p-2 rounded-xl bg-blue-100 text-blue-700"><Calendar className="h-5 w-5" /></div>
             <div>
-              <div className="text-sm font-extrabold leading-tight">Vagas disponíveis</div>
-              <div className="text-[11px] text-blue-600 font-semibold mt-0.5">Capacidade por dia — próxima fase</div>
+              <div className="text-xl font-extrabold text-blue-700 leading-none">{vagas.disponiveis}</div>
+              <div className="text-xs text-blue-600 font-bold mt-0.5">Vagas disponíveis</div>
+              {vagas.pendentes > 0 && (
+                <div className="text-[11px] text-amber-600 font-semibold mt-0.5">{vagas.pendentes} sem capacidade definida</div>
+              )}
             </div>
           </div>
         </div>

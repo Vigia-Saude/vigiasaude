@@ -145,6 +145,45 @@ export async function getAbsenteismo(pacienteId: string): Promise<AbsenteismoRes
   return data;
 }
 
+// ==== Capacidade / vagas (SlotAgenda) ====
+
+export interface SlotComVagas {
+  id?: string;
+  procedimento: string;
+  data: string; // ISO (defined) — normalizar com .slice(0,10)
+  origem?: string;
+  definido: boolean;
+  capacidadeTotal: number | null;
+  confirmados: number;
+  convocados: number;
+  disponiveis: number | null;
+}
+
+export interface PendenteCapacidade {
+  procedimento: string;
+  data: string; // YYYY-MM-DD
+  pacientes: number;
+}
+
+export interface SlotsResposta {
+  slots: SlotComVagas[];
+  pendentes: PendenteCapacidade[];
+}
+
+export async function getSlots(): Promise<SlotsResposta> {
+  const { data } = await apiClient.get<SlotsResposta>('/api/regulacao/slots');
+  return data;
+}
+
+export async function salvarSlot(payload: {
+  procedimento: string;
+  data: string;
+  capacidadeTotal: number;
+}): Promise<SlotComVagas> {
+  const { data } = await apiClient.put<SlotComVagas>('/api/regulacao/slots', payload);
+  return data;
+}
+
 // ==== Helpers de apresentação ====
 
 export function faixaScore(score: number): { faixa: 'CONFIAVEL' | 'ATENCAO' | 'ALTO_RISCO'; label: string; emoji: string } {

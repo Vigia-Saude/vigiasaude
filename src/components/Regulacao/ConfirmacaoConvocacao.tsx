@@ -16,6 +16,7 @@ import {
   type PacienteFilaStatus,
 } from '../../services/confirmacaoService';
 import { HistoricoAbsenteismoModal } from './HistoricoAbsenteismoModal';
+import { CapacidadeVagas } from './CapacidadeVagas';
 
 interface Props {
   /** Nome do procedimento para filtrar a fila (opcional: sem filtro mostra tudo). */
@@ -120,6 +121,9 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
 
   return (
     <div className="space-y-4">
+      {/* Capacidade / vagas por dia (seção 4.8) */}
+      <CapacidadeVagas procedureName={procedureName} />
+
       {/* Banner de ações automáticas */}
       <div className="flex items-start gap-3 rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
         <Bot className="h-5 w-5 text-indigo-600 shrink-0 mt-0.5" />

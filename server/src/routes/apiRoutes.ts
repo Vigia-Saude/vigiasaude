@@ -193,6 +193,8 @@ router.post('/regulacao/confirmacao/disparar-manual', roleMiddleware(['REGULADOR
 router.post('/regulacao/confirmacao/convocar/:queueEntryId', roleMiddleware(['REGULADOR']), confirmacaoController.convocar);
 router.post('/regulacao/confirmacao/simular-resposta', roleMiddleware(['REGULADOR']), confirmacaoController.simularResposta);
 router.get('/regulacao/pacientes/:id/absenteismo', roleMiddleware(['REGULADOR']), confirmacaoController.absenteismo);
+router.get('/regulacao/slots', roleMiddleware(['REGULADOR']), confirmacaoController.listarSlots);
+router.put('/regulacao/slots', roleMiddleware(['REGULADOR']), confirmacaoController.salvarSlot);
 
 // Rotas de Gestão de Filas por Procedimento / Especialidade (Apenas REGULADOR)
 // Também precisam vir ANTES de /regulacao/:id, senão "queues" é capturado como :id
