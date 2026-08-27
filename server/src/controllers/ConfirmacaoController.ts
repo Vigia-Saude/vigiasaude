@@ -155,11 +155,11 @@ export class ConfirmacaoController {
   };
 
   // GET /api/regulacao/confirmacao/filas/detalhes  (dados enriquecidos p/ o frontend)
-  detalhes = async (req: AuthRequest, res: Response): Promise<void> => {
+  // O REGULADOR é central do município: enxerga a fila inteira (sem filtro por
+  // unidade do usuário), consistente com RegulacaoController.listar.
+  detalhes = async (_req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const unidadeId = req.user?.unidadeId ?? null;
       const entries = await prisma.queueEntry.findMany({
-        where: unidadeId ? { unidadeId } : {},
         orderBy: { posicao: 'asc' },
         take: 300,
         include: {

@@ -624,9 +624,8 @@ export async function dispararManualProximo(unidadeId: string | null): Promise<Q
 export async function convocarEntrada(unidadeId: string | null, queueEntryId: string): Promise<QueueEntry> {
   const entry = await prisma.queueEntry.findUnique({ where: { id: queueEntryId } });
   if (!entry) throw new Error('Entrada da fila não encontrada.');
-  if (entry.unidadeId && unidadeId && entry.unidadeId !== unidadeId) {
-    throw new Error('Entrada pertence a outro município.');
-  }
+  // REGULADOR é central do município — não bloqueia por unidade do usuário.
+  void unidadeId;
   if (entry.statusPaciente !== 'AGUARDANDO') {
     throw new Error(`Paciente não está AGUARDANDO (status=${entry.statusPaciente}).`);
   }

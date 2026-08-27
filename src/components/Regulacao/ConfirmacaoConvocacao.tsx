@@ -7,7 +7,6 @@ import {
 import {
   listarConfirmacaoDetalhes,
   getConfirmacaoConfig,
-  dispararManualProximo,
   convocarPaciente,
   simularResposta,
   faixaScore,
@@ -70,11 +69,6 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
     qc.invalidateQueries({ queryKey: ['confirmacao-detalhes'] });
   };
 
-  const dispararMut = useMutation({
-    mutationFn: dispararManualProximo,
-    onSuccess: (r) => { toast.success(r.mensagem); invalidar(); },
-    onError: (e: any) => toast.error(e.response?.data?.erro || 'Falha ao disparar.'),
-  });
   const convocarMut = useMutation({
     mutationFn: (id: string) => convocarPaciente(id),
     onSuccess: (r) => { toast.success(r.mensagem); invalidar(); },
@@ -137,10 +131,11 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
           </p>
         </div>
         <button
-          onClick={() => dispararMut.mutate()}
-          disabled={dispararMut.isPending || contadores.aguardando === 0}
+          onClick={() => proximoElegivelId && convocarMut.mutate(proximoElegivelId)}
+          disabled={convocarMut.isPending || !proximoElegivelId}
+          title={proximoElegivelId ? 'Convocar o próximo da fila' : 'Nenhum paciente aguardando'}
           className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-2 rounded-xl shadow-sm disabled:opacity-50 cursor-pointer shrink-0">
-          {dispararMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Megaphone className="h-4 w-4" />}
+          {convocarMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Megaphone className="h-4 w-4" />}
           Disparar próximo
         </button>
       </div>
