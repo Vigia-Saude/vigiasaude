@@ -80,12 +80,21 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
     onError: (e: any) => toast.error(e.response?.data?.erro || 'Falha ao simular resposta.'),
   });
 
-  // Filtra pela fila do procedimento (quando informado).
+  // Filtra pela fila do procedimento (quando informado) e ordena na ordem de
+  // convocação: ativos primeiro (aguardando/convocado), depois por urgência
+  // (VERMELHO > AMARELO > NORMAL) e, por fim, FIFO por posição.
   const lista = useMemo(() => {
     const arr = procedureName
       ? entradas.filter((e) => (e.procedimentoNome ?? '').toLowerCase() === procedureName.toLowerCase())
       : entradas;
-    return [...arr].sort((a, b) => a.posicao - b.posicao);
+    const ativo = (s: PacienteFilaStatus) => (s === 'AGUARDANDO' || s === 'CONVOCADO' ? 0 : 1);
+    return [...arr].sort((a, b) => {
+      const rs = ativo(a.statusPaciente) - ativo(b.statusPaciente);
+      if (rs !== 0) return rs;
+      const ru = (RANK[b.nivelUrgencia] ?? 1) - (RANK[a.nivelUrgencia] ?? 1);
+      if (ru !== 0) return ru;
+      return a.posicao - b.posicao;
+    });
   }, [entradas, procedureName]);
 
   // Próximo elegível para convocar (urgência + FIFO entre os AGUARDANDO).
