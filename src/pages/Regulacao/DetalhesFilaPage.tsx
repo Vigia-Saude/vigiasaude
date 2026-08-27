@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router';
-import { ArrowLeft, Send, Settings, MessageSquare, CheckCircle2, Clock, XCircle, Users, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Send, Settings, MessageSquare, ListChecks, Megaphone } from 'lucide-react';
 import { toast } from 'sonner';
 import apiClient from '../../services/apiClient';
+import { ConfirmacaoConvocacao } from '../../components/Regulacao/ConfirmacaoConvocacao';
 
 interface Patient {
   id: string;
@@ -84,6 +85,7 @@ function computeTimeSlot(index: number): string {
 export function DetalhesFilaPage() {
   const { procedureId } = useParams<{ procedureId: string }>();
   const [data, setData] = useState<QueueData | null>(null);
+  const [viewMode, setViewMode] = useState<'fila' | 'confirmacao'>('fila');
   const [activeTab, setActiveTab] = useState<'todos' | 'confirmed' | 'awaiting' | 'cancelled' | 'reserva'>('todos');
   const [loading, setLoading] = useState(true);
   const [resendingAll, setResendingAll] = useState(false);
@@ -178,15 +180,41 @@ export function DetalhesFilaPage() {
           </div>
         </div>
 
+        {viewMode === 'fila' && (
+          <button
+            onClick={handleResendAll}
+            disabled={resendingAll}
+            className="flex items-center gap-2 border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 px-4 py-2.5 rounded-2xl text-xs font-bold shadow-sm disabled:opacity-50 transition-all cursor-pointer shrink-0">
+            <Send className="h-4 w-4 text-emerald-700" />
+            <span>{resendingAll ? 'Reenviando...' : 'Reenviar para toda a fila'}</span>
+          </button>
+        )}
+      </div>
+
+      {/* Alternador de visão: Fila (SMS) x Confirmação & Convocação */}
+      <div className="inline-flex items-center gap-1 bg-slate-100 rounded-2xl p-1">
         <button
-          onClick={handleResendAll}
-          disabled={resendingAll}
-          className="flex items-center gap-2 border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 px-4 py-2.5 rounded-2xl text-xs font-bold shadow-sm disabled:opacity-50 transition-all cursor-pointer shrink-0">
-          <Send className="h-4 w-4 text-emerald-700" />
-          <span>{resendingAll ? 'Reenviando...' : 'Reenviar para toda a fila'}</span>
+          onClick={() => setViewMode('fila')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            viewMode === 'fila' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+          }`}>
+          <ListChecks className="h-4 w-4" />
+          Fila (SMS)
+        </button>
+        <button
+          onClick={() => setViewMode('confirmacao')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            viewMode === 'confirmacao' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+          }`}>
+          <Megaphone className="h-4 w-4" />
+          Confirmação &amp; Convocação
         </button>
       </div>
 
+      {viewMode === 'confirmacao' && <ConfirmacaoConvocacao procedureName={data?.procedure.name} />}
+
+      {viewMode === 'fila' && (
+      <>
       {/* KPI Stats Bar Idêntica à Imagem 4 */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="bg-slate-200/70 text-slate-800 font-bold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2">
@@ -413,6 +441,8 @@ export function DetalhesFilaPage() {
           </tbody>
         </table>
       </div>
+      </>
+      )}
 
       {/* Modal para Alterar Status / Telefone */}
       {editingEntry && (

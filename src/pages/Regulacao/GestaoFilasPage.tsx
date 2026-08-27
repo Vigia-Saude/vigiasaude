@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { ChevronRight, Calendar, CheckCircle2, Clock, XCircle, Users } from 'lucide-react';
+import { ChevronRight, Calendar, CheckCircle2, Clock, XCircle, Users, Megaphone, ThumbsDown, PhoneOff } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import apiClient from '../../services/apiClient';
+import { listarConfirmacaoDetalhes } from '../../services/confirmacaoService';
 
 interface QueueSummary {
   procedureId: string;
@@ -22,6 +24,22 @@ export function GestaoFilasPage() {
       .catch(() => setQueues([]))
       .finally(() => setLoading(false));
   }, []);
+
+  const { data: confirmacaoEntradas = [] } = useQuery({
+    queryKey: ['confirmacao-detalhes'],
+    queryFn: listarConfirmacaoDetalhes,
+  });
+
+  const confirmacao = useMemo(() => {
+    const c = { convocados: 0, confirmados: 0, recusados: 0, naoResponderam: 0 };
+    for (const e of confirmacaoEntradas) {
+      if (e.statusPaciente === 'CONVOCADO') c.convocados++;
+      else if (e.statusPaciente === 'CONFIRMADO' || e.statusPaciente === 'RECONFIRMADO') c.confirmados++;
+      else if (e.statusPaciente === 'RECUSOU') c.recusados++;
+      else if (e.statusPaciente === 'NAO_RESPONDEU') c.naoResponderam++;
+    }
+    return c;
+  }, [confirmacaoEntradas]);
 
   const totals = queues.reduce(
     (acc, q) => ({
@@ -83,6 +101,48 @@ export function GestaoFilasPage() {
           <div>
             <div className="text-xl font-extrabold text-rose-700 leading-none">{totals.cancelled}</div>
             <div className="text-xs text-rose-600 font-bold mt-0.5">Cancelados</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Contadores de Confirmação (WhatsApp) */}
+      <div>
+        <h2 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-2">Confirmação (WhatsApp)</h2>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="bg-amber-50/70 border border-amber-200/70 rounded-2xl px-5 py-3 flex items-center gap-3 shadow-sm">
+            <div className="p-2 rounded-xl bg-amber-100 text-amber-700"><Megaphone className="h-5 w-5" /></div>
+            <div>
+              <div className="text-xl font-extrabold text-amber-700 leading-none">{confirmacao.convocados}</div>
+              <div className="text-xs text-amber-600 font-bold mt-0.5">Convocados</div>
+            </div>
+          </div>
+          <div className="bg-emerald-50/70 border border-emerald-200/70 rounded-2xl px-5 py-3 flex items-center gap-3 shadow-sm">
+            <div className="p-2 rounded-xl bg-emerald-100 text-emerald-700"><CheckCircle2 className="h-5 w-5" /></div>
+            <div>
+              <div className="text-xl font-extrabold text-emerald-700 leading-none">{confirmacao.confirmados}</div>
+              <div className="text-xs text-emerald-600 font-bold mt-0.5">Confirmados</div>
+            </div>
+          </div>
+          <div className="bg-rose-50/70 border border-rose-200/70 rounded-2xl px-5 py-3 flex items-center gap-3 shadow-sm">
+            <div className="p-2 rounded-xl bg-rose-100 text-rose-700"><ThumbsDown className="h-5 w-5" /></div>
+            <div>
+              <div className="text-xl font-extrabold text-rose-700 leading-none">{confirmacao.recusados}</div>
+              <div className="text-xs text-rose-600 font-bold mt-0.5">Recusados</div>
+            </div>
+          </div>
+          <div className="bg-orange-50/70 border border-orange-200/70 rounded-2xl px-5 py-3 flex items-center gap-3 shadow-sm">
+            <div className="p-2 rounded-xl bg-orange-100 text-orange-700"><PhoneOff className="h-5 w-5" /></div>
+            <div>
+              <div className="text-xl font-extrabold text-orange-700 leading-none">{confirmacao.naoResponderam}</div>
+              <div className="text-xs text-orange-600 font-bold mt-0.5">Não responderam</div>
+            </div>
+          </div>
+          <div className="bg-blue-50/70 border border-blue-200/70 rounded-2xl px-5 py-3 flex items-center gap-3 shadow-sm text-blue-700">
+            <div className="p-2 rounded-xl bg-blue-100 text-blue-700"><Calendar className="h-5 w-5" /></div>
+            <div>
+              <div className="text-sm font-extrabold leading-tight">Vagas disponíveis</div>
+              <div className="text-[11px] text-blue-600 font-semibold mt-0.5">Capacidade por dia — próxima fase</div>
+            </div>
           </div>
         </div>
       </div>
