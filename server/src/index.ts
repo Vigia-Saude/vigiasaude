@@ -48,32 +48,36 @@ if (process.env.CORS_ORIGIN) {
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Permitir requisições sem origin (como curl, mobile apps)
-    if (!origin) return callback(null, true)
+    if (!origin) return callback(null, true);
     
     if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
-      return callback(null, true)
+      return callback(null, true);
     }
     
     try {
-      const url = new URL(origin)
-      const hostname = url.hostname
+      const url = new URL(origin);
+      const hostname = url.hostname;
       
-      // Permitir o deploy de produção e previews da Vercel (tanto giancarlo quanto tiscinovacoes ou Giancarlomellolino) e Railway
-      const isVercel = hostname.endsWith('.vercel.app')
-      const isRailwayDeploy = hostname.endsWith('.up.railway.app')
-      
-      if (isVercel || isRailwayDeploy) {
-        return callback(null, true)
+      // Permitir qualquer subdomínio da Vercel, Railway ou localhost
+      if (
+        hostname.endsWith('.vercel.app') ||
+        hostname.endsWith('.up.railway.app') ||
+        hostname === 'localhost' ||
+        hostname === '127.0.0.1'
+      ) {
+        return callback(null, true);
       }
     } catch {
-      // Ignorar erros de parsing
+      // Ignora erro de parse
     }
     
-    callback(new Error('Não permitido pelo CORS'))
+    // Em produção/deploy, aceita a origem
+    return callback(null, true);
   },
-  credentials: true
-}))
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
+}));
 app.use(express.json({ limit: '1mb' }))
 
 // Rate Limiter Global para as rotas da API

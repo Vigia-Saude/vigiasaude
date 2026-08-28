@@ -3,7 +3,18 @@ import axios from 'axios';
 export const getApiBaseUrl = (): string => {
   const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl && typeof envUrl === 'string' && envUrl.trim().length > 0) {
-    return envUrl.trim();
+    const trimmed = envUrl.trim();
+    // Se estiver com a URL antiga do Railway sem -a091, redireciona para a ativa
+    if (trimmed.includes('vigiasaude-production.up.railway.app') && !trimmed.includes('-a091')) {
+      return 'https://vigiasaude-production-a091.up.railway.app';
+    }
+    // Se estiver rodando na Vercel mas o envUrl veio como localhost
+    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      if (trimmed.includes('localhost') || trimmed.includes('127.0.0.1')) {
+        return 'https://vigiasaude-production-a091.up.railway.app';
+      }
+    }
+    return trimmed;
   }
 
   // Se estiver rodando no navegador em domínio online (como *.vercel.app), aponta para o Railway
