@@ -54,7 +54,16 @@ export default function LoginPage() {
     try {
       await login({ cpf: cleanCPF, password });
     } catch (err: any) {
-      setErrorMsg(err.response?.data?.error || 'Falha na autenticação. Verifique suas credenciais.');
+      const backendError = err.response?.data?.error || err.response?.data?.erro;
+      if (backendError) {
+        setErrorMsg(backendError);
+      } else if (err.code === 'ERR_NETWORK' || err.message?.includes('Network Error')) {
+        setErrorMsg('Erro de conexão: Não foi possível conectar ao servidor. Verifique a URL da API ou o status do Railway.');
+      } else if (err.response?.status === 404) {
+        setErrorMsg('Servidor não encontrado (404). Verifique a URL do backend.');
+      } else {
+        setErrorMsg(err.message || 'Falha na autenticação. Verifique suas credenciais.');
+      }
     }
   };
 
