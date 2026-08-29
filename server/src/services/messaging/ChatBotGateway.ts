@@ -1,3 +1,6 @@
+import axios from 'axios';
+import { randomUUID } from 'crypto';
+import prisma from '../../config/prisma';
 import type {
   IMessagingGateway,
   GatewayResult,
@@ -6,34 +9,105 @@ import type {
   EnviarConvocacaoParams,
 } from './IMessagingGateway';
 
-// STUB — implementação real para a fase futura.
+// Implementação REAL do gateway: fala com o ChatBot Vinhedo (seção 5 do
+// documento e docs/INTEGRACAO_CHATBOT.md). Ativa com MESSAGING_GATEWAY=chatbot.
 //
-// Fará POST autenticado (X-API-Key AES-256 por município + TLS) para a API do
-// ChatBot Vinhedo, conforme o contrato da seção 5 do documento de requisitos:
-//   POST {CHATBOT_URL}/api/saude/enviar-mensagem
-// e receberá as respostas dos pacientes via callback HMAC-SHA256 em
-//   POST {VIGIA_URL}/api/regulacao/confirmacao/callback
-//
-// Enquanto não implementado, lança erro para deixar claro que `MESSAGING_GATEWAY`
-// está configurado como `chatbot` sem a integração pronta.
+// Envia apenas dados mínimos (telefone, nome, procedimento, data) — nenhum dado
+// clínico sai do Vigia (LGPD). Correlaciona a resposta via callbackId.
+
+type Tipo = 'CONFIRMACAO' | 'COLETA_MOTIVO' | 'CONVOCACAO';
+
+interface CorpoEnvio {
+  tipo: Tipo;
+  telefone: string;
+  nomePaciente: string;
+  procedimento?: string;
+  dataAgendada?: string;
+  templateName: string;
+  callbackUrl: string;
+  callbackId: string;
+}
 
 export class ChatBotGateway implements IMessagingGateway {
-  private naoImplementado(metodo: string): never {
-    throw new Error(
-      `ChatBotGateway.${metodo} ainda não implementado. ` +
-        `Defina MESSAGING_GATEWAY=mock nesta fase, ou implemente a integração com o ChatBot Vinhedo.`
-    );
+  private base = process.env.CHATBOT_URL;
+  private apiKey = process.env.CHATBOT_API_KEY;
+  private tenantId = process.env.CHATBOT_TENANT_ID;
+  private callbackUrl = `${process.env.VIGIA_PUBLIC_URL || ''}/api/regulacao/confirmacao/callback`;
+
+  private async enviar(
+    tipo: Tipo,
+    params: { telefone: string; nomePaciente: string; templateName: string; callbackId: string; procedimento?: string; dataAgendada?: string }
+  ): Promise<GatewayResult> {
+    if (!this.base) throw new Error('CHATBOT_URL não configurada para MESSAGING_GATEWAY=chatbot.');
+
+    const corpo: CorpoEnvio = {
+      tipo,
+      telefone: params.telefone,
+      nomePaciente: params.nomePaciente,
+      procedimento: params.procedimento,
+      dataAgendada: params.dataAgendada,
+      templateName: params.templateName,
+      callbackUrl: this.callbackUrl,
+      callbackId: params.callbackId,
+    };
+
+    let messageId = `chatbot.${randomUUID()}`;
+    let status = 'SENT';
+    let error: string | null = null;
+
+    try {
+      const resp = await axios.post(`${this.base}/api/saude/enviar-mensagem`, corpo, {
+        headers: {
+          'X-API-Key': this.apiKey ?? '',
+          'X-Tenant-Id': this.tenantId ?? '',
+          'Content-Type': 'application/json',
+        },
+        timeout: 15000,
+      });
+      const data = resp.data ?? {};
+      messageId = data.messageId ?? data.wamid ?? data.id ?? messageId;
+      status = data.status ?? 'SENT';
+    } catch (err: any) {
+      status = 'FAILED';
+      error = err?.response?.data?.erro ?? err?.message ?? 'Falha ao enviar ao ChatBot';
+      // Registra a falha e propaga (o serviço decide o que fazer).
+      await prisma.messageLog.create({
+        data: {
+          direction: 'OUTBOUND',
+          wamid: null,
+          templateName: params.templateName,
+          body: `${tipo} → ${params.telefone}`,
+          status: 'FAILED',
+          error,
+          rawPayload: { tipo, callbackId: params.callbackId } as any,
+        },
+      });
+      throw new Error(error!);
+    }
+
+    await prisma.messageLog.create({
+      data: {
+        direction: 'OUTBOUND',
+        wamid: messageId,
+        templateName: params.templateName,
+        body: `${tipo} → ${params.telefone}`,
+        status: 'SENT',
+        rawPayload: { tipo, callbackId: params.callbackId, chatbot: true } as any,
+      },
+    });
+
+    return { messageId, status };
   }
 
-  async enviarConfirmacao(_params: EnviarConfirmacaoParams): Promise<GatewayResult> {
-    return this.naoImplementado('enviarConfirmacao');
+  async enviarConfirmacao(params: EnviarConfirmacaoParams): Promise<GatewayResult> {
+    return this.enviar('CONFIRMACAO', params);
   }
 
-  async enviarColetaMotivo(_params: EnviarColetaMotivoParams): Promise<GatewayResult> {
-    return this.naoImplementado('enviarColetaMotivo');
+  async enviarColetaMotivo(params: EnviarColetaMotivoParams): Promise<GatewayResult> {
+    return this.enviar('COLETA_MOTIVO', params);
   }
 
-  async enviarConvocacao(_params: EnviarConvocacaoParams): Promise<GatewayResult> {
-    return this.naoImplementado('enviarConvocacao');
+  async enviarConvocacao(params: EnviarConvocacaoParams): Promise<GatewayResult> {
+    return this.enviar('CONVOCACAO', params);
   }
 }
