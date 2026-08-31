@@ -242,9 +242,13 @@ export class ConfirmacaoController {
   // PUT /api/regulacao/slots  — define/atualiza a capacidade de um procedimento/dia
   salvarSlot = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const unidadeId = req.user?.unidadeId ?? null;
+      let unidadeId = req.user?.unidadeId ?? null;
       if (!unidadeId) {
-        res.status(400).json({ erro: 'Usuário sem unidade associada.' });
+        const firstUnidade = await prisma.unidade.findFirst({ where: { ativa: true } }) || await prisma.unidade.findFirst();
+        unidadeId = firstUnidade?.id ?? null;
+      }
+      if (!unidadeId) {
+        res.status(400).json({ erro: 'Nenhuma unidade de saúde cadastrada no sistema.' });
         return;
       }
       const parsed = slotSchema.safeParse(req.body);
