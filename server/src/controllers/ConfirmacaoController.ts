@@ -69,7 +69,11 @@ export class ConfirmacaoController {
   // POST /api/regulacao/confirmacao/disparar-manual
   dispararManual = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const unidadeId = req.user?.unidadeId ?? null;
+      let unidadeId = req.user?.unidadeId ?? null;
+      if (!unidadeId) {
+        const firstUnidade = (await prisma.unidade.findFirst({ where: { ativa: true } })) || (await prisma.unidade.findFirst());
+        unidadeId = firstUnidade?.id ?? null;
+      }
       const entry = await dispararManualProximo(unidadeId);
       if (!entry) {
         res.status(404).json({ erro: 'Nenhum paciente AGUARDANDO na fila.' });
@@ -244,12 +248,18 @@ export class ConfirmacaoController {
     try {
       let unidadeId = req.user?.unidadeId ?? null;
       if (!unidadeId) {
-        const firstUnidade = await prisma.unidade.findFirst({ where: { ativa: true } }) || await prisma.unidade.findFirst();
-        unidadeId = firstUnidade?.id ?? null;
-      }
-      if (!unidadeId) {
-        res.status(400).json({ erro: 'Nenhuma unidade de saúde cadastrada no sistema.' });
-        return;
+        let firstUnidade = (await prisma.unidade.findFirst({ where: { ativa: true } })) || (await prisma.unidade.findFirst());
+        if (!firstUnidade) {
+          firstUnidade = await prisma.unidade.create({
+            data: {
+              nome: 'Secretaria Municipal de Saúde',
+              cnes: '0000001',
+              tenantSchema: 'tenant_central',
+              ativa: true,
+            },
+          });
+        }
+        unidadeId = firstUnidade.id;
       }
       const parsed = slotSchema.safeParse(req.body);
       if (!parsed.success) {
