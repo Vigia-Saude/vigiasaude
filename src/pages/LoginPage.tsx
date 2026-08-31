@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { Shield, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { formatCPF } from '../lib/utils';
+import apiClient from '../services/apiClient';
 import { ForgotPasswordModal } from '../components/Auth/ForgotPasswordModal';
 import { RegisterForm } from '../components/Auth/RegisterForm';
 
@@ -19,6 +20,11 @@ export default function LoginPage() {
 
   const { login, isLoading, user } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // Warm-up silencioso do backend Railway ao abrir a tela
+    apiClient.get('/health').catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (user) {
