@@ -4,24 +4,26 @@ import { ChatBotGateway } from './ChatBotGateway';
 
 export type { IMessagingGateway } from './IMessagingGateway';
 
-let instancia: IMessagingGateway | null = null;
+let injectedInstance: IMessagingGateway | null = null;
 
-// Factory: seleciona a implementação do gateway por variável de ambiente.
-//   MESSAGING_GATEWAY=mock     (padrão nesta fase) → MockMessagingGateway
-//   MESSAGING_GATEWAY=chatbot  → ChatBotGateway (stub, fase futura)
+// Factory: seleciona a implementação do gateway dinamicamente a cada requisição.
 export function getMessagingGateway(): IMessagingGateway {
-  if (instancia) return instancia;
+  if (injectedInstance) return injectedInstance;
 
-  const modo = (process.env.MESSAGING_GATEWAY || 'mock').toLowerCase();
-  instancia = modo === 'chatbot' ? new ChatBotGateway() : new MockMessagingGateway();
+  const modo = (process.env.MESSAGING_GATEWAY || 'mock').toLowerCase().trim();
+  console.log(`[messaging] Obtendo gateway de mensageria: modo="${modo}"`);
 
-  if (modo !== 'chatbot' && modo !== 'mock') {
+  if (modo === 'chatbot') {
+    return new ChatBotGateway();
+  }
+
+  if (modo !== 'mock') {
     console.warn(`[messaging] MESSAGING_GATEWAY="${modo}" desconhecido; usando mock.`);
   }
-  return instancia;
+  return new MockMessagingGateway();
 }
 
 // Permite injetar um gateway nos testes.
 export function setMessagingGateway(gw: IMessagingGateway | null): void {
-  instancia = gw;
+  injectedInstance = gw;
 }

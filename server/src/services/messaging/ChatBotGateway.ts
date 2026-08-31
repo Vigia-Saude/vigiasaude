@@ -9,12 +9,6 @@ import type {
   EnviarConvocacaoParams,
 } from './IMessagingGateway';
 
-// Implementação REAL do gateway: fala com o ChatBot Vinhedo (seção 5 do
-// documento e docs/INTEGRACAO_CHATBOT.md). Ativa com MESSAGING_GATEWAY=chatbot.
-//
-// Envia apenas dados mínimos (telefone, nome, procedimento, data) — nenhum dado
-// clínico sai do Vigia (LGPD). Correlaciona a resposta via callbackId.
-
 type Tipo = 'CONFIRMACAO' | 'COLETA_MOTIVO' | 'CONVOCACAO';
 
 interface CorpoEnvio {
@@ -26,19 +20,41 @@ interface CorpoEnvio {
   templateName: string;
   callbackUrl: string;
   callbackId: string;
+  webhookSecret?: string;
 }
 
 export class ChatBotGateway implements IMessagingGateway {
-  private base = process.env.CHATBOT_URL;
-  private apiKey = process.env.CHATBOT_API_KEY;
-  private tenantId = process.env.CHATBOT_TENANT_ID;
-  private callbackUrl = `${process.env.VIGIA_PUBLIC_URL || ''}/api/regulacao/confirmacao/callback`;
+  private getBaseUrl(): string {
+    const raw = process.env.CHATBOT_URL?.trim();
+    if (!raw) {
+      throw new Error('CHATBOT_URL não configurada para MESSAGING_GATEWAY=chatbot.');
+    }
+    return raw.replace(/\/+$/, '');
+  }
+
+  private getCallbackUrl(): string {
+    const raw = (process.env.VIGIA_PUBLIC_URL || '').trim().replace(/\/+$/, '');
+    return `${raw}/api/regulacao/confirmacao/callback`;
+  }
 
   private async enviar(
     tipo: Tipo,
-    params: { telefone: string; nomePaciente: string; templateName: string; callbackId: string; procedimento?: string; dataAgendada?: string }
+    params: {
+      telefone: string;
+      nomePaciente: string;
+      templateName: string;
+      callbackId: string;
+      procedimento?: string;
+      dataAgendada?: string;
+    }
   ): Promise<GatewayResult> {
-    if (!this.base) throw new Error('CHATBOT_URL não configurada para MESSAGING_GATEWAY=chatbot.');
+    const base = this.getBaseUrl();
+    const apiKey = process.env.CHATBOT_API_KEY?.trim() || '';
+    const tenantId = process.env.CHATBOT_TENANT_ID?.trim() || '';
+    const callbackUrl = this.getCallbackUrl();
+    const webhookSecret = process.env.VIGIA_WEBHOOK_SECRET?.trim() || undefined;
+
+    const endpoint = `${base}/api/saude/enviar-mensagem`;
 
     const corpo: CorpoEnvio = {
       tipo,
@@ -47,30 +63,37 @@ export class ChatBotGateway implements IMessagingGateway {
       procedimento: params.procedimento,
       dataAgendada: params.dataAgendada,
       templateName: params.templateName,
-      callbackUrl: this.callbackUrl,
+      callbackUrl,
       callbackId: params.callbackId,
+      webhookSecret,
     };
+
+    console.log(`[ChatBotGateway] Disparando ${tipo} para ${params.telefone} via ${endpoint} (tenant=${tenantId}):`, corpo);
 
     let messageId = `chatbot.${randomUUID()}`;
     let status = 'SENT';
     let error: string | null = null;
 
     try {
-      const resp = await axios.post(`${this.base}/api/saude/enviar-mensagem`, corpo, {
-        headers: {
-          'X-API-Key': this.apiKey ?? '',
-          'X-Tenant-Id': this.tenantId ?? '',
-          'Content-Type': 'application/json',
-        },
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (apiKey) headers['X-API-Key'] = apiKey;
+      if (tenantId) headers['X-Tenant-Id'] = tenantId;
+
+      const resp = await axios.post(endpoint, corpo, {
+        headers,
         timeout: 15000,
       });
       const data = resp.data ?? {};
       messageId = data.messageId ?? data.wamid ?? data.id ?? messageId;
       status = data.status ?? 'SENT';
+      console.log(`[ChatBotGateway] Mensagem enviada com sucesso! messageId=${messageId}`);
     } catch (err: any) {
       status = 'FAILED';
-      error = err?.response?.data?.erro ?? err?.message ?? 'Falha ao enviar ao ChatBot';
-      // Registra a falha e propaga (o serviço decide o que fazer).
+      error = err?.response?.data?.erro || err?.response?.data?.message || err?.message || 'Falha ao enviar ao ChatBot';
+      console.error(`[ChatBotGateway] ERRO ao enviar para ChatBot:`, error, err?.response?.data);
+
       await prisma.messageLog.create({
         data: {
           direction: 'OUTBOUND',
@@ -79,7 +102,7 @@ export class ChatBotGateway implements IMessagingGateway {
           body: `${tipo} → ${params.telefone}`,
           status: 'FAILED',
           error,
-          rawPayload: { tipo, callbackId: params.callbackId } as any,
+          rawPayload: { tipo, callbackId: params.callbackId, erroDetalhe: err?.response?.data } as any,
         },
       });
       throw new Error(error!);
