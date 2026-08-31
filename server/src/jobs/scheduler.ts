@@ -1,5 +1,6 @@
 import cron, { ScheduledTask } from 'node-cron';
 import { verificarTimeouts, dispararProgramados } from '../services/confirmacao.service';
+import { pingDatabase } from '../config/prisma';
 
 // ====================================================================
 // Agendador do módulo de Confirmação Automatizada (cron jobs — seção 7)
@@ -32,11 +33,27 @@ async function comGuarda(nome: string, jaRodando: () => boolean, setRodando: (v:
 }
 
 export function startSchedulers(): void {
+  if (tarefas.length > 0) return; // evita registro duplicado
+
+  // Keepalive do banco — mantém o pool aquecido para que a primeira requisição
+  // após um período ocioso (ex.: tela de login parada) não pegue uma conexão
+  // morta reciclada pelo pooler do Supabase. Sempre ativo, mesmo com os crons
+  // de confirmação desabilitados (desative com DB_KEEPALIVE_ENABLED=false).
+  if (process.env.DB_KEEPALIVE_ENABLED !== 'false') {
+    tarefas.push(
+      cron.schedule('*/4 * * * *', () => {
+        pingDatabase();
+      })
+    );
+    // Aquecimento imediato no boot (não espera o primeiro tick de 4 min).
+    pingDatabase();
+    console.log('[scheduler] Keepalive do banco iniciado (ping a cada 4 min).');
+  }
+
   if (process.env.CONFIRMACAO_CRON_ENABLED === 'false') {
     console.log('[scheduler] Cron de confirmação desabilitado (CONFIRMACAO_CRON_ENABLED=false).');
     return;
   }
-  if (tarefas.length > 0) return; // evita registro duplicado
 
   // 7.1 — Verificação de timeouts / reenvios (a cada 15 minutos)
   tarefas.push(
