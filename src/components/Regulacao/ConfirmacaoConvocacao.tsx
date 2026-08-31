@@ -143,9 +143,22 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
           onClick={() => proximoElegivelId && convocarMut.mutate(proximoElegivelId)}
           disabled={convocarMut.isPending || !proximoElegivelId}
           title={proximoElegivelId ? 'Convocar o próximo da fila' : 'Nenhum paciente aguardando'}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-2 rounded-xl shadow-sm disabled:opacity-50 cursor-pointer shrink-0">
-          {convocarMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Megaphone className="h-4 w-4" />}
-          Disparar próximo
+          className={`flex items-center gap-2 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm transition-all duration-200 shrink-0 cursor-pointer ${
+            convocarMut.isPending
+              ? 'bg-indigo-700 animate-pulse ring-2 ring-indigo-300 cursor-wait'
+              : 'bg-indigo-600 hover:bg-indigo-700 hover:scale-105 active:scale-95'
+          } disabled:opacity-50 disabled:cursor-not-allowed`}>
+          {convocarMut.isPending ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Disparando WhatsApp...</span>
+            </>
+          ) : (
+            <>
+              <Megaphone className="h-4 w-4" />
+              <span>Disparar próximo</span>
+            </>
+          )}
         </button>
       </div>
 
@@ -228,7 +241,7 @@ function LinhaPaciente({
 
   return (
     <>
-      <tr className="hover:bg-slate-50/70 transition-colors align-top">
+      <tr className={`transition-all duration-300 align-top ${convocando ? 'bg-emerald-50/90 ring-2 ring-emerald-400/60 shadow-inner' : 'hover:bg-slate-50/70'}`}>
         <td className="py-4 px-5">
           <button onClick={onToggle} className="text-slate-400 hover:text-slate-700 cursor-pointer">
             {expandido ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -266,7 +279,7 @@ function LinhaPaciente({
           )}
         </td>
         <td className="py-4 px-5 whitespace-nowrap">
-          <span className={`inline-flex items-center gap-1.5 text-xs font-bold border px-3 py-1 rounded-full ${STATUS_PILL[e.statusPaciente]}`}>
+          <span className={`inline-flex items-center gap-1.5 text-xs font-bold border px-3 py-1 rounded-full transition-all duration-300 ${STATUS_PILL[e.statusPaciente]}`}>
             {STATUS_PACIENTE_LABEL[e.statusPaciente]}
           </span>
         </td>
@@ -274,10 +287,25 @@ function LinhaPaciente({
           <button
             onClick={onConvocar}
             disabled={!podeConvocar || convocando}
-            title={podeConvocar ? 'Convocar este paciente' : 'Apenas o próximo da fila pode ser convocado'}
-            className="inline-flex items-center gap-1 text-xs border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold px-3 py-1.5 rounded-xl shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
-            {convocando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-            Convocar
+            title={podeConvocar ? 'Convocar este paciente via WhatsApp' : 'Apenas o próximo da fila pode ser convocado'}
+            className={`inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl shadow-sm transition-all duration-200 cursor-pointer ${
+              convocando
+                ? 'bg-emerald-600 text-white shadow-md animate-pulse ring-2 ring-emerald-300 cursor-wait'
+                : podeConvocar
+                ? 'border border-emerald-300 bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-800 hover:scale-105 active:scale-95 shadow-sm'
+                : 'border border-slate-200 bg-slate-50 text-slate-400 opacity-40 cursor-not-allowed'
+            }`}>
+            {convocando ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-white" />
+                <span>Enviando WhatsApp...</span>
+              </>
+            ) : (
+              <>
+                <Send className="h-3.5 w-3.5" />
+                <span>Convocar</span>
+              </>
+            )}
           </button>
         </td>
       </tr>

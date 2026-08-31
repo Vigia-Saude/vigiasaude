@@ -14,13 +14,26 @@ if (!fs.existsSync(uploadDir)) {
 
 export const uploadRegulacaoConfig = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
-  fileFilter: (req, file, cb) => {
-    const allowedMimes = ['application/pdf', 'image/jpeg', 'image/png'];
-    if (allowedMimes.includes(file.mimetype)) {
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB
+  fileFilter: (_req, file, cb) => {
+    const allowedMimes = [
+      'application/pdf',
+      'application/x-pdf',
+      'application/acrobat',
+      'applications/vnd.pdf',
+      'text/pdf',
+      'application/octet-stream',
+      'image/jpeg',
+      'image/png',
+      'image/webp'
+    ];
+    const isPdfExt = file.originalname?.toLowerCase().endsWith('.pdf');
+    const isImgExt = /\.(jpe?g|png|webp)$/i.test(file.originalname || '');
+
+    if (allowedMimes.includes(file.mimetype) || isPdfExt || isImgExt) {
       return cb(null, true);
     }
-    cb(new Error('Apenas PDF ou imagens (JPEG/PNG) são permitidos!'));
+    cb(new Error('Apenas arquivos PDF ou imagens (JPEG/PNG/WEBP) são permitidos!'));
   },
 });
 

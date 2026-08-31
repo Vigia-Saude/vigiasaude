@@ -19,8 +19,14 @@ function getParam(param: string | string[] | undefined): string {
 export class ImportPdfController {
   // POST /api/regulacao/imports/upload
   uploadPdf = async (req: AuthRequest, res: Response): Promise<void> => {
-    if (!req.file || req.file.mimetype !== 'application/pdf') {
-      res.status(400).json({ erro: 'Envie um arquivo PDF no campo "file".' });
+    const isPdf =
+      req.file &&
+      (req.file.mimetype.includes('pdf') ||
+        req.file.originalname?.toLowerCase().endsWith('.pdf') ||
+        (req.file.buffer && req.file.buffer.length >= 4 && req.file.buffer.slice(0, 4).toString('ascii') === '%PDF'));
+
+    if (!req.file || !isPdf) {
+      res.status(400).json({ erro: 'Envie um arquivo PDF válido no campo "file".' });
       return;
     }
 

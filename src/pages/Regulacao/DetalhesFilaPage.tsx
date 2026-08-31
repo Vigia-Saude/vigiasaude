@@ -49,8 +49,15 @@ export function DetalhesFilaPage() {
         </div>
       </div>
 
-      {/* Fila única: confirmação & convocação (WhatsApp via ChatBot) */}
-      <ConfirmacaoConvocacao procedureName={procedureName || undefined} />
+      {loading ? (
+        <div className="bg-white border border-slate-200 rounded-3xl p-16 flex flex-col items-center justify-center gap-3 text-slate-400 shadow-sm animate-pulse">
+          <div className="h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm font-medium text-slate-600">Carregando dados da fila...</span>
+        </div>
+      ) : (
+        /* Fila única com chave isolada por procedureId para evitar flicker de fila anterior */
+        <ConfirmacaoConvocacao key={procedureId} procedureName={procedureName || undefined} />
+      )}
     </div>
   );
 }
