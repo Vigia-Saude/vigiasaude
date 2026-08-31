@@ -9,6 +9,7 @@ import compression from 'compression'
 import authRoutes from './routes/authRoutes'
 import apiRoutes from './routes/apiRoutes'
 import { authMiddleware, roleMiddleware } from './middlewares/auth'
+import prisma from './config/prisma'
 
 dotenv.config()
 
@@ -112,8 +113,13 @@ app.get('/', (req, res) => {
   res.send('Vigia Saúde API is running')
 })
 
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Servidor Vigia Saúde está online.' })
+app.get('/health', async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: 'OK', database: 'connected', message: 'Servidor Vigia Saúde está online.' });
+  } catch (err: any) {
+    res.json({ status: 'OK', database: 'reconnecting', message: 'Servidor online.' });
+  }
 })
 
 // Rota de teste protegida

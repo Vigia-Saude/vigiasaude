@@ -109,10 +109,20 @@ export class AuthController {
     const { cpf, password } = parsed.data;
 
     try {
-      const user = await prisma.user.findUnique({
-        where: { cpf },
-        include: { unidade: { select: { id: true, nome: true } } }
-      });
+      let user = null;
+      try {
+        user = await prisma.user.findUnique({
+          where: { cpf },
+          include: { unidade: { select: { id: true, nome: true } } }
+        });
+      } catch (dbErr: any) {
+        console.warn('⚠️ [Auth] Primeira tentativa de busca falhou, reconectando ao banco...', dbErr.message);
+        await new Promise((r) => setTimeout(r, 400));
+        user = await prisma.user.findUnique({
+          where: { cpf },
+          include: { unidade: { select: { id: true, nome: true } } }
+        });
+      }
 
       if (!user) {
         return res.status(401).json({ error: 'Credenciais inválidas' });
@@ -160,9 +170,9 @@ export class AuthController {
         },
         token,
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro no login:', err);
-      return res.status(500).json({ error: 'Erro interno no servidor' });
+      return res.status(500).json({ error: `Erro no servidor: ${err.message || 'Falha de comunicação com o banco'}` });
     }
   }
 
