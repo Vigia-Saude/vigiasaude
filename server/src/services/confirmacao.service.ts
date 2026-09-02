@@ -43,7 +43,7 @@ export const CONFIG_PADRAO: ConfigResolvida = {
   horarioInicio: '07:00',
   horarioFim: '20:00',
   timezone: 'America/Campo_Grande',
-  templateConfirmacao: 'confirmacao_agendamento',
+  templateConfirmacao: 'convocacao_vaga',
   templateReconfirmacao: 'reconfirmacao_agendamento',
   templateColetaMotivo: 'coleta_motivo_recusa',
   templateConvocacao: 'convocacao_vaga',

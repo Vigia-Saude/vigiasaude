@@ -12,7 +12,10 @@ export const getApiBaseUrl = (): string => {
   const isOnline = host !== '' && host !== 'localhost' && host !== '127.0.0.1';
   // Previews/deploys da branch developer na Vercel (ex.: vigia-saude-git-developer-*.vercel.app)
   const isDevDeploy = /(^|[.-])developer([.-]|$)/i.test(host);
-  const backendDoAmbiente = isDevDeploy ? DEV_API : PROD_API;
+  // Se estamos no deploy da branch developer (Vercel), SEMPRE apontar para o backend developer
+  if (isDevDeploy) {
+    return DEV_API;
+  }
 
   const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl && typeof envUrl === 'string' && envUrl.trim().length > 0) {
@@ -21,16 +24,16 @@ export const getApiBaseUrl = (): string => {
     if (trimmed.includes('vigiasaude-production.up.railway.app') && !trimmed.includes('-a091')) {
       return PROD_API;
     }
-    // Se estiver rodando online mas o envUrl veio como localhost, ignora e usa o backend do ambiente
+    // Se estiver rodando online mas o envUrl veio como localhost, ignora e usa o backend de producao
     if (isOnline && (trimmed.includes('localhost') || trimmed.includes('127.0.0.1'))) {
-      return backendDoAmbiente;
+      return PROD_API;
     }
     return trimmed;
   }
 
-  // Sem VITE_API_URL: em domínio online (Vercel), aponta para o backend do ambiente
+  // Sem VITE_API_URL: em domínio online (Vercel), aponta para o backend de produção
   if (isOnline) {
-    return backendDoAmbiente;
+    return PROD_API;
   }
 
   return 'http://localhost:3001';
