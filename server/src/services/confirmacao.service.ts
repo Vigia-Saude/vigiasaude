@@ -200,8 +200,8 @@ export async function dispararEtapa({ entry, etapa, tentativa = 1, config, tipo 
 
   const resultado =
     tipo === 'CONVOCACAO'
-      ? await gateway.enviarConvocacao({ telefone, nomePaciente, procedimento, dataAgendada, templateName, callbackId })
-      : await gateway.enviarConfirmacao({ telefone, nomePaciente, procedimento, dataAgendada, templateName, callbackId });
+      ? await gateway.enviarConvocacao({ telefone, nomePaciente, procedimento, dataAgendada, templateName, callbackId, queueEntryId: entry.id, pacienteId: paciente.id })
+      : await gateway.enviarConfirmacao({ telefone, nomePaciente, procedimento, dataAgendada, templateName, callbackId, queueEntryId: entry.id, pacienteId: paciente.id });
 
   const ciclo = await prisma.cicloConfirmacao.create({
     data: {
@@ -620,7 +620,7 @@ export async function dispararManualProximo(unidadeId: string | null): Promise<Q
   return proximo;
 }
 
-/** Convoca uma entrada específica, validando que é a próxima elegível do grupo. */
+/** Convoca uma entrada específica escolhida manualmente pelo Regulador. */
 export async function convocarEntrada(unidadeId: string | null, queueEntryId: string): Promise<QueueEntry> {
   const entry = await prisma.queueEntry.findUnique({ where: { id: queueEntryId } });
   if (!entry) throw new Error('Entrada da fila não encontrada.');
@@ -630,11 +630,6 @@ export async function convocarEntrada(unidadeId: string | null, queueEntryId: st
     throw new Error(`Paciente não está AGUARDANDO (status=${entry.statusPaciente}).`);
   }
 
-  const proximo = await proximoElegivel(entry.unidadeId, grupoDe(entry), entry.dataAgendada);
-  if (proximo && proximo.id !== entry.id) {
-    throw new Error('Não é possível pular a fila: há paciente com prioridade/ordem anterior.');
-  }
-
   // Capacidade definida e esgotada bloqueia a convocação manual (seção 4.8).
   const info = await vagasInfo(entry.unidadeId, grupoDe(entry), entry.dataAgendada);
   if (info.definido && (info.disponiveis ?? 0) <= 0) {
@@ -642,6 +637,41 @@ export async function convocarEntrada(unidadeId: string | null, queueEntryId: st
   }
 
   const config = await getConfig(entry.unidadeId);
-  await dispararEtapa({ entry, etapa: 1, config, tipo: 'CONFIRMACAO' });
+  await dispararEtapa({ entry, etapa: 1, config, tipo: 'CONVOCACAO' });
   return entry;
+}
+
+/** Convoca em lote todos os pacientes AGUARDANDO de uma fila/procedimento. */
+export async function convocarTodosService(
+  unidadeId: string | null,
+  procedureName?: string,
+  dataAgendada?: Date | null
+): Promise<{ total: number; convocados: number; falhas: number }> {
+  const config = await getConfig(unidadeId);
+  const candidatos = await prisma.queueEntry.findMany({
+    where: {
+      unidadeId: unidadeId ?? undefined,
+      statusPaciente: 'AGUARDANDO',
+      ...(dataAgendada ? { dataAgendada } : {}),
+    },
+  });
+
+  const doGrupo = procedureName
+    ? candidatos.filter((c) => (c.procedimentoNome || '').toLowerCase() === procedureName.toLowerCase())
+    : candidatos;
+
+  let convocados = 0;
+  let falhas = 0;
+
+  for (const entry of doGrupo) {
+    try {
+      await dispararEtapa({ entry, etapa: 1, config, tipo: 'CONVOCACAO' });
+      convocados++;
+    } catch (err) {
+      console.error(`Falha ao convocar entrada ${entry.id}:`, err);
+      falhas++;
+    }
+  }
+
+  return { total: doGrupo.length, convocados, falhas };
 }

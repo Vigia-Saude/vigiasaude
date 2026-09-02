@@ -192,6 +192,7 @@ router.patch('/regulacao/config', roleMiddleware(['REGULADOR']), confirmacaoCont
 router.get('/regulacao/confirmacao/filas/detalhes', roleMiddleware(['REGULADOR']), confirmacaoController.detalhes);
 router.post('/regulacao/confirmacao/disparar-manual', roleMiddleware(['REGULADOR']), confirmacaoController.dispararManual);
 router.post('/regulacao/confirmacao/convocar/:queueEntryId', roleMiddleware(['REGULADOR']), confirmacaoController.convocar);
+router.post('/regulacao/confirmacao/convocar-todos', roleMiddleware(['REGULADOR']), confirmacaoController.convocarTodos);
 router.post('/regulacao/confirmacao/simular-resposta', roleMiddleware(['REGULADOR']), confirmacaoController.simularResposta);
 router.get('/regulacao/pacientes/:id/absenteismo', roleMiddleware(['REGULADOR']), confirmacaoController.absenteismo);
 router.get('/regulacao/slots', roleMiddleware(['REGULADOR']), confirmacaoController.listarSlots);
@@ -201,6 +202,7 @@ router.put('/regulacao/slots', roleMiddleware(['REGULADOR']), confirmacaoControl
 // Também precisam vir ANTES de /regulacao/:id, senão "queues" é capturado como :id
 router.get('/regulacao/queues', roleMiddleware(['REGULADOR']), queueController.listarQueues);
 router.get('/regulacao/queues/:procedureId', roleMiddleware(['REGULADOR']), queueController.detalhesQueue);
+router.delete('/regulacao/queues/:procedureId', roleMiddleware(['REGULADOR']), queueController.excluirQueue);
 router.post('/regulacao/queues/:procedureId/resend-all', roleMiddleware(['REGULADOR']), queueController.resendAll);
 router.post('/regulacao/queues/entries/:entryId/resend', roleMiddleware(['REGULADOR']), queueController.resendSingle);
 

@@ -1,6 +1,7 @@
 import type { IMessagingGateway } from './IMessagingGateway';
 import { MockMessagingGateway } from './MockMessagingGateway';
 import { ChatBotGateway } from './ChatBotGateway';
+import { MetaCloudApiGateway } from './MetaCloudApiGateway';
 
 export type { IMessagingGateway } from './IMessagingGateway';
 
@@ -11,7 +12,13 @@ export function getMessagingGateway(): IMessagingGateway {
   if (injectedInstance) return injectedInstance;
 
   const modo = (process.env.MESSAGING_GATEWAY || 'mock').toLowerCase().trim();
-  console.log(`[messaging] Obtendo gateway de mensageria: modo="${modo}"`);
+  const temMetaToken = Boolean(process.env.WHATSAPP_TOKEN?.trim() && process.env.WHATSAPP_PHONE_NUMBER_ID?.trim());
+
+  console.log(`[messaging] Obtendo gateway de mensageria: modo="${modo}" (metaToken=${temMetaToken})`);
+
+  if (modo === 'meta' || temMetaToken) {
+    return new MetaCloudApiGateway();
+  }
 
   if (modo === 'chatbot') {
     return new ChatBotGateway();

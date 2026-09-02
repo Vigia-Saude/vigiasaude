@@ -172,4 +172,100 @@ export class QueueController {
   resendSingle = async (_req: AuthRequest, res: Response): Promise<void> => {
     res.json({ mensagem: 'Notificação reenviada para o paciente com sucesso!' });
   };
+
+  // DELETE /api/regulacao/queues/:procedureId
+  excluirQueue = async (req: AuthRequest, res: Response): Promise<void> => {
+    const procedureId = getParam(req.params.procedureId);
+    if (!procedureId) {
+      res.status(400).json({ erro: 'ID ou nome do procedimento é obrigatório.' });
+      return;
+    }
+
+    try {
+      // 1. Localizar procedimentos correspondentes
+      const fichas = await prisma.filaRegulacao.findMany({
+        select: { id: true, procedimentoSolicitado: true }
+      });
+      const matchingProcNames = new Set<string>();
+      for (const f of fichas) {
+        const procName = f.procedimentoSolicitado || 'Procedimento Geral';
+        const pId = procName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+        if (pId === procedureId || procName.toLowerCase() === procedureId.toLowerCase()) {
+          matchingProcNames.add(procName);
+        }
+      }
+
+      // 2. Localizar entradas em QueueEntry
+      const queueEntries = await prisma.queueEntry.findMany({
+        select: { id: true, procedimentoNome: true, procedimentoId: true }
+      });
+      const matchingQueueEntryIds: string[] = [];
+      for (const qe of queueEntries) {
+        const procName = qe.procedimentoNome || '';
+        const pId = (qe.procedimentoId || procName).toLowerCase().replace(/[^a-z0-9]/g, '-');
+        if (pId === procedureId || procName.toLowerCase() === procedureId.toLowerCase() || matchingProcNames.has(procName)) {
+          matchingQueueEntryIds.push(qe.id);
+          if (procName) matchingProcNames.add(procName);
+        }
+      }
+
+      const procNamesList = Array.from(matchingProcNames);
+
+      // 3. Remover registros em transação atômica
+      await prisma.$transaction(async (tx) => {
+        if (matchingQueueEntryIds.length > 0) {
+          await tx.messageLog.deleteMany({
+            where: { queueEntryId: { in: matchingQueueEntryIds } }
+          });
+
+          await tx.cicloConfirmacao.deleteMany({
+            where: { queueEntryId: { in: matchingQueueEntryIds } }
+          });
+
+          await tx.pdfImportRow.updateMany({
+            where: { queueEntryId: { in: matchingQueueEntryIds } },
+            data: { queueEntryId: null }
+          });
+
+          await tx.queueEntry.deleteMany({
+            where: { id: { in: matchingQueueEntryIds } }
+          });
+        }
+
+        if (procNamesList.length > 0) {
+          await tx.filaRegulacao.deleteMany({
+            where: { procedimentoSolicitado: { in: procNamesList } }
+          });
+
+          await tx.slotAgenda.deleteMany({
+            where: { procedimento: { in: procNamesList } }
+          });
+        } else if (procedureId) {
+          await tx.filaRegulacao.deleteMany({
+            where: {
+              OR: [
+                { procedimentoSolicitado: { equals: procedureId, mode: 'insensitive' } },
+                { procedimentoSolicitado: { contains: procedureId, mode: 'insensitive' } }
+              ]
+            }
+          });
+          await tx.slotAgenda.deleteMany({
+            where: {
+              procedimento: { equals: procedureId, mode: 'insensitive' }
+            }
+          });
+        }
+      });
+
+      res.json({
+        ok: true,
+        mensagem: 'Fila excluída com sucesso!',
+        procedureId,
+        procedimentosAfetados: procNamesList
+      });
+    } catch (err: any) {
+      console.error('Erro ao excluir fila:', err);
+      res.status(500).json({ erro: err.message || 'Falha ao excluir fila.' });
+    }
+  };
 }

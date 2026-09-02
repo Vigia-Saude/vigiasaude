@@ -58,6 +58,8 @@ export interface MensagemLog {
   body?: string | null;
   status: string;
   templateName?: string | null;
+  error?: string | null;
+  wamid?: string | null;
   criadoEm: string;
 }
 
@@ -135,6 +137,14 @@ export async function convocarPaciente(queueEntryId: string): Promise<{ mensagem
   return data;
 }
 
+export async function convocarTodos(payload: {
+  procedureName?: string;
+  dataAgendada?: string;
+}): Promise<{ mensagem: string; total: number; convocados: number; falhas: number }> {
+  const { data } = await apiClient.post('/api/regulacao/confirmacao/convocar-todos', payload);
+  return data;
+}
+
 export async function simularResposta(payload: SimularRespostaPayload) {
   const { data } = await apiClient.post('/api/regulacao/confirmacao/simular-resposta', payload);
   return data;
@@ -181,6 +191,11 @@ export async function salvarSlot(payload: {
   capacidadeTotal: number;
 }): Promise<SlotComVagas> {
   const { data } = await apiClient.put<SlotComVagas>('/api/regulacao/slots', payload);
+  return data;
+}
+
+export async function excluirFila(procedureId: string): Promise<{ ok: boolean; mensagem: string }> {
+  const { data } = await apiClient.delete<{ ok: boolean; mensagem: string }>(`/api/regulacao/queues/${procedureId}`);
   return data;
 }
 
