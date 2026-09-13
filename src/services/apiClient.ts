@@ -1,11 +1,37 @@
 import axios from 'axios';
 
+// URLs ativas e validadas do Railway
+const ACTIVE_PROD_API = 'https://vigiasaude-production-a091.up.railway.app';
+const ACTIVE_DEV_API = 'https://vigiasaude-developer.up.railway.app';
+
 export const getApiBaseUrl = (): string => {
-  return import.meta.env.VITE_API_URL || '';
+  const envUrl = import.meta.env.VITE_API_URL;
+
+  if (envUrl && typeof envUrl === 'string' && envUrl.trim().length > 0) {
+    const trimmed = envUrl.trim().replace(/\/+$/, '');
+
+    // Se a variável de ambiente (ex: na Vercel) estiver com a URL antiga desativada ou sem o sufixo ativo
+    if (
+      trimmed.includes('apibackend-development.up.railway.app') ||
+      (trimmed.includes('vigiasaude-production.up.railway.app') && !trimmed.includes('-a091'))
+    ) {
+      return ACTIVE_PROD_API;
+    }
+
+    return trimmed;
+  }
+
+  // Se estiver em ambiente online (Vercel) e a variável não foi injetada no build
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    const isDevDeploy = /(^|[.-])developer([.-]|$)/i.test(window.location.hostname);
+    return isDevDeploy ? ACTIVE_DEV_API : ACTIVE_PROD_API;
+  }
+
+  return 'http://localhost:3001';
 };
 
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: getApiBaseUrl(),
   timeout: 15000, // 15 segundos de timeout
 });
 
