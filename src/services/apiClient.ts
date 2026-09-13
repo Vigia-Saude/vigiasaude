@@ -1,43 +1,11 @@
 import axios from 'axios';
 
-// Backends por ambiente. IMPORTANTE: o deploy da branch `developer` na Vercel
-// (host contém "developer") deve falar com o backend developer do Railway, e não
-// com o de produção — senão o frontend novo chama um backend possivelmente
-// desatualizado.
-const PROD_API = 'https://vigiasaude-production-a091.up.railway.app';
-const DEV_API = 'https://vigiasaude-developer.up.railway.app';
-
 export const getApiBaseUrl = (): string => {
-  const host = typeof window !== 'undefined' ? window.location.hostname : '';
-  const isOnline = host !== '' && host !== 'localhost' && host !== '127.0.0.1';
-  // Previews/deploys da branch developer na Vercel (ex.: vigia-saude-git-developer-*.vercel.app)
-  const isDevDeploy = /(^|[.-])developer([.-]|$)/i.test(host);
-  const backendDoAmbiente = isDevDeploy ? DEV_API : PROD_API;
-
-  const envUrl = import.meta.env.VITE_API_URL;
-  if (envUrl && typeof envUrl === 'string' && envUrl.trim().length > 0) {
-    const trimmed = envUrl.trim();
-    // Se estiver com a URL antiga do Railway sem -a091, redireciona para a ativa
-    if (trimmed.includes('vigiasaude-production.up.railway.app') && !trimmed.includes('-a091')) {
-      return PROD_API;
-    }
-    // Se estiver rodando online mas o envUrl veio como localhost, ignora e usa o backend do ambiente
-    if (isOnline && (trimmed.includes('localhost') || trimmed.includes('127.0.0.1'))) {
-      return backendDoAmbiente;
-    }
-    return trimmed;
-  }
-
-  // Sem VITE_API_URL: em domínio online (Vercel), aponta para o backend do ambiente
-  if (isOnline) {
-    return backendDoAmbiente;
-  }
-
-  return 'http://localhost:3001';
+  return import.meta.env.VITE_API_URL || '';
 };
 
 const apiClient = axios.create({
-  baseURL: getApiBaseUrl(),
+  baseURL: import.meta.env.VITE_API_URL,
   timeout: 15000, // 15 segundos de timeout
 });
 
