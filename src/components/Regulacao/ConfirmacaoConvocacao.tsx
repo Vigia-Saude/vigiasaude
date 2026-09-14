@@ -65,6 +65,7 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
   const { data: entradas = [], isLoading } = useQuery({
     queryKey: ['confirmacao-detalhes'],
     queryFn: listarConfirmacaoDetalhes,
+    refetchInterval: 3000,
   });
   const { data: config } = useQuery({ queryKey: ['confirmacao-config'], queryFn: getConfirmacaoConfig });
 

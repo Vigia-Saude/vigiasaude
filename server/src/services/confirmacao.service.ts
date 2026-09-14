@@ -259,6 +259,51 @@ export async function processarResposta(
 ): Promise<ResultadoResposta> {
   const ciclo = await prisma.cicloConfirmacao.findUnique({ where: { callbackId } });
   if (!ciclo) return { ok: false, mensagem: 'callbackId não encontrado.' };
+
+  // Permite gravar o motivo de recusa que chega na etapa seguinte (COLETA_MOTIVO)
+  if (ciclo.status === 'RECUSADO') {
+    if (payload.motivoRecusa || payload.motivoTextoLivre) {
+      await prisma.cicloConfirmacao.update({
+        where: { id: ciclo.id },
+        data: {
+          motivoRecusa: payload.motivoRecusa ?? ciclo.motivoRecusa,
+          motivoTextoLivre: payload.motivoTextoLivre ?? ciclo.motivoTextoLivre,
+        },
+      });
+
+      const entry = await prisma.queueEntry.findUnique({ where: { id: ciclo.queueEntryId } });
+      if (entry) {
+        await atualizarScore(
+          entry.pacienteId,
+          entry.unidadeId,
+          'RECUSOU',
+          payload.motivoRecusa ?? payload.motivoTextoLivre ?? null,
+          entry.id
+        );
+
+        await prisma.messageLog.create({
+          data: {
+            queueEntryId: entry.id,
+            pacienteId: entry.pacienteId,
+            direction: 'INBOUND',
+            wamid: payload.wamid ?? null,
+            body: `MOTIVO RECUSA: ${payload.motivoRecusa || ''}${payload.motivoTextoLivre ? ` (${payload.motivoTextoLivre})` : ''}`.trim(),
+            status: 'RECEIVED',
+            rawPayload: payload as any,
+          },
+        });
+      }
+
+      return {
+        ok: true,
+        mensagem: 'Motivo de recusa registrado com sucesso.',
+        statusPaciente: 'RECUSOU',
+      };
+    }
+
+    return { ok: true, mensagem: `Ciclo já resolvido (status=${ciclo.status}).`, statusPaciente: 'RECUSOU' };
+  }
+
   if (ciclo.status !== 'CONVOCADO') {
     return { ok: false, mensagem: `Ciclo já resolvido (status=${ciclo.status}).` };
   }
