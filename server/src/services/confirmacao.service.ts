@@ -337,14 +337,8 @@ export async function processarResposta(
       data: { status: 'CONFIRMADO', respondidoEm: agora, resposta: 'SIM' },
     });
 
-    // Ainda há etapas de reconfirmação pendentes?
-    if (ciclo.etapa < config.qtdConfirmacoes) {
-      await dispararEtapa({ entry, etapa: ciclo.etapa + 1, config, tipo: 'CONFIRMACAO' });
-      return { ok: true, mensagem: `Etapa ${ciclo.etapa} confirmada; reconfirmação enviada.`, statusPaciente: 'CONVOCADO' };
-    }
-
-    // Última etapa — confirmação final.
-    const statusFinal = config.qtdConfirmacoes >= 2 ? 'RECONFIRMADO' : 'CONFIRMADO';
+    // Confirmação com certeza obtida no fluxo conversacional
+    const statusFinal = 'CONFIRMADO';
     await prisma.queueEntry.update({
       where: { id: entry.id },
       data: { statusPaciente: statusFinal, status: 'CONFIRMED', respondidoEm: agora },
@@ -365,9 +359,9 @@ export async function processarResposta(
     },
   });
 
-  // Envia mensagem de coleta de motivo (ack) — mockado.
+  // Se ainda não veio motivo de recusa do bot, envia coleta de motivo (fallback)
   const paciente = await prisma.paciente.findUnique({ where: { id: entry.pacienteId } });
-  if (paciente) {
+  if (paciente && !payload.motivoRecusa && !payload.motivoTextoLivre) {
     await getMessagingGateway().enviarColetaMotivo({
       telefone: telefoneDe(paciente),
       nomePaciente: paciente.nomeCompleto,
