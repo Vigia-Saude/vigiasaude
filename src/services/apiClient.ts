@@ -78,6 +78,21 @@ apiClient.interceptors.response.use(
         }
       }
     }
+
+    // Normalização de mensagens amigáveis
+    if (error.response?.data) {
+      const data = error.response.data;
+      if (typeof data === 'string' && data.startsWith('<!DOCTYPE')) {
+        error.friendlyMessage = 'Serviço temporariamente indisponível. Tente novamente em instantes.';
+      } else if (data.erro || data.error || data.message) {
+        error.friendlyMessage = data.erro || data.error || data.message;
+      }
+    } else if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      error.friendlyMessage = 'O servidor demorou para responder. Por favor, tente novamente.';
+    } else if (!error.response) {
+      error.friendlyMessage = 'Não foi possível conectar ao servidor. Verifique sua conexão.';
+    }
+
     return Promise.reject(error);
   }
 );

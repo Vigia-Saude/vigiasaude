@@ -22,6 +22,8 @@ function buildPacienteSearchWhere(busca: string, perfil?: string | null, unidade
   const isPosto = perfil ? ubsPerfis.includes(perfil) : false;
 
   const orConditions: Prisma.PacienteWhereInput[] = [
+    { nomeCompleto: { contains: rawTerm, mode: 'insensitive' } },
+    { nomeSocial: { contains: rawTerm, mode: 'insensitive' } },
     { cpf: { contains: rawTerm } },
     { cartaoSus: { contains: rawTerm } },
     { nis: { contains: rawTerm } }

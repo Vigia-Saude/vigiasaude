@@ -420,7 +420,7 @@ export function NovaFichaRegulacao() {
           <div className="p-6">
             {!selectedPaciente ? (
               <div className="flex flex-col gap-1.5 relative" ref={dropdownRef}>
-                <label className="text-sm font-medium text-gray-700">Buscar Paciente (CPF ou CadÚnico) *</label>
+                <label className="text-sm font-medium text-gray-700">Buscar Paciente (Nome, CPF ou Cartão SUS) *</label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-2.5 h-4.5 w-4.5 text-gray-400 stroke-[1.8]" />
@@ -428,7 +428,7 @@ export function NovaFichaRegulacao() {
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Digite o CPF ou número do CadÚnico..."
+                      placeholder="Digite o nome completo, CPF ou Cartão SUS..."
                       className="flex h-10 w-full rounded-md border border-gray-300 bg-white pl-10 pr-3 py-2 text-sm placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 transition-all"
                     />
                     {isSearching && (
@@ -453,14 +453,14 @@ export function NovaFichaRegulacao() {
                   <span className="text-xs font-medium text-red-500 mt-1">{errors.pacienteId.message}</span>
                 )}
 
-                {/* Dropdown Autocomplete (posicionado de forma absoluta) */}
+                {/* Dropdown Autocomplete */}
                 {showDropdown && searchResults.length > 0 && (
-                  <div className="absolute top-[70px] left-0 right-0 z-50 max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="absolute top-[70px] left-0 right-0 z-50 max-h-60 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
                     {searchResults.map((paciente) => (
                       <div
                         key={paciente.id}
                         onClick={() => handleSelectPaciente(paciente)}
-                        className="flex flex-col px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
+                        className="flex flex-col px-4 py-3 hover:bg-blue-50/50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
                       >
                         <span className="font-semibold text-gray-900 text-sm">{paciente.nomeCompleto}</span>
                         <div className="flex gap-4 text-xs text-gray-500 mt-0.5">
@@ -474,8 +474,11 @@ export function NovaFichaRegulacao() {
                 )}
                 
                 {showDropdown && searchQuery.length >= 2 && searchResults.length === 0 && !isSearching && (
-                  <div className="absolute top-[70px] left-0 right-0 z-50 rounded-lg border border-gray-200 bg-white p-4 text-center text-sm text-gray-500 shadow-md">
-                    Nenhum paciente encontrado. Clique em <span className="font-semibold text-blue-600">"Novo Paciente"</span> para cadastrar.
+                  <div className="absolute top-[70px] left-0 right-0 z-50 rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-xl animate-in fade-in duration-200">
+                    <p className="text-sm font-bold text-slate-800">Nenhum paciente localizado</p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Não encontramos cadastro para <strong>"{searchQuery}"</strong>. Verifique a grafia ou clique em <span className="font-semibold text-blue-600">"Novo Paciente"</span> para cadastrar.
+                    </p>
                   </div>
                 )}
               </div>
