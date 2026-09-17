@@ -3,11 +3,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   Megaphone, Send, ChevronDown, ChevronRight, ArrowDownLeft, ArrowUpRight, Bot, Loader2, FlaskConical,
+  CheckCheck, AlertCircle, Clock,
 } from 'lucide-react';
 import {
   listarConfirmacaoDetalhes,
   getConfirmacaoConfig,
   convocarPaciente,
+  convocarTodos,
   simularResposta,
   faixaScore,
   STATUS_PACIENTE_LABEL,
@@ -58,10 +60,12 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
   const qc = useQueryClient();
   const [expandido, setExpandido] = useState<string | null>(null);
   const [scoreModal, setScoreModal] = useState<{ id: string; nome: string } | null>(null);
+  const [modalConvocarTodos, setModalConvocarTodos] = useState(false);
 
   const { data: entradas = [], isLoading } = useQuery({
     queryKey: ['confirmacao-detalhes'],
     queryFn: listarConfirmacaoDetalhes,
+    refetchInterval: 3000,
   });
   const { data: config } = useQuery({ queryKey: ['confirmacao-config'], queryFn: getConfirmacaoConfig });
 
@@ -74,6 +78,17 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
     onSuccess: (r) => { toast.success(r.mensagem); invalidar(); },
     onError: (e: any) => toast.error(e.response?.data?.erro || 'Não foi possível convocar.'),
   });
+
+  const convocarTodosMut = useMutation({
+    mutationFn: () => convocarTodos({ procedureName }),
+    onSuccess: (r) => {
+      toast.success(r.mensagem || `${r.convocados} pacientes convocados com sucesso!`);
+      setModalConvocarTodos(false);
+      invalidar();
+    },
+    onError: (e: any) => toast.error(e.response?.data?.erro || 'Falha ao convocar todos os pacientes.'),
+  });
+
   const simularMut = useMutation({
     mutationFn: simularResposta,
     onSuccess: (r: any) => { toast.success(r?.mensagem || 'Resposta simulada.'); invalidar(); },
@@ -128,25 +143,63 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
       <CapacidadeVagas procedureName={procedureName} />
 
       {/* Banner de ações automáticas */}
-      <div className="flex items-start gap-3 rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
-        <Bot className="h-5 w-5 text-indigo-600 shrink-0 mt-0.5" />
-        <div className="flex-1 text-sm">
-          <p className="font-bold text-indigo-800">Convocação automática ativa</p>
-          <p className="text-indigo-700 text-xs mt-0.5">
-            O sistema convoca o próximo da fila (urgência + ordem de chegada) quando uma vaga abre, respeita o horário de
-            operação e reenvia mensagens sem resposta. {contadores.convocados} aguardando resposta ·{' '}
-            {contadores.confirmados} confirmados · {contadores.recusados} recusaram · {contadores.naoResponderam} não
-            responderam.
-          </p>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
+        <div className="flex items-start gap-3 flex-1 min-w-[280px]">
+          <Bot className="h-5 w-5 text-indigo-600 shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="font-bold text-indigo-800">Convocação automática ativa</p>
+            <p className="text-indigo-700 text-xs mt-0.5">
+              O sistema convoca o próximo da fila quando uma vaga abre. {contadores.aguardando} aguardando convocação ·{' '}
+              {contadores.convocados} aguardando resposta · {contadores.confirmados} confirmados · {contadores.recusados} recusaram.
+            </p>
+          </div>
         </div>
-        <button
-          onClick={() => proximoElegivelId && convocarMut.mutate(proximoElegivelId)}
-          disabled={convocarMut.isPending || !proximoElegivelId}
-          title={proximoElegivelId ? 'Convocar o próximo da fila' : 'Nenhum paciente aguardando'}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-2 rounded-xl shadow-sm disabled:opacity-50 cursor-pointer shrink-0">
-          {convocarMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Megaphone className="h-4 w-4" />}
-          Disparar próximo
-        </button>
+
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            onClick={() => proximoElegivelId && convocarMut.mutate(proximoElegivelId)}
+            disabled={convocarMut.isPending || convocarTodosMut.isPending || !proximoElegivelId}
+            title={proximoElegivelId ? 'Convocar o próximo da fila' : 'Nenhum paciente aguardando'}
+            className={`flex items-center gap-2 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-sm transition-all duration-200 cursor-pointer ${
+              convocarMut.isPending
+                ? 'bg-indigo-700 animate-pulse ring-2 ring-indigo-300 cursor-wait'
+                : 'bg-indigo-600 hover:bg-indigo-700 hover:scale-105 active:scale-95'
+            } disabled:opacity-50 disabled:cursor-not-allowed`}>
+            {convocarMut.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Disparando WhatsApp...</span>
+              </>
+            ) : (
+              <>
+                <Megaphone className="h-4 w-4" />
+                <span>Disparar próximo</span>
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={() => setModalConvocarTodos(true)}
+            disabled={convocarMut.isPending || convocarTodosMut.isPending || contadores.aguardando === 0}
+            title={contadores.aguardando > 0 ? `Convocar todos os ${contadores.aguardando} pacientes aguardando` : 'Nenhum paciente aguardando'}
+            className={`flex items-center gap-2 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-sm transition-all duration-200 cursor-pointer ${
+              convocarTodosMut.isPending
+                ? 'bg-emerald-700 animate-pulse ring-2 ring-emerald-300 cursor-wait'
+                : 'bg-emerald-600 hover:bg-emerald-700 hover:scale-105 active:scale-95'
+            } disabled:opacity-50 disabled:cursor-not-allowed`}>
+            {convocarTodosMut.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Convocando todos...</span>
+              </>
+            ) : (
+              <>
+                <Send className="h-4 w-4" />
+                <span>Convocar Todos ({contadores.aguardando})</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Tabela */}
@@ -177,7 +230,7 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
                   expandido={expandido === e.id}
                   onToggle={() => setExpandido(expandido === e.id ? null : e.id)}
                   onScore={() => e.paciente && setScoreModal({ id: e.paciente.id, nome: e.paciente.nomeCompleto })}
-                  podeConvocar={e.id === proximoElegivelId}
+                  podeConvocar={e.statusPaciente === 'AGUARDANDO'}
                   onConvocar={() => convocarMut.mutate(e.id)}
                   convocando={convocarMut.isPending && convocarMut.variables === e.id}
                   onSimular={(resposta, motivo) =>
@@ -198,6 +251,50 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
           pacienteNome={scoreModal.nome}
           onClose={() => setScoreModal(null)}
         />
+      )}
+
+      {/* Modal de Confirmação: Convocar Todos */}
+      {modalConvocarTodos && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center gap-3 text-emerald-600">
+              <div className="p-3 bg-emerald-100 rounded-2xl">
+                <Send className="h-6 w-6 text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Convocar Todos os Pacientes</h3>
+                <p className="text-xs text-slate-500">Disparo em lote via WhatsApp</p>
+              </div>
+            </div>
+
+            <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-xs text-emerald-900 space-y-1">
+              <p>
+                Deseja disparar as mensagens de convocação para todos os <strong>{contadores.aguardando} pacientes</strong> que estão aguardando nesta fila?
+              </p>
+              <p className="text-emerald-700 mt-1 font-medium">
+                As mensagens de WhatsApp serão enviadas para todos eles simultaneamente.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setModalConvocarTodos(false)}
+                disabled={convocarTodosMut.isPending}
+                className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer">
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => convocarTodosMut.mutate()}
+                disabled={convocarTodosMut.isPending}
+                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50 cursor-pointer">
+                {convocarTodosMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {convocarTodosMut.isPending ? 'Enviando convocações...' : 'Sim, convocar todos'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -226,9 +323,11 @@ function LinhaPaciente({
       : fx.faixa === 'ATENCAO' ? 'text-amber-700 bg-amber-50 border-amber-200'
         : 'text-rose-700 bg-rose-50 border-rose-200';
 
+  const ultimaMsg = e.messages?.[0];
+
   return (
     <>
-      <tr className="hover:bg-slate-50/70 transition-colors align-top">
+      <tr className={`transition-all duration-300 align-top ${convocando ? 'bg-emerald-50/90 ring-2 ring-emerald-400/60 shadow-inner' : 'hover:bg-slate-50/70'}`}>
         <td className="py-4 px-5">
           <button onClick={onToggle} className="text-slate-400 hover:text-slate-700 cursor-pointer">
             {expandido ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -266,18 +365,58 @@ function LinhaPaciente({
           )}
         </td>
         <td className="py-4 px-5 whitespace-nowrap">
-          <span className={`inline-flex items-center gap-1.5 text-xs font-bold border px-3 py-1 rounded-full ${STATUS_PILL[e.statusPaciente]}`}>
-            {STATUS_PACIENTE_LABEL[e.statusPaciente]}
-          </span>
+          <div className="space-y-1">
+            <span className={`inline-flex items-center gap-1.5 text-xs font-bold border px-3 py-1 rounded-full transition-all duration-300 ${STATUS_PILL[e.statusPaciente]}`}>
+              {STATUS_PACIENTE_LABEL[e.statusPaciente]}
+            </span>
+
+            {/* Tracking em tempo real de entrega no WhatsApp */}
+            {e.statusPaciente === 'CONVOCADO' && ultimaMsg && (
+              <div>
+                {ultimaMsg.status === 'READ' ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md">
+                    <CheckCheck className="h-3 w-3 text-blue-600" /> Lido no WhatsApp
+                  </span>
+                ) : ultimaMsg.status === 'DELIVERED' ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                    <CheckCheck className="h-3 w-3 text-emerald-600" /> Entregue no WhatsApp
+                  </span>
+                ) : ultimaMsg.status === 'FAILED' ? (
+                  <span title={ultimaMsg.error || 'Falha no envio'} className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md cursor-help">
+                    <AlertCircle className="h-3 w-3 text-rose-600" /> Falha no envio
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                    <Clock className="h-3 w-3 text-amber-600" /> Disparado
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
         </td>
         <td className="py-4 px-5 text-right whitespace-nowrap">
           <button
             onClick={onConvocar}
             disabled={!podeConvocar || convocando}
-            title={podeConvocar ? 'Convocar este paciente' : 'Apenas o próximo da fila pode ser convocado'}
-            className="inline-flex items-center gap-1 text-xs border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold px-3 py-1.5 rounded-xl shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
-            {convocando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-            Convocar
+            title={podeConvocar ? 'Convocar este paciente via WhatsApp' : 'Paciente já convocado ou concluído'}
+            className={`inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl shadow-sm transition-all duration-200 cursor-pointer ${
+              convocando
+                ? 'bg-emerald-600 text-white shadow-md animate-pulse ring-2 ring-emerald-300 cursor-wait'
+                : podeConvocar
+                ? 'border border-emerald-300 bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-800 hover:scale-105 active:scale-95 shadow-sm'
+                : 'border border-slate-200 bg-slate-50 text-slate-400 opacity-40 cursor-not-allowed'
+            }`}>
+            {convocando ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-white" />
+                <span>Enviando WhatsApp...</span>
+              </>
+            ) : (
+              <>
+                <Send className="h-3.5 w-3.5" />
+                <span>Convocar</span>
+              </>
+            )}
           </button>
         </td>
       </tr>
@@ -289,24 +428,40 @@ function LinhaPaciente({
               {/* Timeline de mensagens */}
               <div>
                 <h5 className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-2">
-                  Histórico de mensagens
+                  Histórico de mensagens do WhatsApp
                 </h5>
                 {e.messages.length === 0 ? (
                   <p className="text-xs text-slate-400">Nenhuma mensagem registrada.</p>
                 ) : (
                   <ul className="space-y-2">
                     {e.messages.map((m) => (
-                      <li key={m.id} className="flex items-start gap-2">
+                      <li key={m.id} className="flex items-start gap-2 bg-white p-3 rounded-2xl border border-slate-100 shadow-2xs">
                         {m.direction === 'OUTBOUND' ? (
                           <ArrowUpRight className="h-4 w-4 text-indigo-500 mt-0.5 shrink-0" />
                         ) : (
                           <ArrowDownLeft className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
                         )}
-                        <div className="min-w-0">
-                          <div className="text-xs text-slate-700">{m.body || m.templateName || '(mensagem)'}</div>
-                          <div className="text-[11px] text-slate-400">
-                            {m.direction === 'OUTBOUND' ? 'Enviada' : 'Recebida'} · {m.status} · {formatHora(m.criadoEm)}
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs text-slate-700 whitespace-pre-wrap">{m.body || m.templateName || '(mensagem)'}</div>
+                          <div className="text-[11px] text-slate-400 flex flex-wrap items-center gap-1.5 mt-1">
+                            <span className="font-semibold text-slate-600">{m.direction === 'OUTBOUND' ? 'Enviada' : 'Recebida'}</span>
+                            <span>·</span>
+                            <span className={`font-bold px-1.5 py-0.5 rounded text-[10px] ${
+                              m.status === 'READ' ? 'text-blue-700 bg-blue-50 border border-blue-200'
+                              : m.status === 'DELIVERED' ? 'text-emerald-700 bg-emerald-50 border border-emerald-200'
+                              : m.status === 'FAILED' ? 'text-rose-700 bg-rose-50 border border-rose-200 font-bold'
+                              : 'text-amber-700 bg-amber-50 border border-amber-200'
+                            }`}>
+                              {m.status === 'READ' ? '✓✓ Lido' : m.status === 'DELIVERED' ? '✓✓ Entregue' : m.status === 'FAILED' ? '✕ Falha' : m.status}
+                            </span>
+                            <span>·</span>
+                            <span>{formatHora(m.criadoEm)}</span>
                           </div>
+                          {m.error && (
+                            <div className="text-[11px] text-rose-600 font-medium mt-1.5 bg-rose-50 border border-rose-100 p-2 rounded-xl">
+                              <strong>Motivo da falha:</strong> {m.error}
+                            </div>
+                          )}
                         </div>
                       </li>
                     ))}
@@ -316,25 +471,25 @@ function LinhaPaciente({
 
               {/* Simulação (teste do fluxo mockado) */}
               {e.statusPaciente === 'CONVOCADO' && (
-                <div className="rounded-xl border border-dashed border-slate-300 bg-white p-3">
-                  <h5 className="flex items-center gap-1.5 text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mb-2">
-                    <FlaskConical className="h-3.5 w-3.5" /> Simular resposta (teste)
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-4 space-y-3">
+                  <h5 className="flex items-center gap-1.5 text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
+                    <FlaskConical className="h-3.5 w-3.5 text-indigo-600" /> Simular resposta do paciente (teste)
                   </h5>
-                  <p className="text-[11px] text-slate-400 mb-2">
-                    Sem WhatsApp real — injeta a resposta do paciente para testar o fluxo.
+                  <p className="text-[11px] text-slate-500">
+                    Caso queira testar a resposta do paciente sem precisar responder pelo celular:
                   </p>
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => onSimular('SIM')}
                       disabled={simulando}
-                      className="text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 cursor-pointer">
-                      Responder SIM
+                      className="text-xs font-bold px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 cursor-pointer shadow-xs">
+                      Simular Resposta: SIM (Confirmar)
                     </button>
                     <button
                       onClick={() => onSimular('NAO', 'SEM_TRANSPORTE')}
                       disabled={simulando}
-                      className="text-xs font-bold px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white disabled:opacity-50 cursor-pointer">
-                      Responder NÃO (sem transporte)
+                      className="text-xs font-bold px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white disabled:opacity-50 cursor-pointer shadow-xs">
+                      Simular Resposta: NÃO (Sem transporte)
                     </button>
                   </div>
                 </div>

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { AuthRequest } from '../middlewares/auth';
 import { WhatsAppService } from '../services/whatsapp.service';
+import { processarResposta } from '../services/confirmacao.service';
 
 export class FilaWhatsappController {
   // GET /api/regulacao/whatsapp/filas
@@ -150,7 +151,7 @@ export class FilaWhatsappController {
     res.sendStatus(403);
   };
 
-  // Webhook POST /api/webhooks/whatsapp (Recepção de Respostas dos Pacientes)
+  // Webhook POST /api/webhooks/whatsapp (Recepção de Respostas dos Pacientes e Status da Meta)
   receiveWebhook = async (req: Request, res: Response): Promise<void> => {
     res.status(200).json({ status: 'ok' }); // Responde Meta imediatamente
 
@@ -165,50 +166,97 @@ export class FilaWhatsappController {
           for (const message of value?.messages ?? []) {
             const buttonPayload: string | undefined =
               message?.interactive?.button_reply?.id ?? message?.button?.payload;
+            const messageBody = message?.text?.body || buttonPayload || '';
 
             await prisma.messageLog.create({
               data: {
                 direction: 'INBOUND',
                 wamid: message.id,
-                body: message?.text?.body || buttonPayload || '',
+                body: messageBody,
                 status: 'RECEIVED',
-                rawPayload: message as any
+                rawPayload: message as any,
+              },
+            });
+
+            // Se foi clique em botão (confirm:<callbackId> ou decline:<callbackId>)
+            if (buttonPayload) {
+              const [action, callbackOrQueueId] = buttonPayload.split(':');
+              const resposta = action === 'confirm' ? 'SIM' : 'NAO';
+
+              const ciclo = await prisma.cicloConfirmacao.findFirst({
+                where: {
+                  OR: [
+                    { callbackId: callbackOrQueueId },
+                    { queueEntryId: callbackOrQueueId },
+                  ],
+                },
+                orderBy: { enviadoEm: 'desc' },
+              });
+
+              if (ciclo) {
+                await processarResposta(ciclo.callbackId, {
+                  resposta,
+                  wamid: message.id,
+                  timestamp: new Date().toISOString(),
+                });
+                console.log(`[WhatsApp Webhook] Paciente respondeu ${resposta} (callbackId=${ciclo.callbackId})`);
               }
-            });
+            } else if (message.text?.body) {
+              // Resposta de texto livre (ex: "Sim", "Não", "1", "2")
+              const texto = message.text.body.trim().toUpperCase();
+              const fromPhone = (message.from || '').replace(/\D/g, '');
 
-            if (!buttonPayload) continue;
+              const paciente = await prisma.paciente.findFirst({
+                where: {
+                  OR: [
+                    { telefone: { contains: fromPhone.slice(-8) } },
+                    { celular: { contains: fromPhone.slice(-8) } },
+                  ],
+                },
+              });
 
-            const [action, queueEntryId] = buttonPayload.split(':');
-            if (!queueEntryId || !['confirm', 'decline'].includes(action)) continue;
+              if (paciente) {
+                const queueEntry = await prisma.queueEntry.findFirst({
+                  where: { pacienteId: paciente.id, statusPaciente: 'CONVOCADO' },
+                  orderBy: { atualizadoEm: 'desc' },
+                });
 
-            const qe = await prisma.queueEntry.findUnique({
-              where: { id: queueEntryId }
-            });
+                if (queueEntry) {
+                  const ciclo = await prisma.cicloConfirmacao.findFirst({
+                    where: { queueEntryId: queueEntry.id, status: 'CONVOCADO' },
+                    orderBy: { enviadoEm: 'desc' },
+                  });
 
-            if (!qe || qe.status !== 'AWAITING_RESPONSE') continue;
+                  if (ciclo) {
+                    const isSim = ['SIM', 'S', '1', 'CONFIRMO', 'CONFIRMAR', 'QUERO', 'OK'].includes(texto);
+                    const isNao = ['NAO', 'NÃO', 'N', '2', 'RECUSAR', 'CANCELAR'].includes(texto);
 
-            const newStatus = action === 'confirm' ? 'CONFIRMED' : 'DECLINED';
-            await prisma.queueEntry.update({
-              where: { id: queueEntryId },
-              data: {
-                status: newStatus,
-                respondidoEm: new Date()
+                    if (isSim) {
+                      await processarResposta(ciclo.callbackId, { resposta: 'SIM', wamid: message.id });
+                    } else if (isNao) {
+                      await processarResposta(ciclo.callbackId, { resposta: 'NAO', wamid: message.id });
+                    }
+                  }
+                }
               }
-            });
-
-            console.log(`[WhatsApp Webhook] Paciente respondeu ${newStatus} para a vaga ${queueEntryId}`);
+            }
           }
 
-          // 2) Atualizar status de entrega (SENT, DELIVERED, READ, FAILED)
+          // 2) Atualizar status de entrega em tempo real (SENT, DELIVERED, READ, FAILED)
           for (const status of value?.statuses ?? []) {
             if (status.id) {
+              const statusUpper = status.status.toUpperCase();
+              const errorDetail = status?.errors?.[0]?.message || status?.errors?.[0]?.title || null;
+
               await prisma.messageLog.updateMany({
                 where: { wamid: status.id },
                 data: {
-                  status: status.status.toUpperCase() as any,
-                  error: status?.errors?.[0]?.title || null
-                }
+                  status: statusUpper as any,
+                  error: errorDetail,
+                },
               });
+
+              console.log(`[WhatsApp Webhook] Status da mensagem ${status.id} atualizado para ${statusUpper}`);
             }
           }
         }

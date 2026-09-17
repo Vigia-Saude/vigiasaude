@@ -5,6 +5,14 @@ const ACTIVE_PROD_API = 'https://vigiasaude-production-a091.up.railway.app';
 const ACTIVE_DEV_API = 'https://vigiasaude-developer.up.railway.app';
 
 export const getApiBaseUrl = (): string => {
+  const host = typeof window !== 'undefined' ? window.location.hostname : '';
+  const isOnline = host !== '' && host !== 'localhost' && host !== '127.0.0.1';
+  // Previews/deploys da branch developer na Vercel (ex.: vigia-saude-git-developer-*.vercel.app)
+  const isDevDeploy = /(^|[.-])developer([.-]|$)/i.test(host);
+  if (isDevDeploy) {
+    return ACTIVE_DEV_API;
+  }
+
   const envUrl = import.meta.env.VITE_API_URL;
 
   if (envUrl && typeof envUrl === 'string' && envUrl.trim().length > 0) {
@@ -18,13 +26,17 @@ export const getApiBaseUrl = (): string => {
       return ACTIVE_PROD_API;
     }
 
+    // Se estiver rodando online mas o envUrl veio como localhost, ignora e usa o backend de producao
+    if (isOnline && (trimmed.includes('localhost') || trimmed.includes('127.0.0.1'))) {
+      return ACTIVE_PROD_API;
+    }
+
     return trimmed;
   }
 
-  // Se estiver em ambiente online (Vercel) e a variável não foi injetada no build
-  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    const isDevDeploy = /(^|[.-])developer([.-]|$)/i.test(window.location.hostname);
-    return isDevDeploy ? ACTIVE_DEV_API : ACTIVE_PROD_API;
+  // Sem VITE_API_URL: em domínio online (Vercel), aponta para o backend de produção
+  if (isOnline) {
+    return ACTIVE_PROD_API;
   }
 
   return 'http://localhost:3001';
@@ -69,6 +81,21 @@ apiClient.interceptors.response.use(
         }
       }
     }
+
+    // Normalização de mensagens amigáveis
+    if (error.response?.data) {
+      const data = error.response.data;
+      if (typeof data === 'string' && data.startsWith('<!DOCTYPE')) {
+        error.friendlyMessage = 'Serviço temporariamente indisponível. Tente novamente em instantes.';
+      } else if (data.erro || data.error || data.message) {
+        error.friendlyMessage = data.erro || data.error || data.message;
+      }
+    } else if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      error.friendlyMessage = 'O servidor demorou para responder. Por favor, tente novamente.';
+    } else if (!error.response) {
+      error.friendlyMessage = 'Não foi possível conectar ao servidor. Verifique sua conexão.';
+    }
+
     return Promise.reject(error);
   }
 );

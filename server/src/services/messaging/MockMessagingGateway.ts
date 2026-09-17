@@ -46,7 +46,7 @@ async function registrar(
 
 export class MockMessagingGateway implements IMessagingGateway {
   async enviarConfirmacao(params: EnviarConfirmacaoParams): Promise<GatewayResult> {
-    const corpo = `Olá ${params.nomePaciente}, sua consulta de ${params.procedimento} está marcada para ${params.dataAgendada}. Você confirma presença? [Sim] [Não]`;
+    const corpo = `Olá ${params.nomePaciente}, sua consulta de ${params.procedimento} está marcada para ${params.dataAgendada}${params.local ? ` no ${params.local}` : ''}. Você confirma presença? [Sim] [Não]`;
     return registrar('CONFIRMACAO', params.templateName, params.callbackId, params.telefone, corpo);
   }
 
@@ -56,7 +56,7 @@ export class MockMessagingGateway implements IMessagingGateway {
   }
 
   async enviarConvocacao(params: EnviarConvocacaoParams): Promise<GatewayResult> {
-    const corpo = `Olá ${params.nomePaciente}, abriu uma vaga de ${params.procedimento} para ${params.dataAgendada}. Você confirma presença? [Sim] [Não]`;
+    const corpo = `Olá ${params.nomePaciente}, abriu uma vaga de ${params.procedimento} para ${params.dataAgendada}${params.local ? ` no ${params.local}` : ''}. Você confirma presença? [Sim] [Não]`;
     return registrar('CONVOCACAO', params.templateName, params.callbackId, params.telefone, corpo);
   }
 }

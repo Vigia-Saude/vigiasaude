@@ -6,6 +6,7 @@ import {
   processarResposta,
   dispararManualProximo,
   convocarEntrada,
+  convocarTodosService,
   getConfig,
   CONFIG_PADRAO,
   vagasInfo,
@@ -91,6 +92,22 @@ export class ConfirmacaoController {
       const unidadeId = req.user?.unidadeId ?? null;
       const entry = await convocarEntrada(unidadeId, String(req.params.queueEntryId));
       res.json({ mensagem: 'Paciente convocado.', queueEntryId: entry.id });
+    } catch (err: any) {
+      res.status(400).json({ erro: err.message });
+    }
+  };
+
+  // POST /api/regulacao/confirmacao/convocar-todos
+  convocarTodos = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const unidadeId = req.user?.unidadeId ?? null;
+      const { procedureName, dataAgendada } = req.body || {};
+      const dataParsed = dataAgendada ? new Date(dataAgendada) : null;
+      const resultado = await convocarTodosService(unidadeId, procedureName, dataParsed);
+      res.json({
+        mensagem: `${resultado.convocados} paciente(s) convocado(s) com sucesso!`,
+        ...resultado,
+      });
     } catch (err: any) {
       res.status(400).json({ erro: err.message });
     }

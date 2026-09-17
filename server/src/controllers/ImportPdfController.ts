@@ -19,13 +19,26 @@ function getParam(param: string | string[] | undefined): string {
 export class ImportPdfController {
   // POST /api/regulacao/imports/upload
   uploadPdf = async (req: AuthRequest, res: Response): Promise<void> => {
-    if (!req.file || req.file.mimetype !== 'application/pdf') {
-      res.status(400).json({ erro: 'Envie um arquivo PDF no campo "file".' });
+    const isPdf =
+      req.file &&
+      (req.file.mimetype.includes('pdf') ||
+        req.file.originalname?.toLowerCase().endsWith('.pdf') ||
+        (req.file.buffer && req.file.buffer.length >= 4 && req.file.buffer.slice(0, 4).toString('ascii') === '%PDF'));
+
+    if (!req.file || !isPdf) {
+      res.status(400).json({ erro: 'Envie um arquivo PDF válido no campo "file".' });
       return;
     }
 
     try {
-      const filename = `${Date.now()}-${req.file.originalname}`;
+      let originalFilename = req.file.originalname || 'documento.pdf';
+      try {
+        originalFilename = Buffer.from(originalFilename, 'latin1').toString('utf8');
+      } catch {
+        originalFilename = req.file.originalname;
+      }
+
+      const filename = `${Date.now()}-${originalFilename}`;
 
       const parsed = await pdfParse(req.file.buffer);
       const rows = extractTableRows(parsed.text);
@@ -40,7 +53,7 @@ export class ImportPdfController {
       const pdfImport = await prisma.pdfImport.create({
         data: {
           storagePath: filename,
-          originalFilename: req.file.originalname,
+          originalFilename,
           fileData: new Uint8Array(req.file.buffer),
           status: 'PROCESSING',
           rowsFound: rows.length,
@@ -344,25 +357,44 @@ export class ImportPdfController {
             });
           }
 
-          // Posição na fila WhatsApp
-          const lastEntry = await prisma.queueEntry.findFirst({
-            orderBy: { posicao: 'desc' }
-          });
-          const nextPos = (lastEntry?.posicao || 0) + 1;
-
-          const queueEntry = await prisma.queueEntry.create({
-            data: {
+          // Deduplicação inteligente de QueueEntry
+          let queueEntry = await prisma.queueEntry.findFirst({
+            where: {
               pacienteId: paciente.id,
-              importId,
-              posicao: nextPos,
-              status: 'PENDING',
-              dataAgendada: dataAgendada,
-              // Módulo de Confirmação Automatizada: escopo por município + grupo
-              unidadeId: defaultUnidadeId,
               procedimentoNome: procedimento,
-              statusPaciente: 'AGUARDANDO'
+              dataAgendada: dataAgendada ? { equals: dataAgendada } : undefined,
+              statusPaciente: { in: ['AGUARDANDO', 'CONVOCADO', 'CONFIRMADO', 'RECONFIRMADO'] }
             }
           });
+
+          if (!queueEntry) {
+            const lastEntry = await prisma.queueEntry.findFirst({
+              orderBy: { posicao: 'desc' }
+            });
+            const nextPos = (lastEntry?.posicao || 0) + 1;
+
+            queueEntry = await prisma.queueEntry.create({
+              data: {
+                pacienteId: paciente.id,
+                importId,
+                posicao: nextPos,
+                status: 'PENDING',
+                dataAgendada: dataAgendada,
+                unidadeId: defaultUnidadeId,
+                procedimentoNome: procedimento,
+                statusPaciente: 'AGUARDANDO'
+              }
+            });
+          } else {
+            // Atualiza para vincular à importação atual e garantir a data mais recente
+            queueEntry = await prisma.queueEntry.update({
+              where: { id: queueEntry.id },
+              data: {
+                importId: queueEntry.importId || importId,
+                dataAgendada: dataAgendada ?? queueEntry.dataAgendada,
+              }
+            });
+          }
 
           // Busca ou vincula Unidade Solicitante do PDF se especificada
           let rowUnidadeId = defaultUnidadeId;
@@ -386,22 +418,40 @@ export class ImportPdfController {
             }
           }
 
-          // Criar registro na FilaRegulacao para aparecer na visão geral da Secretaria
-          await prisma.filaRegulacao.create({
-            data: {
-              unidadeEsfId: rowUnidadeId,
-              responsavelEncaminhamento: 'Importação PDF (SES-MS / Regulação)',
-              acsResponsavel: 'Regulação Central',
+          // Deduplicação em FilaRegulacao
+          const existingFila = await prisma.filaRegulacao.findFirst({
+            where: {
               pacienteId: paciente.id,
-              tipoAtendimento: 'SUS',
               procedimentoSolicitado: procedimento,
-              observacaoClinica: raw.cid10 ? `CID-10: ${raw.cid10}` : 'Importado via PDF',
-              dataAgendada: dataAgendada,
-              horaAgendada: horaAgendadaRaw,
-              statusAgendamento: dataAgendada ? 'PRE_AGENDADO' : 'AGUARDANDO_REGULACAO',
-              criadoPorUsuarioId: req.user!.id,
+              dataAgendada: dataAgendada ? { equals: dataAgendada } : undefined,
             }
           });
+
+          if (!existingFila) {
+            await prisma.filaRegulacao.create({
+              data: {
+                unidadeEsfId: rowUnidadeId,
+                responsavelEncaminhamento: 'Importação PDF (SES-MS / Regulação)',
+                acsResponsavel: 'Regulação Central',
+                pacienteId: paciente.id,
+                tipoAtendimento: 'SUS',
+                procedimentoSolicitado: procedimento,
+                observacaoClinica: raw.cid10 ? `CID-10: ${raw.cid10}` : 'Importado via PDF',
+                dataAgendada: dataAgendada,
+                horaAgendada: horaAgendadaRaw,
+                statusAgendamento: dataAgendada ? 'PRE_AGENDADO' : 'AGUARDANDO_REGULACAO',
+                criadoPorUsuarioId: req.user!.id,
+              }
+            });
+          } else {
+            await prisma.filaRegulacao.update({
+              where: { id: existingFila.id },
+              data: {
+                horaAgendada: horaAgendadaRaw || existingFila.horaAgendada,
+                observacaoClinica: raw.cid10 ? `CID-10: ${raw.cid10}` : existingFila.observacaoClinica,
+              }
+            });
+          }
 
           await prisma.pdfImportRow.update({
             where: { id: row.id },
