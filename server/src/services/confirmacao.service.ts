@@ -188,6 +188,13 @@ export async function dispararEtapa({ entry, etapa, tentativa = 1, config, tipo 
   const procedimento = grupoDe(entry);
   const dataAgendada = formatarData(entry.dataAgendada);
 
+  // Busca o nome da unidade (local) para incluir na mensagem
+  let local: string | undefined;
+  if (entry.unidadeId) {
+    const unidade = await prisma.unidade.findUnique({ where: { id: entry.unidadeId }, select: { nome: true } });
+    local = unidade?.nome ?? undefined;
+  }
+
   const templateName =
     tipo === 'CONVOCACAO'
       ? config.templateConvocacao
@@ -200,8 +207,8 @@ export async function dispararEtapa({ entry, etapa, tentativa = 1, config, tipo 
 
   const resultado =
     tipo === 'CONVOCACAO'
-      ? await gateway.enviarConvocacao({ telefone, nomePaciente, procedimento, dataAgendada, templateName, callbackId, queueEntryId: entry.id, pacienteId: paciente.id })
-      : await gateway.enviarConfirmacao({ telefone, nomePaciente, procedimento, dataAgendada, templateName, callbackId, queueEntryId: entry.id, pacienteId: paciente.id });
+      ? await gateway.enviarConvocacao({ telefone, nomePaciente, procedimento, dataAgendada, local, templateName, callbackId, queueEntryId: entry.id, pacienteId: paciente.id })
+      : await gateway.enviarConfirmacao({ telefone, nomePaciente, procedimento, dataAgendada, local, templateName, callbackId, queueEntryId: entry.id, pacienteId: paciente.id });
 
   const ciclo = await prisma.cicloConfirmacao.create({
     data: {

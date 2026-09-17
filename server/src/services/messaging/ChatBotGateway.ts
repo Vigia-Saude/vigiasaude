@@ -17,6 +17,7 @@ interface CorpoEnvio {
   nomePaciente: string;
   procedimento?: string;
   dataAgendada?: string;
+  local?: string;
   templateName: string;
   callbackUrl: string;
   callbackId: string;
@@ -46,6 +47,7 @@ export class ChatBotGateway implements IMessagingGateway {
       callbackId: string;
       procedimento?: string;
       dataAgendada?: string;
+      local?: string;
     }
   ): Promise<GatewayResult> {
     const base = this.getBaseUrl();
@@ -62,6 +64,7 @@ export class ChatBotGateway implements IMessagingGateway {
       nomePaciente: params.nomePaciente,
       procedimento: params.procedimento,
       dataAgendada: params.dataAgendada,
+      local: params.local,
       templateName: params.templateName,
       callbackUrl,
       callbackId: params.callbackId,
