@@ -22,7 +22,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Warm-up silencioso do backend Railway ao abrir a tela
+    // Warm-up silencioso do backend ao abrir a tela
     apiClient.get('/health').catch(() => {});
   }, []);
 
@@ -64,7 +64,7 @@ export default function LoginPage() {
       if (backendError) {
         setErrorMsg(backendError);
       } else if (err.code === 'ERR_NETWORK' || err.message?.includes('Network Error')) {
-        setErrorMsg('Erro de conexão: Não foi possível conectar ao servidor. Verifique a URL da API ou o status do Railway.');
+        setErrorMsg('Erro de conexão: Não foi possível conectar ao servidor. Verifique sua conexão ou o status do servidor.');
       } else if (err.response?.status === 404) {
         setErrorMsg('Servidor não encontrado (404). Verifique a URL do backend.');
       } else {

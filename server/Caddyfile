@@ -1,0 +1,3 @@
+api.13.140.41.170.sslip.io, 13.140.41.170.sslip.io {
+    reverse_proxy vigia-api:3001
+}

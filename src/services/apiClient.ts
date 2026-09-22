@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-// URLs ativas e validadas do Railway
-const ACTIVE_PROD_API = 'https://vigiasaude-production-a091.up.railway.app';
-const ACTIVE_DEV_API = 'https://vigiasaude-developer.up.railway.app';
+// URL ativa da API Vigia Saúde no VPS Contabo com terminação SSL
+const ACTIVE_PROD_API = 'https://api.13.140.41.170.sslip.io';
+const ACTIVE_DEV_API = 'https://api.13.140.41.170.sslip.io';
 
 export const getApiBaseUrl = (): string => {
   const host = typeof window !== 'undefined' ? window.location.hostname : '';
@@ -18,11 +18,8 @@ export const getApiBaseUrl = (): string => {
   if (envUrl && typeof envUrl === 'string' && envUrl.trim().length > 0) {
     const trimmed = envUrl.trim().replace(/\/+$/, '');
 
-    // Se a variável de ambiente (ex: na Vercel) estiver com a URL antiga desativada ou sem o sufixo ativo
-    if (
-      trimmed.includes('apibackend-development.up.railway.app') ||
-      (trimmed.includes('vigiasaude-production.up.railway.app') && !trimmed.includes('-a091'))
-    ) {
+    // Se a variável de ambiente estiver apontando para domínios legados do Railway
+    if (trimmed.includes('railway.app')) {
       return ACTIVE_PROD_API;
     }
 
