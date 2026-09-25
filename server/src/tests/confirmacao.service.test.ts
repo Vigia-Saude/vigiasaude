@@ -128,7 +128,7 @@ describe('processarResposta', () => {
   // Config sempre dentro do horário para os testes.
   const configAberta = { ...CONFIG_PADRAO, horarioInicio: '00:00', horarioFim: '23:59' };
 
-  it('SIM na última etapa → CONFIRMADO/RECONFIRMADO e sobe o score', async () => {
+  it('SIM → CONFIRMADO e sobe o score no fluxo conversacional', async () => {
     p.cicloConfirmacao.findUnique.mockResolvedValue({
       id: 'ciclo-1', queueEntryId: 'entry-1', etapa: 2, status: 'CONVOCADO', callbackId: 'cb-1',
     });
@@ -139,10 +139,10 @@ describe('processarResposta', () => {
     const r = await processarResposta('cb-1', { resposta: 'SIM' });
 
     expect(r.ok).toBe(true);
-    expect(r.statusPaciente).toBe('RECONFIRMADO'); // qtdConfirmacoes >= 2
-    // queueEntry marcado como CONFIRMED (legado) + statusPaciente RECONFIRMADO
+    expect(r.statusPaciente).toBe('CONFIRMADO');
+    // queueEntry marcado como CONFIRMED (legado) + statusPaciente CONFIRMADO
     expect(p.queueEntry.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ statusPaciente: 'RECONFIRMADO', status: 'CONFIRMED' }) })
+      expect.objectContaining({ data: expect.objectContaining({ statusPaciente: 'CONFIRMADO', status: 'CONFIRMED' }) })
     );
     // score atualizado (+2)
     expect(p.historicoAbsenteismo.create).toHaveBeenCalledWith(
@@ -150,23 +150,7 @@ describe('processarResposta', () => {
     );
   });
 
-  it('SIM antes da última etapa → dispara reconfirmação (segue CONVOCADO)', async () => {
-    p.cicloConfirmacao.findUnique.mockResolvedValue({
-      id: 'ciclo-1', queueEntryId: 'entry-1', etapa: 1, status: 'CONVOCADO', callbackId: 'cb-1',
-    });
-    p.queueEntry.findUnique.mockResolvedValue(entry);
-    p.configuracaoRegulacao.findUnique.mockResolvedValue(configAberta); // qtdConfirmacoes=2
-    p.paciente.findUnique.mockResolvedValue({ id: 'pac-1', nomeCompleto: 'João', scoreConfianca: 90, telefone: '5567999', celular: '' });
-    p.cicloConfirmacao.create.mockResolvedValue({ id: 'ciclo-2' });
-
-    const r = await processarResposta('cb-1', { resposta: 'SIM' });
-
-    expect(r.statusPaciente).toBe('CONVOCADO');
-    expect(gatewayFake.enviarConfirmacao).toHaveBeenCalledTimes(1); // reconfirmação enviada
-    expect(p.historicoAbsenteismo.create).not.toHaveBeenCalled(); // ainda não pontua
-  });
-
-  it('NÃO → RECUSOU, registra motivo, derruba score e tenta convocar o próximo', async () => {
+  it('NÃO com motivo informado → RECUSOU, não reenvia coleta de motivo, derruba score e tenta convocar próximo', async () => {
     p.cicloConfirmacao.findUnique.mockResolvedValue({
       id: 'ciclo-1', queueEntryId: 'entry-1', etapa: 1, status: 'CONVOCADO', callbackId: 'cb-1',
     });
@@ -182,11 +166,27 @@ describe('processarResposta', () => {
     expect(p.cicloConfirmacao.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: 'RECUSADO', motivoRecusa: 'SEM_TRANSPORTE' }) })
     );
-    expect(gatewayFake.enviarColetaMotivo).toHaveBeenCalledTimes(1);
+    expect(gatewayFake.enviarColetaMotivo).not.toHaveBeenCalled(); // motivo já veio do bot
     expect(p.historicoAbsenteismo.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ tipo: 'RECUSOU', delta: -5, scoreResultante: 85 }) })
     );
     expect(p.queueEntry.findMany).toHaveBeenCalled(); // convocarProximo tentou buscar o próximo
+  });
+
+  it('NÃO sem motivo informado → RECUSOU e envia coleta de motivo (fallback)', async () => {
+    p.cicloConfirmacao.findUnique.mockResolvedValue({
+      id: 'ciclo-1', queueEntryId: 'entry-1', etapa: 1, status: 'CONVOCADO', callbackId: 'cb-1',
+    });
+    p.queueEntry.findUnique.mockResolvedValue(entry);
+    p.configuracaoRegulacao.findUnique.mockResolvedValue(configAberta);
+    p.paciente.findUnique.mockResolvedValue({ id: 'pac-1', nomeCompleto: 'João', scoreConfianca: 90, telefone: '5567999', celular: '' });
+    p.queueEntry.findMany.mockResolvedValue([]);
+
+    const r = await processarResposta('cb-1', { resposta: 'NAO' });
+
+    expect(r.ok).toBe(true);
+    expect(r.statusPaciente).toBe('RECUSOU');
+    expect(gatewayFake.enviarColetaMotivo).toHaveBeenCalledTimes(1);
   });
 
   it('callbackId inexistente → ok:false', async () => {

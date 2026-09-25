@@ -26,15 +26,12 @@ interface CorpoEnvio {
 
 export class ChatBotGateway implements IMessagingGateway {
   private getBaseUrl(): string {
-    const raw = process.env.CHATBOT_URL?.trim();
-    if (!raw) {
-      throw new Error('CHATBOT_URL não configurada para MESSAGING_GATEWAY=chatbot.');
-    }
+    const raw = (process.env.CHATBOT_URL || '').trim() || 'https://taxinha-bot.vercel.app';
     return raw.replace(/\/+$/, '');
   }
 
   private getCallbackUrl(): string {
-    const raw = (process.env.VIGIA_PUBLIC_URL || '').trim().replace(/\/+$/, '');
+    const raw = ((process.env.VIGIA_PUBLIC_URL || '').trim() || 'https://api.13.140.41.170.sslip.io').replace(/\/+$/, '');
     return `${raw}/api/regulacao/confirmacao/callback`;
   }
 
@@ -52,7 +49,7 @@ export class ChatBotGateway implements IMessagingGateway {
   ): Promise<GatewayResult> {
     const base = this.getBaseUrl();
     const apiKey = process.env.CHATBOT_API_KEY?.trim() || '';
-    const tenantId = process.env.CHATBOT_TENANT_ID?.trim() || '';
+    const tenantId = (process.env.CHATBOT_TENANT_ID || '').trim() || 'dd135a7e-5b8c-4c2d-9ca0-b5a67e55b545';
     const callbackUrl = this.getCallbackUrl();
     const webhookSecret = process.env.VIGIA_WEBHOOK_SECRET?.trim() || undefined;
 
