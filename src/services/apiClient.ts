@@ -7,33 +7,20 @@ const ACTIVE_DEV_API = 'https://api.13.140.41.170.sslip.io';
 export const getApiBaseUrl = (): string => {
   const host = typeof window !== 'undefined' ? window.location.hostname : '';
   const isOnline = host !== '' && host !== 'localhost' && host !== '127.0.0.1';
-  // Previews/deploys da branch developer na Vercel (ex.: vigia-saude-git-developer-*.vercel.app)
-  const isDevDeploy = /(^|[.-])developer([.-]|$)/i.test(host);
-  if (isDevDeploy) {
-    return ACTIVE_DEV_API;
+
+  // Quando rodando online na Vercel, usamos caminho relativo ('') para acionar
+  // os rewrites transparentes do vercel.json. Isso garante funcionamento mesmo
+  // em redes com firewall restrito (ex: TCE-MS, hospitais) e elimina problemas de CORS.
+  if (isOnline) {
+    return '';
   }
 
   const envUrl = import.meta.env.VITE_API_URL;
-
   if (envUrl && typeof envUrl === 'string' && envUrl.trim().length > 0) {
     const trimmed = envUrl.trim().replace(/\/+$/, '');
-
-    // Se a variável de ambiente estiver apontando para domínios legados do Railway
-    if (trimmed.includes('railway.app')) {
-      return ACTIVE_PROD_API;
+    if (!trimmed.includes('railway.app')) {
+      return trimmed;
     }
-
-    // Se estiver rodando online mas o envUrl veio como localhost, ignora e usa o backend de producao
-    if (isOnline && (trimmed.includes('localhost') || trimmed.includes('127.0.0.1'))) {
-      return ACTIVE_PROD_API;
-    }
-
-    return trimmed;
-  }
-
-  // Sem VITE_API_URL: em domínio online (Vercel), aponta para o backend de produção
-  if (isOnline) {
-    return ACTIVE_PROD_API;
   }
 
   return 'http://localhost:3001';

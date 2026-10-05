@@ -48,6 +48,18 @@ export interface EnviarConvocacaoParams {
   pacienteId?: string;
 }
 
+export interface EnviarLembreteParams {
+  telefone: string;
+  nomePaciente: string;
+  procedimento: string;
+  dataAgendada: string;
+  horaAgendada?: string;
+  local?: string;
+  callbackId?: string;
+  queueEntryId?: string;
+  pacienteId?: string;
+}
+
 export interface IMessagingGateway {
   /** Mensagem de confirmação/reconfirmação de presença (etapas 1..N). */
   enviarConfirmacao(params: EnviarConfirmacaoParams): Promise<GatewayResult>;
@@ -57,4 +69,7 @@ export interface IMessagingGateway {
 
   /** Mensagem de convocação quando uma vaga abre para o paciente. */
   enviarConvocacao(params: EnviarConvocacaoParams): Promise<GatewayResult>;
+
+  /** Mensagem de lembrete enviada 4 horas antes do agendamento (não esquecer). */
+  enviarLembrete(params: EnviarLembreteParams): Promise<GatewayResult>;
 }

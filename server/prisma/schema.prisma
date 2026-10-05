@@ -899,9 +899,11 @@ model QueueEntry {
   posicao        Int
   status         QueueEntryStatus @default(PENDING)
   dataAgendada   DateTime?        @map("data_agendada") @db.Date
+  horaAgendada   String?          @map("hora_agendada")
   notificadoEm   DateTime?        @map("notificado_em")
   respondidoEm   DateTime?        @map("respondido_em")
   expiraEm       DateTime?        @map("expira_em")
+  lembreteEnviadoEm DateTime?     @map("lembrete_enviado_em")
   criadoEm       DateTime         @default(now()) @map("criado_em")
   atualizadoEm   DateTime         @updatedAt @map("atualizado_em")
   messages       MessageLog[]

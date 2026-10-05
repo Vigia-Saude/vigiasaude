@@ -58,6 +58,20 @@ const respostaSchema = z.object({
   wamid: z.string().optional(),
 });
 
+const inserirFilaSchema = z.object({
+  nomeCompleto: z.string().min(2, 'Nome é obrigatório').max(200),
+  telefone: z.string().min(8, 'Telefone inválido').max(30),
+  procedimentoNome: z.string().min(2, 'Procedimento é obrigatório').max(200),
+  dataAgendada: z.string().optional(),
+  horaAgendada: z.string().regex(HHMM, 'Hora deve estar no formato HH:MM').optional(),
+  unidadeId: z.string().uuid().optional(),
+  nivelUrgencia: z.enum(['NORMAL', 'AMARELO', 'VERMELHO']).default('NORMAL'),
+});
+
+const atualizarTelefoneSchema = z.object({
+  telefone: z.string().min(8, 'Telefone inválido').max(30),
+});
+
 async function resolverCallbackId(queueEntryId: string): Promise<string | null> {
   const ciclo = await prisma.cicloConfirmacao.findFirst({
     where: { queueEntryId, status: 'CONVOCADO' },
@@ -343,6 +357,158 @@ export class ConfirmacaoController {
       res.status(resultado.ok ? 200 : 409).json(resultado);
     } catch (err: any) {
       res.status(500).json({ erro: err.message });
+    }
+  };
+
+  // POST /api/regulacao/confirmacao/inserir-fila
+  inserirFila = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const parsed = inserirFilaSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ erro: 'Dados inválidos', detalhes: parsed.error.issues });
+        return;
+      }
+      const data = parsed.data;
+      const telefoneLimpo = data.telefone.replace(/\D/g, '');
+
+      let unidadeId = data.unidadeId || req.user?.unidadeId || null;
+      if (!unidadeId) {
+        const firstUnidade = (await prisma.unidade.findFirst({ where: { ativa: true } })) || (await prisma.unidade.findFirst());
+        unidadeId = firstUnidade?.id ?? null;
+      }
+
+      // 1. Localiza ou cria o paciente
+      let paciente = await prisma.paciente.findFirst({
+        where: {
+          OR: [
+            { telefone: telefoneLimpo },
+            { celular: telefoneLimpo },
+            { nomeCompleto: { equals: data.nomeCompleto, mode: 'insensitive' } },
+          ],
+        },
+      });
+
+      if (!paciente) {
+        const generatedCpf = `${Math.floor(10000000000 + Math.random() * 90000000000)}`;
+        const generatedProntuario = `PRONT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+        paciente = await prisma.paciente.create({
+          data: {
+            nomeCompleto: data.nomeCompleto.trim().toUpperCase(),
+            telefone: telefoneLimpo,
+            celular: telefoneLimpo,
+            cartaoSus: `${Date.now()}`.padEnd(15, '0').slice(0, 15),
+            cpf: generatedCpf,
+            prontuario: generatedProntuario,
+            dataNascimento: new Date(1990, 0, 1),
+            sexo: 'OUTRO',
+            cep: '79900-000',
+            logradouro: 'Não informado',
+            numero: 'S/N',
+            bairro: 'Centro',
+            municipio: 'Ponta Porã',
+            scoreConfianca: 100,
+          },
+        });
+      } else {
+        await prisma.paciente.update({
+          where: { id: paciente.id },
+          data: { telefone: telefoneLimpo, celular: telefoneLimpo },
+        });
+      }
+
+      // 2. Cria a entrada na fila (QueueEntry) com status AGUARDANDO
+      const dataAgendada = data.dataAgendada ? new Date(data.dataAgendada) : new Date();
+
+      const novaEntrada = await prisma.queueEntry.create({
+        data: {
+          pacienteId: paciente.id,
+          unidadeId,
+          procedimentoNome: data.procedimentoNome.trim(),
+          posicao: 1,
+          status: 'PENDING',
+          statusPaciente: 'AGUARDANDO',
+          nivelUrgencia: data.nivelUrgencia,
+          dataAgendada,
+          horaAgendada: data.horaAgendada || null,
+        },
+      });
+
+      res.status(201).json({
+        mensagem: 'Paciente inserido na fila com sucesso!',
+        queueEntryId: novaEntrada.id,
+        pacienteId: paciente.id,
+        statusPaciente: novaEntrada.statusPaciente,
+      });
+    } catch (err: any) {
+      console.error('[ConfirmacaoController] Erro ao inserir na fila:', err);
+      res.status(500).json({ erro: err.message || 'Erro interno ao inserir paciente na fila.' });
+    }
+  };
+
+  // PATCH /api/regulacao/confirmacao/entrada/:queueEntryId/telefone
+  atualizarTelefone = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const queueEntryId = String(req.params.queueEntryId);
+      const parsed = atualizarTelefoneSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ erro: 'Telefone inválido', detalhes: parsed.error.issues });
+        return;
+      }
+      const telefoneLimpo = parsed.data.telefone.replace(/\D/g, '');
+
+      const entry = await prisma.queueEntry.findUnique({
+        where: { id: queueEntryId },
+      });
+      if (!entry) {
+        res.status(404).json({ erro: 'Entrada da fila não encontrada.' });
+        return;
+      }
+
+      await prisma.paciente.update({
+        where: { id: entry.pacienteId },
+        data: { telefone: telefoneLimpo, celular: telefoneLimpo },
+      });
+
+      res.json({ mensagem: 'Telefone atualizado com sucesso!' });
+    } catch (err: any) {
+      res.status(500).json({ erro: err.message });
+    }
+  };
+
+  // POST /api/regulacao/confirmacao/entrada/:queueEntryId/redefinir
+  redefinirEntrada = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const queueEntryId = String(req.params.queueEntryId);
+      const entry = await prisma.queueEntry.findUnique({
+        where: { id: queueEntryId },
+      });
+      if (!entry) {
+        res.status(404).json({ erro: 'Entrada da fila não encontrada.' });
+        return;
+      }
+
+      await prisma.cicloConfirmacao.deleteMany({ where: { queueEntryId } });
+
+      const atualizado = await prisma.queueEntry.update({
+        where: { id: queueEntryId },
+        data: {
+          statusPaciente: 'AGUARDANDO',
+          status: 'PENDING',
+          notificadoEm: null,
+          respondidoEm: null,
+          expiraEm: null,
+          lembreteEnviadoEm: null,
+        },
+      });
+
+      res.json({
+        mensagem: 'Paciente redefinido para AGUARDANDO com sucesso!',
+        queueEntryId: atualizado.id,
+        statusPaciente: atualizado.statusPaciente,
+      });
+    } catch (err: any) {
+      res.status(500).json({ erro: err.message || 'Erro ao redefinir entrada.' });
     }
   };
 }

@@ -380,6 +380,7 @@ export class ImportPdfController {
                 posicao: nextPos,
                 status: 'PENDING',
                 dataAgendada: dataAgendada,
+                horaAgendada: horaAgendadaRaw,
                 unidadeId: defaultUnidadeId,
                 procedimentoNome: procedimento,
                 statusPaciente: 'AGUARDANDO'
@@ -392,6 +393,7 @@ export class ImportPdfController {
               data: {
                 importId: queueEntry.importId || importId,
                 dataAgendada: dataAgendada ?? queueEntry.dataAgendada,
+                horaAgendada: horaAgendadaRaw ?? queueEntry.horaAgendada,
               }
             });
           }

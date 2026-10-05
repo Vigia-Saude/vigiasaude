@@ -159,5 +159,66 @@ describe('ChatBotGateway - Integração com ChatBot Vinhedo', () => {
     });
     expect(body.callbackUrl).toBe('https://api.13.140.41.170.sslip.io/api/regulacao/confirmacao/callback');
   });
+
+  it('deve enviar lembrete com tipo LEMBRETE, horaAgendada e local', async () => {
+    vi.mocked(axios.post).mockResolvedValueOnce({
+      data: { messageId: 'wamid.lembrete123', status: 'SENT' },
+    });
+
+    const gateway = new ChatBotGateway();
+    const result = await gateway.enviarLembrete({
+      telefone: '5567999990004',
+      nomePaciente: 'Carlos Santos',
+      procedimento: 'Cardiologia',
+      dataAgendada: '10/09/2026',
+      horaAgendada: '14:30',
+      local: 'Hospital Regional',
+      callbackId: 'lembrete-cb-123',
+    });
+
+    expect(result).toEqual({ messageId: 'wamid.lembrete123', status: 'SENT' });
+    expect(axios.post).toHaveBeenCalledTimes(1);
+
+    const [url, body, options] = vi.mocked(axios.post).mock.calls[0];
+    expect(url).toBe('https://chatbot.test.gov.br/api/saude/enviar-mensagem');
+    expect(options?.headers).toEqual({
+      'Content-Type': 'application/json',
+      'X-API-Key': 'test-api-key-123',
+      'X-Tenant-Id': 'tenant-test-id',
+    });
+    expect(body).toEqual({
+      tipo: 'LEMBRETE',
+      telefone: '5567999990004',
+      nomePaciente: 'Carlos Santos',
+      procedimento: 'Cardiologia',
+      dataAgendada: '10/09/2026',
+      horaAgendada: '14:30',
+      local: 'Hospital Regional',
+      templateName: 'lembrete_consulta',
+      callbackUrl: 'https://vigia.test.gov.br/api/regulacao/confirmacao/callback',
+      callbackId: 'lembrete-cb-123',
+    });
+  });
+
+  it('deve enviar lembrete mesmo sem horaAgendada e local opcionais', async () => {
+    vi.mocked(axios.post).mockResolvedValueOnce({
+      data: { messageId: 'wamid.lembrete456', status: 'SENT' },
+    });
+
+    const gateway = new ChatBotGateway();
+    const result = await gateway.enviarLembrete({
+      telefone: '5567999990005',
+      nomePaciente: 'Pedro Alvares',
+      procedimento: 'Ortopedia',
+      dataAgendada: '10/09/2026',
+    });
+
+    expect(result).toEqual({ messageId: 'wamid.lembrete456', status: 'SENT' });
+    const [, body] = vi.mocked(axios.post).mock.calls[0];
+    expect(body.tipo).toBe('LEMBRETE');
+    expect(body.horaAgendada).toBeUndefined();
+    expect(body.local).toBeUndefined();
+    expect(body.callbackId).toBeDefined();
+  });
 });
 

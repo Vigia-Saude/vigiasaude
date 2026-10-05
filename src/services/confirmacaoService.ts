@@ -199,6 +199,36 @@ export async function excluirFila(procedureId: string): Promise<{ ok: boolean; m
   return data;
 }
 
+export interface InserirPacienteFilaPayload {
+  nomeCompleto: string;
+  telefone: string;
+  procedimentoNome: string;
+  dataAgendada?: string;
+  horaAgendada?: string;
+  unidadeId?: string;
+  nivelUrgencia?: NivelUrgencia;
+}
+
+export async function inserirPacienteFila(payload: InserirPacienteFilaPayload): Promise<{
+  mensagem: string;
+  queueEntryId: string;
+  pacienteId: string;
+  statusPaciente: PacienteFilaStatus;
+}> {
+  const { data } = await apiClient.post('/api/regulacao/confirmacao/inserir-fila', payload);
+  return data;
+}
+
+export async function atualizarTelefoneFila(queueEntryId: string, telefone: string): Promise<{ mensagem: string }> {
+  const { data } = await apiClient.patch(`/api/regulacao/confirmacao/entrada/${queueEntryId}/telefone`, { telefone });
+  return data;
+}
+
+export async function redefinirEntradaFila(queueEntryId: string): Promise<{ mensagem: string; queueEntryId: string; statusPaciente: PacienteFilaStatus }> {
+  const { data } = await apiClient.post(`/api/regulacao/confirmacao/entrada/${queueEntryId}/redefinir`);
+  return data;
+}
+
 // ==== Helpers de apresentação ====
 
 export function faixaScore(score: number): { faixa: 'CONFIAVEL' | 'ATENCAO' | 'ALTO_RISCO'; label: string; emoji: string } {

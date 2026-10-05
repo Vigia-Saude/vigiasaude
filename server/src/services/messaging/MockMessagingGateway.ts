@@ -6,6 +6,7 @@ import type {
   EnviarConfirmacaoParams,
   EnviarColetaMotivoParams,
   EnviarConvocacaoParams,
+  EnviarLembreteParams,
 } from './IMessagingGateway';
 
 // Implementação MOCK do gateway (fase atual).
@@ -16,7 +17,7 @@ import type {
 // simulado (`mock.<uuid>`).
 
 async function registrar(
-  tipo: 'CONFIRMACAO' | 'COLETA_MOTIVO' | 'CONVOCACAO',
+  tipo: 'CONFIRMACAO' | 'COLETA_MOTIVO' | 'CONVOCACAO' | 'LEMBRETE',
   templateName: string,
   callbackId: string,
   telefone: string,
@@ -58,5 +59,10 @@ export class MockMessagingGateway implements IMessagingGateway {
   async enviarConvocacao(params: EnviarConvocacaoParams): Promise<GatewayResult> {
     const corpo = `Olá ${params.nomePaciente}, abriu uma vaga de ${params.procedimento} para ${params.dataAgendada}${params.local ? ` no ${params.local}` : ''}. Você confirma presença? [Sim] [Não]`;
     return registrar('CONVOCACAO', params.templateName, params.callbackId, params.telefone, corpo);
+  }
+
+  async enviarLembrete(params: EnviarLembreteParams): Promise<GatewayResult> {
+    const corpo = `⏰ Olá ${params.nomePaciente}, lembrete da sua consulta de ${params.procedimento} hoje${params.horaAgendada ? ` às ${params.horaAgendada}` : ''}${params.local ? ` no ${params.local}` : ''}. Não se esqueça de levar seus documentos!`;
+    return registrar('LEMBRETE', 'lembrete_consulta', params.callbackId || randomUUID(), params.telefone, corpo);
   }
 }

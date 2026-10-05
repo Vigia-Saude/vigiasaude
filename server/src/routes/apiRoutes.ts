@@ -194,6 +194,9 @@ router.post('/regulacao/confirmacao/disparar-manual', roleMiddleware(['REGULADOR
 router.post('/regulacao/confirmacao/convocar/:queueEntryId', roleMiddleware(['REGULADOR']), confirmacaoController.convocar);
 router.post('/regulacao/confirmacao/convocar-todos', roleMiddleware(['REGULADOR']), confirmacaoController.convocarTodos);
 router.post('/regulacao/confirmacao/simular-resposta', roleMiddleware(['REGULADOR']), confirmacaoController.simularResposta);
+router.post('/regulacao/confirmacao/inserir-fila', roleMiddleware(['REGULADOR']), confirmacaoController.inserirFila);
+router.patch('/regulacao/confirmacao/entrada/:queueEntryId/telefone', roleMiddleware(['REGULADOR']), confirmacaoController.atualizarTelefone);
+router.post('/regulacao/confirmacao/entrada/:queueEntryId/redefinir', roleMiddleware(['REGULADOR']), confirmacaoController.redefinirEntrada);
 router.get('/regulacao/pacientes/:id/absenteismo', roleMiddleware(['REGULADOR']), confirmacaoController.absenteismo);
 router.get('/regulacao/slots', roleMiddleware(['REGULADOR']), confirmacaoController.listarSlots);
 router.put('/regulacao/slots', roleMiddleware(['REGULADOR']), confirmacaoController.salvarSlot);

@@ -7,9 +7,10 @@ import type {
   EnviarConfirmacaoParams,
   EnviarColetaMotivoParams,
   EnviarConvocacaoParams,
+  EnviarLembreteParams,
 } from './IMessagingGateway';
 
-type Tipo = 'CONFIRMACAO' | 'COLETA_MOTIVO' | 'CONVOCACAO';
+type Tipo = 'CONFIRMACAO' | 'COLETA_MOTIVO' | 'CONVOCACAO' | 'LEMBRETE';
 
 interface CorpoEnvio {
   tipo: Tipo;
@@ -17,6 +18,7 @@ interface CorpoEnvio {
   nomePaciente: string;
   procedimento?: string;
   dataAgendada?: string;
+  horaAgendada?: string;
   local?: string;
   templateName: string;
   callbackUrl: string;
@@ -44,6 +46,7 @@ export class ChatBotGateway implements IMessagingGateway {
       callbackId: string;
       procedimento?: string;
       dataAgendada?: string;
+      horaAgendada?: string;
       local?: string;
     }
   ): Promise<GatewayResult> {
@@ -61,6 +64,7 @@ export class ChatBotGateway implements IMessagingGateway {
       nomePaciente: params.nomePaciente,
       procedimento: params.procedimento,
       dataAgendada: params.dataAgendada,
+      horaAgendada: params.horaAgendada,
       local: params.local,
       templateName: params.templateName,
       callbackUrl,
@@ -132,5 +136,18 @@ export class ChatBotGateway implements IMessagingGateway {
 
   async enviarConvocacao(params: EnviarConvocacaoParams): Promise<GatewayResult> {
     return this.enviar('CONVOCACAO', params);
+  }
+
+  async enviarLembrete(params: EnviarLembreteParams): Promise<GatewayResult> {
+    return this.enviar('LEMBRETE', {
+      telefone: params.telefone,
+      nomePaciente: params.nomePaciente,
+      procedimento: params.procedimento,
+      dataAgendada: params.dataAgendada,
+      horaAgendada: params.horaAgendada,
+      local: params.local,
+      templateName: 'lembrete_consulta',
+      callbackId: params.callbackId || randomUUID(),
+    });
   }
 }

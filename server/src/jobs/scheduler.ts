@@ -1,5 +1,5 @@
 import cron, { ScheduledTask } from 'node-cron';
-import { verificarTimeouts, dispararProgramados } from '../services/confirmacao.service';
+import { verificarTimeouts, dispararProgramados, verificarLembretes4Horas } from '../services/confirmacao.service';
 import { pingDatabase } from '../config/prisma';
 
 // ====================================================================
@@ -55,14 +55,15 @@ export function startSchedulers(): void {
     return;
   }
 
-  // 7.1 — Verificação de timeouts / reenvios (a cada 15 minutos)
+  // 7.1 — Verificação de timeouts / reenvios e lembretes 4h (a cada 15 minutos)
   tarefas.push(
     cron.schedule(
       '*/15 * * * *',
       () =>
-        comGuarda('verificarTimeouts', () => rodandoTimeouts, (v) => (rodandoTimeouts = v), () =>
-          verificarTimeouts()
-        ),
+        comGuarda('verificarTimeoutsELembretes', () => rodandoTimeouts, (v) => (rodandoTimeouts = v), async () => {
+          await verificarTimeouts();
+          await verificarLembretes4Horas();
+        }),
       { timezone: TIMEZONE }
     )
   );

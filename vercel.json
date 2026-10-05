@@ -1,6 +1,26 @@
 {
   "rewrites": [
     {
+      "source": "/api/:path*",
+      "destination": "https://api.13.140.41.170.sslip.io/api/:path*"
+    },
+    {
+      "source": "/auth/:path*",
+      "destination": "https://api.13.140.41.170.sslip.io/auth/:path*"
+    },
+    {
+      "source": "/health",
+      "destination": "https://api.13.140.41.170.sslip.io/health"
+    },
+    {
+      "source": "/uploads/:path*",
+      "destination": "https://api.13.140.41.170.sslip.io/uploads/:path*"
+    },
+    {
+      "source": "/webhooks/:path*",
+      "destination": "https://api.13.140.41.170.sslip.io/webhooks/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

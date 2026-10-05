@@ -110,6 +110,8 @@ export async function atualizarScore(
 
 // --- Horário de operação (seção 4.10) ---
 
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+
 function horaLocal(timezone: string, agora: Date): string {
   try {
     return new Intl.DateTimeFormat('en-GB', {
@@ -344,8 +346,8 @@ export async function processarResposta(
       data: { status: 'CONFIRMADO', respondidoEm: agora, resposta: 'SIM' },
     });
 
-    // Confirmação com certeza obtida no fluxo conversacional
-    const statusFinal = 'CONFIRMADO';
+    // Confirmação com certeza obtida no fluxo conversacional (se última etapa -> RECONFIRMADO)
+    const statusFinal = ciclo.etapa >= config.qtdConfirmacoes ? 'RECONFIRMADO' : 'CONFIRMADO';
     await prisma.queueEntry.update({
       where: { id: entry.id },
       data: { statusPaciente: statusFinal, status: 'CONFIRMED', respondidoEm: agora },
@@ -617,11 +619,13 @@ function diasAte(dataAgendada: Date, agora: Date): number {
 }
 
 export async function dispararProgramados(agora: Date = new Date()): Promise<number> {
+  let disparos = 0;
+
+  // 1. Etapa 1: Convocação / Confirmação inicial para pacientes AGUARDANDO (ex: 7 dias antes)
   const aguardando = await prisma.queueEntry.findMany({
     where: { statusPaciente: 'AGUARDANDO', dataAgendada: { not: null } },
   });
 
-  let disparos = 0;
   for (const entry of aguardando) {
     if (!entry.dataAgendada) continue;
     const config = await getConfig(entry.unidadeId);
@@ -646,7 +650,107 @@ export async function dispararProgramados(agora: Date = new Date()): Promise<num
     await dispararEtapa({ entry, etapa: 1, config, tipo: 'CONFIRMACAO' });
     disparos++;
   }
+
+  // 2. Etapa 2: Reconfirmação da véspera (1 dia antes) para pacientes CONFIRMADOS
+  const confirmados = await prisma.queueEntry.findMany({
+    where: { statusPaciente: 'CONFIRMADO', dataAgendada: { not: null } },
+  });
+
+  for (const entry of confirmados) {
+    if (!entry.dataAgendada) continue;
+    const config = await getConfig(entry.unidadeId);
+    if (config.qtdConfirmacoes < 2) continue; // município configurado apenas com 1 confirmação
+    if (!dentroDoHorario(config, agora)) continue;
+
+    const dias = diasAte(entry.dataAgendada, agora);
+    // Véspera da consulta (1 dia antes ou menor dia configurado)
+    const diaReconfirmacao = Math.min(...config.diasAntesConfirmacao);
+    if (dias !== diaReconfirmacao && dias !== 1) continue;
+
+    // Evita duplicar disparo no mesmo dia para a mesma entrada
+    const jaDisparadoHoje = await prisma.cicloConfirmacao.findFirst({
+      where: {
+        queueEntryId: entry.id,
+        enviadoEm: { gte: new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate())) },
+      },
+    });
+    if (jaDisparadoHoje) continue;
+
+    await dispararEtapa({ entry, etapa: 2, config, tipo: 'CONFIRMACAO' });
+    disparos++;
+  }
+
   return disparos;
+}
+
+// ====================================================================
+// Lembretes 4 horas antes do agendamento (cron 7.3)
+// ====================================================================
+
+export async function verificarLembretes4Horas(agora: Date = new Date()): Promise<number> {
+  const hojeInicio = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate()));
+  const hojeFim = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate(), 23, 59, 59, 999));
+
+  const elegiveis = await prisma.queueEntry.findMany({
+    where: {
+      statusPaciente: { in: ['CONFIRMADO', 'RECONFIRMADO'] },
+      dataAgendada: { gte: hojeInicio, lte: hojeFim },
+      lembreteEnviadoEm: null,
+    },
+  });
+
+  let enviados = 0;
+  for (const entry of elegiveis) {
+    const config = await getConfig(entry.unidadeId);
+    if (!dentroDoHorario(config, agora)) continue;
+
+    // Se temos a hora exata da consulta (ex: "14:00")
+    if (entry.horaAgendada && HHMM.test(entry.horaAgendada)) {
+      const [hStr, mStr] = entry.horaAgendada.split(':');
+      const minConsulta = parseInt(hStr, 10) * 60 + parseInt(mStr, 10);
+
+      const hhmmAtual = horaLocal(config.timezone, agora);
+      const [hAtual, mAtual] = hhmmAtual.split(':').map(Number);
+      const minAtual = hAtual * 60 + mAtual;
+
+      const diffMinutos = minConsulta - minAtual;
+      // Dispara quando faltar 4 horas ou menos (até 240 minutos antes da consulta e até 30min após)
+      if (diffMinutos > 240 || diffMinutos < -30) {
+        continue;
+      }
+    }
+
+    const paciente = await prisma.paciente.findUnique({ where: { id: entry.pacienteId } });
+    if (!paciente) continue;
+
+    let local: string | undefined;
+    if (entry.unidadeId) {
+      const unidade = await prisma.unidade.findUnique({ where: { id: entry.unidadeId }, select: { nome: true } });
+      local = unidade?.nome ?? undefined;
+    }
+
+    const gateway = getMessagingGateway();
+    await gateway.enviarLembrete({
+      telefone: telefoneDe(paciente),
+      nomePaciente: paciente.nomeCompleto,
+      procedimento: grupoDe(entry),
+      dataAgendada: formatarData(entry.dataAgendada),
+      horaAgendada: entry.horaAgendada ?? undefined,
+      local,
+      queueEntryId: entry.id,
+      pacienteId: paciente.id,
+    });
+
+    await prisma.queueEntry.update({
+      where: { id: entry.id },
+      data: { lembreteEnviadoEm: agora },
+    });
+
+    console.log(`[Confirmacao] Lembrete 4h enviado para ${paciente.nomeCompleto} (entry=${entry.id})`);
+    enviados++;
+  }
+
+  return enviados;
 }
 
 // ====================================================================
