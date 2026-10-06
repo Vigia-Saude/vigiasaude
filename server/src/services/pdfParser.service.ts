@@ -70,7 +70,7 @@ export function extractTableRows(text: string): ParsedRow[] {
     const fichaMatch = chunk.match(/(\d{6,8})([A-ZÀ-Ú])/);
     const cnsMatch = chunk.match(/CNS:\s*\n?\s*(\d{15})/);
     const telMatch = chunk.match(/TELEFONE:\s*(\d{2,3})\s*\n?\s*(\d{6,9})/);
-    const birthMatch = chunk.match(/-(\d{2}\/\d{2}\/\d{4})/);
+    const birthMatch = chunk.match(/-\s*(\d{2}\/\d{2}\/\d{4})/);
     const cidMatch = chunk.match(/([A-Z]\d{3})\s*-\s*EXAME/);
 
     let name: string | null = null;
@@ -116,7 +116,7 @@ export function extractTableRows(text: string): ParsedRow[] {
     const cnsMatch = block.match(/(?:CNS|SUS):\s*(\d{15})/i) || block.match(/\b([12789]\d{14})\b/);
     const fichaMatch = block.match(/(?:FICHA|SOLICITAÇÃO|SOLICITACAO):\s*(\d{6,10})/i);
     const telMatch = block.match(/(?:TELEFONE|TEL|FONE):\s*(\d{2,3})\s*\n?\s*(\d{6,9})/i) || block.match(/\b(67\d{8,9})\b/);
-    const birthMatch = block.match(/(?:NASC|DN|NASCIMENTO):\s*(\d{2}\/\d{2}\/\d{4})/i) || block.match(/-(\d{2}\/\d{2}\/\d{4})/);
+    const birthMatch = block.match(/(?:NASC|DN|NASCIMENTO):\s*(\d{2}\/\d{2}\/\d{4})/i) || block.match(/-\s*(\d{2}\/\d{2}\/\d{4})/);
     const nameMatch = block.match(/([A-ZÀ-Ú]{2,}(?:\s+(?:D[AEO]S?\s+)?[A-ZÀ-Ú]{2,})+)/);
 
     if (!cnsMatch && !fichaMatch) continue;

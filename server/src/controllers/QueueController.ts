@@ -56,20 +56,23 @@ export class QueueController {
     try {
       // 1. Localizar procedimentos correspondentes
       const fichas = await prisma.filaRegulacao.findMany({
-        select: { id: true, procedimentoSolicitado: true }
+        select: { id: true, procedimentoSolicitado: true, pacienteId: true }
       });
       const matchingProcNames = new Set<string>();
+      const candidatePacienteIds = new Set<string>();
+
       for (const f of fichas) {
         const procName = f.procedimentoSolicitado || 'Procedimento Geral';
         const pId = procName.toLowerCase().replace(/[^a-z0-9]/g, '-');
         if (pId === procedureId || procName.toLowerCase() === procedureId.toLowerCase()) {
           matchingProcNames.add(procName);
+          if (f.pacienteId) candidatePacienteIds.add(f.pacienteId);
         }
       }
 
       // 2. Localizar entradas em QueueEntry
       const queueEntries = await prisma.queueEntry.findMany({
-        select: { id: true, procedimentoNome: true, procedimentoId: true }
+        select: { id: true, procedimentoNome: true, procedimentoId: true, pacienteId: true }
       });
       const matchingQueueEntryIds: string[] = [];
       for (const qe of queueEntries) {
@@ -78,6 +81,7 @@ export class QueueController {
         if (pId === procedureId || procName.toLowerCase() === procedureId.toLowerCase() || matchingProcNames.has(procName)) {
           matchingQueueEntryIds.push(qe.id);
           if (procName) matchingProcNames.add(procName);
+          if (qe.pacienteId) candidatePacienteIds.add(qe.pacienteId);
         }
       }
 
@@ -126,6 +130,24 @@ export class QueueController {
               procedimento: { equals: procedureId, mode: 'insensitive' }
             }
           });
+        }
+
+        // 4. Limpar pacientes que não possuem mais nenhuma fila ou registro vinculado
+        if (candidatePacienteIds.size > 0) {
+          const pIds = Array.from(candidatePacienteIds);
+          for (const pId of pIds) {
+            const hasOtherQueue = await tx.queueEntry.count({ where: { pacienteId: pId } });
+            const hasOtherFila = await tx.filaRegulacao.count({ where: { pacienteId: pId } });
+            const hasViagens = await tx.viagemPassageiro.count({ where: { pacienteId: pId } });
+
+            if (hasOtherQueue === 0 && hasOtherFila === 0 && hasViagens === 0) {
+              await tx.pdfImportRow.updateMany({
+                where: { pacienteId: pId },
+                data: { pacienteId: null }
+              });
+              await tx.paciente.delete({ where: { id: pId } }).catch(() => {});
+            }
+          }
         }
       });
 
