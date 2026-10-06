@@ -670,7 +670,7 @@ model Paciente {
   cpf                 String?  @unique
   cartaoSus           String?  @map("cartao_sus")
   nomeCompleto        String   @map("nome_completo")
-  dataNascimento      DateTime @map("data_nascimento") @db.Date
+  dataNascimento      DateTime? @map("data_nascimento") @db.Date
   sexo                Sexo
   orientacaoSexual    String?  @map("orientacao_sexual")
   identidadeGenero    String?  @map("identidade_genero")

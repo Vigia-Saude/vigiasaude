@@ -71,10 +71,12 @@ export interface PacienteFila {
   telefone?: string | null;
   celular?: string | null;
   cartaoSus?: string | null;
+  dataNascimento?: string | null;
   scoreConfianca: number;
 }
 
 export interface EntradaConfirmacao {
+  pendenciasCadastro?: string[];
   bloqueioEnvio?: string | null;
   id: string;
   posicao: number;
@@ -207,8 +209,8 @@ export async function excluirFila(procedureId: string): Promise<{ ok: boolean; m
 }
 
 export interface InserirPacienteFilaPayload {
-  cartaoSus: string;
-  dataNascimento: string;
+  cartaoSus?: string;
+  dataNascimento?: string;
   localAtendimento: string;
   nomeCompleto: string;
   telefone: string;
@@ -231,6 +233,11 @@ export async function inserirPacienteFila(payload: InserirPacienteFilaPayload): 
 
 export async function atualizarTelefoneFila(queueEntryId: string, telefone: string): Promise<{ mensagem: string }> {
   const { data } = await apiClient.patch(`/api/regulacao/confirmacao/entrada/${queueEntryId}/telefone`, { telefone });
+  return data;
+}
+
+export async function completarCadastroFila(queueEntryId: string, payload: {cartaoSus: string; dataNascimento: string}): Promise<{mensagem: string; pendenciasCadastro: string[]}> {
+  const {data} = await apiClient.patch(`/api/regulacao/confirmacao/entrada/${queueEntryId}/cadastro`,payload);
   return data;
 }
 

@@ -89,7 +89,7 @@ export function PacientesGrid() {
       header: 'Data de Nascimento',
       cell: (row) => (
         <span className="text-sm text-gray-600">
-          {new Date(row.dataNascimento).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+          {row.dataNascimento ? new Date(row.dataNascimento).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'Não informado'}
         </span>
       ),
     },

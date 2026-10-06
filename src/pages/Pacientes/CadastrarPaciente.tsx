@@ -369,7 +369,7 @@ export function CadastrarPaciente({ onSuccess, isModal = false }: CadastrarPacie
         if (paciente.cartaoSus) setValue('cartaoSus', paciente.cartaoSus, { shouldValidate: true });
         setValue('nomeCompleto', paciente.nomeCompleto, { shouldValidate: true });
         
-        const dataFormatada = new Date(paciente.dataNascimento).toISOString().split('T')[0];
+        const dataFormatada = paciente.dataNascimento ? new Date(paciente.dataNascimento).toISOString().split('T')[0] : '';
         setValue('dataNascimento', dataFormatada, { shouldValidate: true });
         setValue('sexo', paciente.sexo, { shouldValidate: true });
         setValue('orientacaoSexual', paciente.orientacaoSexual || '', { shouldValidate: true });

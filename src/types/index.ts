@@ -212,7 +212,7 @@ export interface Paciente {
   cpf: string;
   cartaoSus?: string | null;
   nomeCompleto: string;
-  dataNascimento: string; // ISO date string
+  dataNascimento: string | null; // ISO date string; null while queue registration is incomplete
   sexo: SexoPaciente;
   orientacaoSexual?: string | null;
   identidadeGenero?: string | null;

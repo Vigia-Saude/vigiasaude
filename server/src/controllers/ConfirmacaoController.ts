@@ -5,6 +5,7 @@ import { z } from 'zod';
 import prisma from '../config/prisma';
 import { parseCalendarDate, validPhone } from '../services/regulacaoConfiavel.service';
 import { AuthRequest } from '../middlewares/auth';
+import { identificacaoPacienteFilaSchema, pendenciasPacienteFila } from '../schemas/cadastroFila.schema';
 import {
   processarResposta,
   dispararManualProximo,
@@ -68,8 +69,6 @@ const respostaSchema = z.object({
 
 const inserirFilaSchema = z.object({
   nomeCompleto: z.string().min(2, 'Nome é obrigatório').max(200),
-  cartaoSus: z.string().regex(/^\d{15}$/,'CNS deve conter 15 dígitos'),
-  dataNascimento: z.string(),
   localAtendimento: z.string().trim().min(3).max(300),
   telefone: z.string().min(8, 'Telefone inválido').max(30),
   procedimentoNome: z.string().min(2, 'Procedimento é obrigatório').max(200),
@@ -77,7 +76,7 @@ const inserirFilaSchema = z.object({
   horaAgendada: z.string().regex(HHMM, 'Hora deve estar no formato HH:MM'),
   unidadeId: z.string().uuid(),
   nivelUrgencia: z.enum(['NORMAL', 'AMARELO', 'VERMELHO']).default('NORMAL'),
-});
+}).extend(identificacaoPacienteFilaSchema.shape);
 
 const atualizarTelefoneSchema = z.object({
   telefone: z.string().min(8, 'Telefone inválido').max(30),
@@ -224,6 +223,7 @@ export class ConfirmacaoController {
           telefone: true,
           celular: true,
           cartaoSus: true,
+          dataNascimento: true,
           scoreConfianca: true,
         },
       });
@@ -231,6 +231,7 @@ export class ConfirmacaoController {
       const enriched = entries.map((e) => ({
         ...e,
         paciente: mapa.get(e.pacienteId) ?? null,
+        pendenciasCadastro: mapa.has(e.pacienteId) ? pendenciasPacienteFila(mapa.get(e.pacienteId)!, !!e.importId) : [],
         cicloAtual: e.ciclos[0] ?? null,
       }));
       res.json(enriched);
@@ -377,15 +378,14 @@ export class ConfirmacaoController {
       const unidadeId = data.unidadeId;
       if (!await prisma.unidade.findFirst({ where: { id: unidadeId, ativa: true } })) { res.status(400).json({ erro: 'Selecione uma unidade responsável ativa.' }); return; }
 
-      const nascimento = parseCalendarDate(data.dataNascimento);
-      if (!nascimento || nascimento > new Date()) { res.status(400).json({ erro: 'Informe a data de nascimento correta.' }); return; }
+      const nascimento = data.dataNascimento;
       const dataAgendada = parseCalendarDate(data.dataAgendada);
       if (!dataAgendada) { res.status(400).json({ erro: 'Informe uma data válida para a agenda.' }); return; }
       const novaEntrada = await prisma.$transaction(async tx => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('regulacao-importacao'))`;
       // Telefone pode pertencer a uma família; a identidade é o CNS.
-      let paciente = await tx.paciente.findFirst({ where: { cartaoSus: data.cartaoSus } });
-      if (paciente && (paciente.nomeCompleto.trim().toUpperCase() !== data.nomeCompleto.trim().toUpperCase() || paciente.dataNascimento.getTime() !== nascimento.getTime())) {
+      let paciente = data.cartaoSus ? await tx.paciente.findFirst({ where: { cartaoSus: data.cartaoSus } }) : null;
+      if (paciente && (paciente.nomeCompleto.trim().toUpperCase() !== data.nomeCompleto.trim().toUpperCase() || (paciente.dataNascimento && nascimento && paciente.dataNascimento.getTime() !== nascimento.getTime()))) {
         throw new Error('O CNS pertence a um cadastro com nome ou nascimento diferente. Confira os dados.');
       }
       if (!paciente) paciente = await tx.paciente.create({ data: {
@@ -393,7 +393,7 @@ export class ConfirmacaoController {
         cartaoSus: data.cartaoSus, cpf: null, prontuario: `PRONT-${randomUUID()}`, dataNascimento: nascimento,
         sexo: 'OUTRO', cep: '', logradouro: '', numero: '', bairro: '', municipio: '', scoreConfianca: 100,
       } });
-      else await tx.paciente.update({ where: { id: paciente.id }, data: { telefone: telefoneLimpo, celular: telefoneLimpo } });
+      else await tx.paciente.update({ where: { id: paciente.id }, data: { telefone: telefoneLimpo, celular: telefoneLimpo, ...(nascimento && !paciente.dataNascimento ? {dataNascimento: nascimento} : {}) } });
 
       const existente = await tx.queueEntry.findFirst({ where: { pacienteId: paciente.id, unidadeId, procedimentoNome: data.procedimentoNome.trim(), dataAgendada, horaAgendada: data.horaAgendada, statusPaciente: { in: ['AGUARDANDO','CONVOCADO','CONFIRMADO','RECONFIRMADO'] } } });
       if (existente) return existente;
@@ -427,6 +427,25 @@ export class ConfirmacaoController {
       console.error('[ConfirmacaoController] Erro ao inserir na fila:', err);
       res.status(500).json({ erro: err.message || 'Erro interno ao inserir paciente na fila.' });
     }
+  };
+
+  // Completa a identificação pendente sem alterar a posição ou criar outra entrada.
+  completarCadastro = async (req: AuthRequest, res: Response): Promise<void> => {
+    const parsed = identificacaoPacienteFilaSchema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({erro:'Dados inválidos',detalhes:parsed.error.issues}); return; }
+    try {
+      const paciente = await prisma.$transaction(async tx => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('regulacao-importacao'))`;
+        const entry = await tx.queueEntry.findUniqueOrThrow({where:{id:String(req.params.queueEntryId)}});
+        const atual = await tx.paciente.findUniqueOrThrow({where:{id:entry.pacienteId}});
+        const {cartaoSus,dataNascimento} = parsed.data;
+        if (atual.cartaoSus && cartaoSus && atual.cartaoSus !== cartaoSus) throw new Error('Este paciente já possui CNS. Corrija o documento no cadastro de pacientes.');
+        if (atual.dataNascimento && dataNascimento && atual.dataNascimento.getTime() !== dataNascimento.getTime()) throw new Error('Este paciente já possui nascimento. Corrija a data no cadastro de pacientes.');
+        if (cartaoSus && await tx.paciente.findFirst({where:{cartaoSus,id:{not:atual.id}}})) throw new Error('O CNS pertence a outro paciente. Confira os dados.');
+        return tx.paciente.update({where:{id:atual.id},data:{cartaoSus:cartaoSus ?? atual.cartaoSus,dataNascimento:dataNascimento ?? atual.dataNascimento}});
+      });
+      res.json({mensagem:'Dados do paciente atualizados.',pendenciasCadastro:pendenciasPacienteFila(paciente)});
+    } catch (err:any) { res.status(err.code==='P2025'?404:400).json({erro:err.message || 'Não foi possível completar o cadastro.'}); }
   };
 
   // PATCH /api/regulacao/confirmacao/entrada/:queueEntryId/telefone

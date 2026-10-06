@@ -14,6 +14,7 @@ import {
   simularResposta,
   inserirPacienteFila,
   atualizarTelefoneFila,
+  completarCadastroFila,
   redefinirEntradaFila,
   faixaScore,
   STATUS_PACIENTE_LABEL,
@@ -91,6 +92,8 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
     telefone: string;
   } | null>(null);
   const [novoTelefone, setNovoTelefone] = useState('');
+  const [editandoCadastro, setEditandoCadastro] = useState<EntradaConfirmacao | null>(null);
+  const [formCadastro, setFormCadastro] = useState({cartaoSus:'',dataNascimento:''});
 
   const { data: unidades = [] } = useQuery({queryKey:['unidades-responsaveis'],queryFn:listarUnidadesResponsaveis});
   const { data: entradas = [], isLoading, isError } = useQuery({
@@ -136,7 +139,13 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
       });
       invalidar();
     },
-    onError: (e: any) => toast.error(e.response?.data?.erro || 'Erro ao inserir paciente na fila.'),
+    onError: (e: any) => toast.error(e.response?.data?.detalhes?.map((d:any)=>d.message).join('; ') || e.response?.data?.erro || 'Erro ao inserir paciente na fila.'),
+  });
+
+  const completarCadastroMut = useMutation({
+    mutationFn: ({id,dados}:{id:string;dados:typeof formCadastro})=>completarCadastroFila(id,dados),
+    onSuccess: (r)=>{toast.success(r.mensagem);setEditandoCadastro(null);invalidar();},
+    onError: (e:any)=>toast.error(e.response?.data?.detalhes?.map((d:any)=>d.message).join('; ') || e.response?.data?.erro || 'Não foi possível completar o cadastro.'),
   });
 
   const atualizarTelefoneMut = useMutation({
@@ -315,7 +324,8 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
                     });
                     setNovoTelefone(tel);
                   }}
-                  podeConvocar={e.statusPaciente === 'AGUARDANDO' || (['CONVOCADO','CONFIRMADO','RECONFIRMADO'].includes(e.statusPaciente) && e.cicloAtual?.deliveryStatus === 'FAILED')}
+                  onCompletarCadastro={()=>{setEditandoCadastro(e);setFormCadastro({cartaoSus:e.paciente?.cartaoSus || '',dataNascimento:e.paciente?.dataNascimento?.slice(0,10) || ''});}}
+                  podeConvocar={!e.pendenciasCadastro?.length && (e.statusPaciente === 'AGUARDANDO' || (['CONVOCADO','CONFIRMADO','RECONFIRMADO'].includes(e.statusPaciente) && e.cicloAtual?.deliveryStatus === 'FAILED'))}
                   onConvocar={() => convocarMut.mutate(e.id)}
                   convocando={convocarMut.isPending && convocarMut.variables === e.id}
                   onRedefinir={() => redefinirMut.mutate(e.id)}
@@ -387,7 +397,7 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
       {/* Modal Inserir Paciente */}
       {modalInserir && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl border border-slate-200 space-y-5">
+          <div className="w-full max-w-lg max-h-[90dvh] overflow-y-auto bg-white rounded-3xl p-6 shadow-2xl border border-slate-200 space-y-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-3 bg-indigo-100 rounded-2xl">
@@ -446,13 +456,13 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <label className="text-xs font-bold text-slate-700">CNS *
-                  <input required inputMode="numeric" pattern="[0-9]{15}" maxLength={15} value={formInserir.cartaoSus}
+                <label className="text-xs font-bold text-slate-700">CNS (opcional)
+                  <input inputMode="numeric" pattern="[0-9]{15}" title="Informe 15 dígitos ou deixe em branco" maxLength={15} value={formInserir.cartaoSus}
                     onChange={(e) => setFormInserir(p => ({ ...p, cartaoSus: e.target.value.replace(/\D/g,'') }))}
                     className="w-full rounded-xl border border-slate-200 p-2.5 mt-1" />
                 </label>
-                <label className="text-xs font-bold text-slate-700">Nascimento *
-                  <input required type="date" value={formInserir.dataNascimento}
+                <label className="text-xs font-bold text-slate-700">Nascimento (opcional)
+                  <input type="date" value={formInserir.dataNascimento}
                     onChange={(e) => setFormInserir(p => ({ ...p, dataNascimento: e.target.value }))}
                     className="w-full rounded-xl border border-slate-200 p-2.5 mt-1" />
                 </label>
@@ -544,7 +554,7 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
 
               <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-[11px] text-slate-500 space-y-1">
                 <p>
-                  💡 <strong>Fluxo completo:</strong> O paciente entrará na fila em status <em>AGUARDANDO</em>. Ao clicar em <strong>Convocar</strong>, ele receberá a mensagem oficial no WhatsApp e o acompanhamento de 1 semana, 1 dia e 4 horas antes começará automaticamente.
+                  💡 O paciente entrará na fila em status <em>AGUARDANDO</em>. CNS e nascimento podem ser completados depois, pelo botão <strong>Completar cadastro</strong>. A convocação exige dados completos e vaga disponível na agenda.
                 </p>
               </div>
 
@@ -570,6 +580,28 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
       )}
 
       {/* Modal Editar Telefone */}
+      {editandoCadastro && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <form onSubmit={(event)=>{event.preventDefault();completarCadastroMut.mutate({id:editandoCadastro.id,dados:formCadastro});}}
+            className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl space-y-4">
+            <h3 className="text-lg font-bold text-slate-900">Completar cadastro</h3>
+            <p className="text-sm text-slate-600">{editandoCadastro.paciente?.nomeCompleto}</p>
+            <label className="block text-xs font-bold text-slate-700">CNS
+              <input inputMode="numeric" pattern="[0-9]{15}" maxLength={15} title="Informe 15 dígitos ou deixe em branco" value={formCadastro.cartaoSus}
+                onChange={(event)=>setFormCadastro(p=>({...p,cartaoSus:event.target.value.replace(/\D/g,'')}))}
+                className="w-full rounded-xl border border-slate-200 p-2.5 mt-1" />
+            </label>
+            <label className="block text-xs font-bold text-slate-700">Nascimento
+              <input type="date" value={formCadastro.dataNascimento} onChange={(event)=>setFormCadastro(p=>({...p,dataNascimento:event.target.value}))}
+                className="w-full rounded-xl border border-slate-200 p-2.5 mt-1" />
+            </label>
+            <div className="flex justify-end gap-3">
+              <button type="button" onClick={()=>setEditandoCadastro(null)} disabled={completarCadastroMut.isPending} className="text-sm text-slate-600">Cancelar</button>
+              <button type="submit" disabled={completarCadastroMut.isPending} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{completarCadastroMut.isPending?'Salvando...':'Salvar dados'}</button>
+            </div>
+          </form>
+        </div>
+      )}
       {editandoTelefone && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border border-slate-200 space-y-4">
@@ -647,6 +679,7 @@ interface LinhaProps {
   onToggle: () => void;
   onScore: () => void;
   onEditarTelefone: () => void;
+  onCompletarCadastro: () => void;
   podeConvocar: boolean;
   onConvocar: () => void;
   convocando: boolean;
@@ -663,6 +696,7 @@ function LinhaPaciente({
   onToggle,
   onScore,
   onEditarTelefone,
+  onCompletarCadastro,
   podeConvocar,
   onConvocar,
   convocando,
@@ -693,6 +727,10 @@ function LinhaPaciente({
           <div className="font-bold text-slate-900">{e.paciente?.nomeCompleto ?? 'Paciente'}</div>
           <div className="text-[11px] font-mono text-slate-400 mt-0.5">Posição {e.posicao} · {e.paciente?.cartaoSus ?? '—'}</div>
           {e.bloqueioEnvio && <div className="text-xs text-rose-600">{e.bloqueioEnvio}</div>}
+          {!!e.pendenciasCadastro?.length && <div className="mt-1 text-xs text-amber-700">
+            <div>Dados pendentes: {e.pendenciasCadastro.join(', ')}.</div>
+            <button type="button" onClick={onCompletarCadastro} className="font-semibold underline cursor-pointer">Completar cadastro</button>
+          </div>}
           {e.cicloAtual && <div className="text-xs text-slate-600">Envio: {({QUEUED:'Pendente',ACCEPTED:'Aceito pelo provedor',SENT:'Aceito pelo provedor',DELIVERED:'Entregue',READ:'Lido',FAILED:'Falhou',UNKNOWN:'Incerto — aguarda conciliação'} as Record<string,string>)[e.cicloAtual.deliveryStatus || 'QUEUED']}</div>}
           {e.cicloAtual?.envioErro && <div className="text-xs text-rose-600">{e.cicloAtual.envioErro}</div>}
         </td>

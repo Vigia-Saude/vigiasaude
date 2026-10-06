@@ -466,7 +466,7 @@ export function NovaFichaRegulacao() {
                         <div className="flex gap-4 text-xs text-gray-500 mt-0.5">
                           <span>CPF: {paciente.cpf}</span>
                           <span>SUS: {paciente.cartaoSus || '—'}</span>
-                          <span>DN: {new Date(paciente.dataNascimento).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</span>
+                          <span>DN: {paciente.dataNascimento ? new Date(paciente.dataNascimento).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'Não informado'}</span>
                         </div>
                       </div>
                     ))}
@@ -497,7 +497,7 @@ export function NovaFichaRegulacao() {
                           <FileText className="h-3.5 w-3.5" /> CPF: {selectedPaciente.cpf}
                         </span>
                         <span className="flex items-center gap-1">
-                          <Calendar className="h-3.5 w-3.5" /> Nasc: {new Date(selectedPaciente.dataNascimento).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+                          <Calendar className="h-3.5 w-3.5" /> Nasc: {selectedPaciente.dataNascimento ? new Date(selectedPaciente.dataNascimento).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'Não informado'}
                         </span>
                         {selectedPaciente.cartaoSus && (
                           <span>SUS: {selectedPaciente.cartaoSus}</span>

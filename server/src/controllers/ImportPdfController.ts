@@ -346,7 +346,7 @@ export class ImportPdfController {
             where: cns ? { cartaoSus: cns } : { nomeCompleto: { equals: name, mode: 'insensitive' }, dataNascimento: dataNascimento! }
           });
 
-          if (paciente && (paciente.nomeCompleto.trim().toUpperCase() !== name.toUpperCase() || paciente.dataNascimento.getTime() !== dataNascimento!.getTime())) throw new Error('Identificação pertence a um cadastro com nome ou nascimento diferente. Confira os dados.');
+          if (paciente && (paciente.nomeCompleto.trim().toUpperCase() !== name.toUpperCase() || (paciente.dataNascimento && paciente.dataNascimento.getTime() !== dataNascimento!.getTime()))) throw new Error('Identificação pertence a um cadastro com nome ou nascimento diferente. Confira os dados.');
           if (!paciente) {
 
             const generatedProntuario = `PRONT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -370,7 +370,7 @@ export class ImportPdfController {
             });
           }
 
-          else await tx.paciente.update({ where: { id: paciente.id }, data: { celular: phone, telefone: phone } });
+          else await tx.paciente.update({ where: { id: paciente.id }, data: { celular: phone, telefone: phone, ...(!paciente.dataNascimento ? {dataNascimento: dataNascimento!} : {}) } });
 
           // Deduplicação inteligente de QueueEntry
           let queueEntry = await tx.queueEntry.findFirst({
