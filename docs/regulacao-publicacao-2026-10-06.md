@@ -13,10 +13,11 @@ O bot foi publicado em https://taxinha-bot.vercel.app. A assinatura da Meta est�
 - Recuperação de ordem: 372 linhas de 24 PDFs, incluindo nove inclusões manuais posteriores. Nenhuma mensagem foi enviada e nenhuma reserva foi liberada durante a recuperação.
 - Teste real: agenda futura de teste, capacidade 1, contato autorizado, envio aceito inicialmente pela Meta e posteriormente recusado com erro **131042 — Business eligibility payment issue**. O bot persistiu o evento e o Vigia recebeu a falha. A ocupação permaneceu 1/1; falha técnica não gerou ausência.
 - Repetição do mesmo evento real de falha: HTTP 200, um único callback concluído, sem segundo efeito.
+- Depois de o responsável vincular o cartão à conta WhatsApp, a retentativa técnica foi entregue pela Meta às 12:55:43 de Cuiabá. O callback chegou à API da VPS e o Vigia passou a mostrar `DELIVERED`, sem erro, mantendo ocupação 1/1 e a próxima entrada aguardando. Tentativas técnicas anteriores foram substituídas, preservando a reserva.
 
 ## Pendência para aceite
 
-A conta WhatsApp utilizada estava sem forma de pagamento vinculada. A regularização é realizada pelo responsável diretamente na Meta. Depois dela, repetir somente o envio controlado, usando a retentativa manual de falha definitiva, e comprovar entrega, confirmação, desistência e reposição. Não considerar aceitação do provedor como entrega.
+A conta WhatsApp utilizada estava sem forma de pagamento vinculada. O responsável concluiu o vínculo diretamente na Meta, e a entrega controlada foi comprovada pelo webhook. Ainda é necessário concluir, com respostas reais do contato de teste, a confirmação, desistência e reposição. Não considerar aceitação do provedor como entrega.
 
 O lembrete fora da janela de 24 horas permanece bloqueado enquanto `lembrete_consulta` não estiver aprovado e explicitamente habilitado. Não usar a lista real de mamografia para testes.
 
