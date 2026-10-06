@@ -348,7 +348,7 @@ export class ImportPdfController {
 
           if (paciente && (paciente.nomeCompleto.trim().toUpperCase() !== name.toUpperCase() || paciente.dataNascimento.getTime() !== dataNascimento!.getTime())) throw new Error('Identificação pertence a um cadastro com nome ou nascimento diferente. Confira os dados.');
           if (!paciente) {
-            
+
             const generatedProntuario = `PRONT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
             paciente = await tx.paciente.create({
