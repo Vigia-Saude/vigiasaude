@@ -329,7 +329,7 @@ export class ConfirmacaoController {
       }
       const { callbackId, ...payload } = parsed.data;
       const resultado = await processarResposta(callbackId, payload as RespostaPayload);
-      res.status(resultado.ok ? 200 : 409).json(resultado);
+      res.status(200).json(resultado);
     } catch (err: any) {
       res.status(500).json({ erro: err.message });
     }
@@ -417,7 +417,18 @@ export class ConfirmacaoController {
         });
       }
 
-      // 2. Cria a entrada na fila (QueueEntry) com status AGUARDANDO
+      // 2. Calcula a próxima posição na fila
+      const ultimaEntrada = await prisma.queueEntry.findFirst({
+        where: {
+          unidadeId: unidadeId ?? undefined,
+          procedimentoNome: data.procedimentoNome.trim(),
+        },
+        orderBy: { posicao: 'desc' },
+        select: { posicao: true },
+      });
+      const proximaPosicao = (ultimaEntrada?.posicao ?? 0) + 1;
+
+      // 3. Cria a entrada na fila (QueueEntry) com status AGUARDANDO
       const dataAgendada = data.dataAgendada ? new Date(data.dataAgendada) : new Date();
 
       const novaEntrada = await prisma.queueEntry.create({
@@ -425,7 +436,7 @@ export class ConfirmacaoController {
           pacienteId: paciente.id,
           unidadeId,
           procedimentoNome: data.procedimentoNome.trim(),
-          posicao: 1,
+          posicao: proximaPosicao,
           status: 'PENDING',
           statusPaciente: 'AGUARDANDO',
           nivelUrgencia: data.nivelUrgencia,

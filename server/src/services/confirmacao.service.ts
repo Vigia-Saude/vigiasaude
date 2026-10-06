@@ -6,6 +6,7 @@ import type {
   ConfiguracaoRegulacao,
   Paciente,
   MotivoRecusa,
+  PacienteFilaStatus,
 } from '@prisma/client';
 
 // ====================================================================
@@ -205,12 +206,13 @@ export async function dispararEtapa({ entry, etapa, tentativa = 1, config, tipo 
         : config.templateReconfirmacao;
 
   const enviadoEm = new Date();
-  const expiraEm = new Date(enviadoEm.getTime() + config.timeoutRespostaHoras * 3600_000);
+  const horaAgendada = entry.horaAgendada ?? undefined;
+  const expiraEm = new Date(enviadoEm.getTime() + config.timeoutRespostaHoras * 60 * 60 * 1000);
 
   const resultado =
     tipo === 'CONVOCACAO'
-      ? await gateway.enviarConvocacao({ telefone, nomePaciente, procedimento, dataAgendada, local, templateName, callbackId, queueEntryId: entry.id, pacienteId: paciente.id })
-      : await gateway.enviarConfirmacao({ telefone, nomePaciente, procedimento, dataAgendada, local, templateName, callbackId, queueEntryId: entry.id, pacienteId: paciente.id });
+      ? await gateway.enviarConvocacao({ telefone, nomePaciente, procedimento, dataAgendada, horaAgendada, local, templateName, callbackId, queueEntryId: entry.id, pacienteId: paciente.id })
+      : await gateway.enviarConfirmacao({ telefone, nomePaciente, procedimento, dataAgendada, horaAgendada, local, templateName, callbackId, queueEntryId: entry.id, pacienteId: paciente.id });
 
   const ciclo = await prisma.cicloConfirmacao.create({
     data: {
@@ -227,10 +229,13 @@ export async function dispararEtapa({ entry, etapa, tentativa = 1, config, tipo 
     },
   });
 
+  const statusPacienteAlvo: PacienteFilaStatus =
+    etapa === 2 && entry.statusPaciente === 'CONFIRMADO' ? 'RECONFIRMADO' : 'CONVOCADO';
+
   await prisma.queueEntry.update({
     where: { id: entry.id },
     data: {
-      statusPaciente: 'CONVOCADO',
+      statusPaciente: statusPacienteAlvo,
       status: 'AWAITING_RESPONSE',
       notificadoEm: enviadoEm,
       expiraEm,
@@ -282,13 +287,17 @@ export async function processarResposta(
 
       const entry = await prisma.queueEntry.findUnique({ where: { id: ciclo.queueEntryId } });
       if (entry) {
-        await atualizarScore(
-          entry.pacienteId,
-          entry.unidadeId,
-          'RECUSOU',
-          payload.motivoRecusa ?? payload.motivoTextoLivre ?? null,
-          entry.id
-        );
+        // Atualiza o motivo no histórico existente sem duplicar débito de pontuação
+        const historico = await prisma.historicoAbsenteismo.findFirst({
+          where: { queueEntryId: entry.id, tipo: 'RECUSOU' },
+          orderBy: { criadoEm: 'desc' },
+        });
+        if (historico) {
+          await prisma.historicoAbsenteismo.update({
+            where: { id: historico.id },
+            data: { motivo: payload.motivoRecusa ?? payload.motivoTextoLivre ?? null },
+          });
+        }
 
         await prisma.messageLog.create({
           data: {
@@ -704,20 +713,22 @@ export async function verificarLembretes4Horas(agora: Date = new Date()): Promis
     const config = await getConfig(entry.unidadeId);
     if (!dentroDoHorario(config, agora)) continue;
 
-    // Se temos a hora exata da consulta (ex: "14:00")
-    if (entry.horaAgendada && HHMM.test(entry.horaAgendada)) {
-      const [hStr, mStr] = entry.horaAgendada.split(':');
-      const minConsulta = parseInt(hStr, 10) * 60 + parseInt(mStr, 10);
+    // Se não tiver hora agendada válida, não é possível calcular a antecedência de 4h
+    if (!entry.horaAgendada || !HHMM.test(entry.horaAgendada)) {
+      continue;
+    }
 
-      const hhmmAtual = horaLocal(config.timezone, agora);
-      const [hAtual, mAtual] = hhmmAtual.split(':').map(Number);
-      const minAtual = hAtual * 60 + mAtual;
+    const [hStr, mStr] = entry.horaAgendada.split(':');
+    const minConsulta = parseInt(hStr, 10) * 60 + parseInt(mStr, 10);
 
-      const diffMinutos = minConsulta - minAtual;
-      // Dispara quando faltar 4 horas ou menos (até 240 minutos antes da consulta e até 30min após)
-      if (diffMinutos > 240 || diffMinutos < -30) {
-        continue;
-      }
+    const hhmmAtual = horaLocal(config.timezone, agora);
+    const [hAtual, mAtual] = hhmmAtual.split(':').map(Number);
+    const minAtual = hAtual * 60 + mAtual;
+
+    const diffMinutos = minConsulta - minAtual;
+    // Dispara quando faltar 4 horas ou menos (entre 0 e 240 minutos antes da consulta)
+    if (diffMinutos > 240 || diffMinutos < 0) {
+      continue;
     }
 
     const paciente = await prisma.paciente.findUnique({ where: { id: entry.pacienteId } });

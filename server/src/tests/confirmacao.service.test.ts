@@ -338,7 +338,7 @@ describe('dispararProgramados', () => {
       expect.objectContaining({
         where: { id: 'entry-conf-1' },
         data: expect.objectContaining({
-          statusPaciente: 'CONVOCADO',
+          statusPaciente: 'RECONFIRMADO',
           status: 'AWAITING_RESPONSE',
         }),
       })

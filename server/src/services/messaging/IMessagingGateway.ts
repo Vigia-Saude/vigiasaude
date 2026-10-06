@@ -19,6 +19,7 @@ export interface EnviarConfirmacaoParams {
   nomePaciente: string;
   procedimento: string;
   dataAgendada: string;
+  horaAgendada?: string;
   local?: string;
   templateName: string;
   /** Correlaciona o disparo com a resposta recebida no callback. */
@@ -41,6 +42,7 @@ export interface EnviarConvocacaoParams {
   nomePaciente: string;
   procedimento: string;
   dataAgendada: string;
+  horaAgendada?: string;
   local?: string;
   templateName: string;
   callbackId: string;
