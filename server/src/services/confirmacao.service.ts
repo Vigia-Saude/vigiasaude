@@ -1,4 +1,5 @@
-import { randomUUID } from 'crypto';
+import { prepararDisparo, processarOutbox, calendarDate, localDate } from './regulacaoConfiavel.service';
+export { processarRespostaConfiavel as processarResposta, verificarTimeoutsConfiavel as verificarTimeouts, recuperarReposicoes as recuperarConvocacoesAdiadas } from './regulacaoConfiavel.service';
 import prisma from '../config/prisma';
 import { getMessagingGateway } from './messaging';
 import type {
@@ -153,19 +154,8 @@ export function grupoDe(entry: Pick<QueueEntry, 'procedimentoNome' | 'procedimen
   return entry.procedimentoNome || entry.procedimentoId || 'Regulação';
 }
 
-const RANK_URGENCIA: Record<string, number> = { VERMELHO: 3, AMARELO: 2, NORMAL: 1 };
-
-/**
- * Ordena a fila por urgência (VERMELHO > AMARELO > NORMAL) e, em empate,
- * por posição (FIFO — quem aguarda há mais tempo). Puro/testável.
- */
 export function ordenarFila<T extends { nivelUrgencia: string; posicao: number }>(entries: T[]): T[] {
-  return [...entries].sort((a, b) => {
-    const ra = RANK_URGENCIA[a.nivelUrgencia] ?? 1;
-    const rb = RANK_URGENCIA[b.nivelUrgencia] ?? 1;
-    if (rb !== ra) return rb - ra; // urgência desc (VERMELHO primeiro)
-    return a.posicao - b.posicao; // FIFO
-  });
+  return [...entries].sort((a, b) => a.posicao - b.posicao);
 }
 
 // ====================================================================
@@ -178,74 +168,13 @@ interface DispararOpts {
   tentativa?: number;
   config: ConfigResolvida;
   tipo: 'CONFIRMACAO' | 'CONVOCACAO';
+  agora?: Date;
 }
 
-export async function dispararEtapa({ entry, etapa, tentativa = 1, config, tipo }: DispararOpts) {
-  const paciente = await prisma.paciente.findUnique({ where: { id: entry.pacienteId } });
-  if (!paciente) throw new Error(`Paciente ${entry.pacienteId} não encontrado.`);
-
-  const gateway = getMessagingGateway();
-  const callbackId = randomUUID();
-  const telefone = telefoneDe(paciente);
-  const nomePaciente = paciente.nomeCompleto;
-  const procedimento = grupoDe(entry);
-  const dataAgendada = formatarData(entry.dataAgendada);
-
-  // Busca o nome da unidade (local) para incluir na mensagem
-  let local: string | undefined;
-  if (entry.unidadeId) {
-    const unidade = await prisma.unidade.findUnique({ where: { id: entry.unidadeId }, select: { nome: true } });
-    local = unidade?.nome ?? undefined;
-  }
-
-  const templateName =
-    tipo === 'CONVOCACAO'
-      ? config.templateConvocacao
-      : etapa === 1
-        ? config.templateConfirmacao
-        : config.templateReconfirmacao;
-
-  const enviadoEm = new Date();
-  const horaAgendada = entry.horaAgendada ?? undefined;
-  const expiraEm = new Date(enviadoEm.getTime() + config.timeoutRespostaHoras * 60 * 60 * 1000);
-
-  const resultado =
-    tipo === 'CONVOCACAO'
-      ? await gateway.enviarConvocacao({ telefone, nomePaciente, procedimento, dataAgendada, horaAgendada, local, templateName, callbackId, queueEntryId: entry.id, pacienteId: paciente.id })
-      : await gateway.enviarConfirmacao({ telefone, nomePaciente, procedimento, dataAgendada, horaAgendada, local, templateName, callbackId, queueEntryId: entry.id, pacienteId: paciente.id });
-
-  const ciclo = await prisma.cicloConfirmacao.create({
-    data: {
-      queueEntryId: entry.id,
-      unidadeId: entry.unidadeId,
-      etapa,
-      tentativa,
-      status: 'CONVOCADO',
-      templateName,
-      callbackId,
-      messageId: resultado.messageId,
-      enviadoEm,
-      expiraEm,
-    },
-  });
-
-  const statusPacienteAlvo: PacienteFilaStatus =
-    etapa === 2 && entry.statusPaciente === 'CONFIRMADO' ? 'RECONFIRMADO' : 'CONVOCADO';
-
-  await prisma.queueEntry.update({
-    where: { id: entry.id },
-    data: {
-      statusPaciente: statusPacienteAlvo,
-      status: 'AWAITING_RESPONSE',
-      notificadoEm: enviadoEm,
-      expiraEm,
-    },
-  });
-
-  console.log(
-    `[Confirmacao] ${tipo} etapa=${etapa} tentativa=${tentativa} paciente=${nomePaciente} entry=${entry.id} ciclo=${ciclo.id}`
-  );
-  return ciclo;
+export async function dispararEtapa(opts: DispararOpts & { anteriorId?: string }) {
+  const ciclo = await prepararDisparo(opts);
+  await processarOutbox(ciclo.callbackId);
+  return prisma.cicloConfirmacao.findUniqueOrThrow({ where: { id: ciclo.id } });
 }
 
 // ====================================================================
@@ -253,7 +182,11 @@ export async function dispararEtapa({ entry, etapa, tentativa = 1, config, tipo 
 // ====================================================================
 
 export interface RespostaPayload {
-  resposta: 'SIM' | 'NAO';
+  resposta?: 'SIM' | 'NAO';
+  eventId?: string;
+  eventType?: 'RESPOSTA' | 'MOTIVO' | 'DELIVERY';
+  deliveryStatus?: 'SENT' | 'DELIVERED' | 'READ' | 'FAILED' | 'ACCEPTED';
+  error?: string;
   motivoRecusa?: MotivoRecusa | null;
   motivoTextoLivre?: string | null;
   timestamp?: string;
@@ -265,149 +198,6 @@ export interface ResultadoResposta {
   mensagem: string;
   statusPaciente?: string;
   proximoConvocado?: string | null;
-}
-
-export async function processarResposta(
-  callbackId: string,
-  payload: RespostaPayload
-): Promise<ResultadoResposta> {
-  const ciclo = await prisma.cicloConfirmacao.findUnique({ where: { callbackId } });
-  if (!ciclo) return { ok: false, mensagem: 'callbackId não encontrado.' };
-
-  // Permite gravar o motivo de recusa que chega na etapa seguinte (COLETA_MOTIVO)
-  if (ciclo.status === 'RECUSADO') {
-    if (payload.motivoRecusa || payload.motivoTextoLivre) {
-      await prisma.cicloConfirmacao.update({
-        where: { id: ciclo.id },
-        data: {
-          motivoRecusa: payload.motivoRecusa ?? ciclo.motivoRecusa,
-          motivoTextoLivre: payload.motivoTextoLivre ?? ciclo.motivoTextoLivre,
-        },
-      });
-
-      const entry = await prisma.queueEntry.findUnique({ where: { id: ciclo.queueEntryId } });
-      if (entry) {
-        // Atualiza o motivo no histórico existente sem duplicar débito de pontuação
-        const historico = await prisma.historicoAbsenteismo.findFirst({
-          where: { queueEntryId: entry.id, tipo: 'RECUSOU' },
-          orderBy: { criadoEm: 'desc' },
-        });
-        if (historico) {
-          await prisma.historicoAbsenteismo.update({
-            where: { id: historico.id },
-            data: { motivo: payload.motivoRecusa ?? payload.motivoTextoLivre ?? null },
-          });
-        }
-
-        await prisma.messageLog.create({
-          data: {
-            queueEntryId: entry.id,
-            pacienteId: entry.pacienteId,
-            direction: 'INBOUND',
-            wamid: payload.wamid ?? null,
-            body: `MOTIVO RECUSA: ${payload.motivoRecusa || ''}${payload.motivoTextoLivre ? ` (${payload.motivoTextoLivre})` : ''}`.trim(),
-            status: 'RECEIVED',
-            rawPayload: payload as any,
-          },
-        });
-      }
-
-      return {
-        ok: true,
-        mensagem: 'Motivo de recusa registrado com sucesso.',
-        statusPaciente: 'RECUSOU',
-      };
-    }
-
-    return { ok: true, mensagem: `Ciclo já resolvido (status=${ciclo.status}).`, statusPaciente: 'RECUSOU' };
-  }
-
-  if (ciclo.status !== 'CONVOCADO') {
-    return { ok: false, mensagem: `Ciclo já resolvido (status=${ciclo.status}).` };
-  }
-
-  const entry = await prisma.queueEntry.findUnique({ where: { id: ciclo.queueEntryId } });
-  if (!entry) return { ok: false, mensagem: 'Entrada da fila não encontrada.' };
-
-  const config = await getConfig(entry.unidadeId);
-  const agora = new Date();
-
-  // Log da resposta recebida (INBOUND).
-  await prisma.messageLog.create({
-    data: {
-      queueEntryId: entry.id,
-      pacienteId: entry.pacienteId,
-      direction: 'INBOUND',
-      wamid: payload.wamid ?? null,
-      body:
-        payload.resposta === 'NAO'
-          ? `NAO${payload.motivoRecusa ? ` (${payload.motivoRecusa})` : ''}${payload.motivoTextoLivre ? `: ${payload.motivoTextoLivre}` : ''}`
-          : 'SIM',
-      status: 'RECEIVED',
-      rawPayload: payload as any,
-    },
-  });
-
-  // ----- Resposta SIM -----
-  if (payload.resposta === 'SIM') {
-    await prisma.cicloConfirmacao.update({
-      where: { id: ciclo.id },
-      data: { status: 'CONFIRMADO', respondidoEm: agora, resposta: 'SIM' },
-    });
-
-    // Confirmação com certeza obtida no fluxo conversacional (se última etapa -> RECONFIRMADO)
-    const statusFinal = ciclo.etapa >= config.qtdConfirmacoes ? 'RECONFIRMADO' : 'CONFIRMADO';
-    await prisma.queueEntry.update({
-      where: { id: entry.id },
-      data: { statusPaciente: statusFinal, status: 'CONFIRMED', respondidoEm: agora },
-    });
-    await atualizarScore(entry.pacienteId, entry.unidadeId, 'CONFIRMOU', null, entry.id);
-    return { ok: true, mensagem: 'Presença confirmada.', statusPaciente: statusFinal };
-  }
-
-  // ----- Resposta NÃO -----
-  await prisma.cicloConfirmacao.update({
-    where: { id: ciclo.id },
-    data: {
-      status: 'RECUSADO',
-      respondidoEm: agora,
-      resposta: 'NAO',
-      motivoRecusa: payload.motivoRecusa ?? null,
-      motivoTextoLivre: payload.motivoTextoLivre ?? null,
-    },
-  });
-
-  // Se ainda não veio motivo de recusa do bot, envia coleta de motivo (fallback)
-  const paciente = await prisma.paciente.findUnique({ where: { id: entry.pacienteId } });
-  if (paciente && !payload.motivoRecusa && !payload.motivoTextoLivre) {
-    await getMessagingGateway().enviarColetaMotivo({
-      telefone: telefoneDe(paciente),
-      nomePaciente: paciente.nomeCompleto,
-      templateName: config.templateColetaMotivo,
-      callbackId: ciclo.callbackId,
-    });
-  }
-
-  await prisma.queueEntry.update({
-    where: { id: entry.id },
-    data: { statusPaciente: 'RECUSOU', status: 'DECLINED', respondidoEm: agora },
-  });
-  await atualizarScore(
-    entry.pacienteId,
-    entry.unidadeId,
-    'RECUSOU',
-    payload.motivoRecusa ?? payload.motivoTextoLivre ?? null,
-    entry.id
-  );
-
-  // Vaga aberta → convoca o próximo da fila.
-  const proximo = await convocarProximo(entry.unidadeId, grupoDe(entry), entry.dataAgendada);
-  return {
-    ok: true,
-    mensagem: 'Recusa registrada; próximo da fila convocado (se elegível).',
-    statusPaciente: 'RECUSOU',
-    proximoConvocado: proximo?.pacienteId ?? null,
-  };
 }
 
 // ====================================================================
@@ -462,18 +252,18 @@ export async function vagasInfo(
     capacidadeTotal: slot.capacidadeTotal,
     confirmados,
     convocados,
-    disponiveis: Math.max(0, slot.capacidadeTotal - confirmados - convocados),
+    disponiveis: Math.max(0, slot.capacidadeTotal - slot.ocupadas),
   };
 }
 
 /**
  * Há vaga para convocar mais um paciente? Quando a capacidade não foi definida,
- * NÃO bloqueia (retorna true) — o regulador é alertado em separado (seção 4.8).
+ * bloqueia o disparo até o regulador definir as vagas.
  * Quando definida, exige disponiveis > 0.
  */
 export async function temVaga(unidadeId: string | null, grupo: string, dataAgendada: Date | null): Promise<boolean> {
   const info = await vagasInfo(unidadeId, grupo, dataAgendada);
-  if (!info.definido) return true;
+  if (!info.definido) return false;
   return (info.disponiveis ?? 0) > 0;
 }
 
@@ -481,7 +271,7 @@ export async function temVaga(unidadeId: string | null, grupo: string, dataAgend
 // Convocação automática do próximo da fila (seção 4.6)
 // ====================================================================
 
-/** Busca o próximo `AGUARDANDO` do grupo, ordenado por urgência e FIFO. */
+/** Busca o próximo `AGUARDANDO` do grupo, ordenado exclusivamente pela posição original. */
 export async function proximoElegivel(
   unidadeId: string | null,
   grupo: string,
@@ -490,7 +280,7 @@ export async function proximoElegivel(
   const candidatos = await prisma.queueEntry.findMany({
     where: {
       unidadeId: unidadeId ?? undefined,
-      statusPaciente: 'AGUARDANDO',
+      statusPaciente: 'AGUARDANDO', bloqueioEnvio: null,
       ...(dataAgendada ? { dataAgendada } : {}),
     },
   });
@@ -520,7 +310,7 @@ export async function convocarProximo(
     return null;
   }
 
-  // Verifica capacidade/vagas (seção 4.6.4). Capacidade indefinida não bloqueia.
+  // Verifica capacidade/vagas (seção 4.6.4). Capacidade indefinida bloqueia.
   if (!(await temVaga(unidadeId, grupo, dataAgendada))) {
     console.log(`[Confirmacao] Sem vagas disponíveis no grupo "${grupo}" — convocação não realizada.`);
     return null;
@@ -535,94 +325,17 @@ export async function convocarProximo(
  * AGUARDANDO, ninguém CONVOCADO e ao menos uma saída negativa (vaga aberta),
  * convoca o próximo. Chamado pelo cron dentro do horário de operação.
  */
-export async function recuperarConvocacoesAdiadas(unidadeId: string | null): Promise<number> {
-  const entries = await prisma.queueEntry.findMany({
-    where: { unidadeId: unidadeId ?? undefined },
-  });
-
-  // Agrupa por (grupo + data).
-  const grupos = new Map<string, QueueEntry[]>();
-  for (const e of entries) {
-    const chave = `${grupoDe(e)}__${e.dataAgendada?.toISOString() ?? 'sem-data'}`;
-    const arr = grupos.get(chave) ?? [];
-    arr.push(e);
-    grupos.set(chave, arr);
-  }
-
-  let convocados = 0;
-  for (const [, arr] of grupos) {
-    const temConvocado = arr.some((e) => e.statusPaciente === 'CONVOCADO');
-    const temAguardando = arr.some((e) => e.statusPaciente === 'AGUARDANDO');
-    const vagaAberta = arr.some((e) =>
-      ['RECUSOU', 'NAO_RESPONDEU', 'CANCELADO'].includes(e.statusPaciente)
-    );
-    if (!temConvocado && temAguardando && vagaAberta) {
-      const ref = arr[0];
-      const proximo = await convocarProximo(unidadeId, grupoDe(ref), ref.dataAgendada);
-      if (proximo) convocados++;
-    }
-  }
-  return convocados;
-}
-
 // ====================================================================
 // Timeouts e reenvios (cron 7.1)
 // ====================================================================
-
-export async function verificarTimeouts(agora: Date = new Date()): Promise<{ reenviados: number; naoResponderam: number }> {
-  const vencidos = await prisma.cicloConfirmacao.findMany({
-    where: { status: 'CONVOCADO', expiraEm: { lt: agora } },
-  });
-
-  let reenviados = 0;
-  let naoResponderam = 0;
-
-  for (const ciclo of vencidos) {
-    const entry = await prisma.queueEntry.findUnique({ where: { id: ciclo.queueEntryId } });
-    if (!entry) continue;
-    const config = await getConfig(entry.unidadeId);
-
-    // Só age dentro do horário de operação (seção 4.10).
-    if (!dentroDoHorario(config, agora)) continue;
-
-    if (ciclo.tentativa <= config.qtdReenvios) {
-      // Ainda há reenvios: expira o ciclo atual e dispara novo com tentativa+1.
-      await prisma.cicloConfirmacao.update({ where: { id: ciclo.id }, data: { status: 'EXPIRADO' } });
-      await dispararEtapa({ entry, etapa: ciclo.etapa, tentativa: ciclo.tentativa + 1, config, tipo: 'CONFIRMACAO' });
-      reenviados++;
-    } else {
-      // Esgotou as tentativas → NAO_RESPONDEU + score + convoca próximo.
-      await prisma.cicloConfirmacao.update({ where: { id: ciclo.id }, data: { status: 'EXPIRADO' } });
-      await prisma.queueEntry.update({
-        where: { id: entry.id },
-        data: { statusPaciente: 'NAO_RESPONDEU', status: 'EXPIRED' },
-      });
-      await atualizarScore(entry.pacienteId, entry.unidadeId, 'NAO_RESPONDEU', null, entry.id);
-      await convocarProximo(entry.unidadeId, grupoDe(entry), entry.dataAgendada);
-      naoResponderam++;
-    }
-  }
-
-  // Recupera convocações adiadas para todos os municípios com config/fila ativa.
-  const unidades = await prisma.queueEntry.findMany({
-    where: { statusPaciente: { in: ['AGUARDANDO', 'RECUSOU', 'NAO_RESPONDEU', 'CANCELADO'] } },
-    distinct: ['unidadeId'],
-    select: { unidadeId: true },
-  });
-  for (const u of unidades) {
-    await recuperarConvocacoesAdiadas(u.unidadeId);
-  }
-
-  return { reenviados, naoResponderam };
-}
 
 // ====================================================================
 // Disparos programados diários (cron 7.2)
 // ====================================================================
 
 /** Distância em dias inteiros entre hoje e a data agendada (>= 0). */
-function diasAte(dataAgendada: Date, agora: Date): number {
-  const d0 = Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate());
+function diasAte(dataAgendada: Date, agora: Date, timezone: string): number {
+  const d0 = new Date(`${localDate(agora, timezone)}T00:00:00Z`).getTime();
   const d1 = Date.UTC(dataAgendada.getUTCFullYear(), dataAgendada.getUTCMonth(), dataAgendada.getUTCDate());
   return Math.round((d1 - d0) / 86_400_000);
 }
@@ -632,19 +345,19 @@ export async function dispararProgramados(agora: Date = new Date()): Promise<num
 
   // 1. Etapa 1: Convocação / Confirmação inicial para pacientes AGUARDANDO (ex: 7 dias antes)
   const aguardando = await prisma.queueEntry.findMany({
-    where: { statusPaciente: 'AGUARDANDO', dataAgendada: { not: null } },
+    where: { statusPaciente: 'AGUARDANDO', bloqueioEnvio: null, dataAgendada: { not: null } },
   });
 
-  for (const entry of aguardando) {
+  for (const entry of ordenarFila(aguardando)) {
     if (!entry.dataAgendada) continue;
     const config = await getConfig(entry.unidadeId);
     if (!dentroDoHorario(config, agora)) continue;
 
-    const dias = diasAte(entry.dataAgendada, agora);
+    const dias = diasAte(entry.dataAgendada, agora, config.timezone);
     if (dias < 0) continue; // consulta no passado
     if (!config.diasAntesConfirmacao.includes(dias)) continue;
 
-    // Respeita a capacidade do slot (capacidade indefinida não bloqueia).
+    // Respeita a capacidade do slot (capacidade ausente impede disparos).
     if (!(await temVaga(entry.unidadeId, grupoDe(entry), entry.dataAgendada))) continue;
 
     // Evita duplicar disparo no mesmo dia para a mesma entrada.
@@ -656,8 +369,7 @@ export async function dispararProgramados(agora: Date = new Date()): Promise<num
     });
     if (jaDisparadoHoje) continue;
 
-    await dispararEtapa({ entry, etapa: 1, config, tipo: 'CONFIRMACAO' });
-    disparos++;
+    try { await dispararEtapa({ entry, etapa: 1, config, tipo: 'CONFIRMACAO', agora }); disparos++; } catch (err) { console.error('[Confirmacao] Agenda não disparada:', err); }
   }
 
   // 2. Etapa 2: Reconfirmação da véspera (1 dia antes) para pacientes CONFIRMADOS
@@ -671,7 +383,7 @@ export async function dispararProgramados(agora: Date = new Date()): Promise<num
     if (config.qtdConfirmacoes < 2) continue; // município configurado apenas com 1 confirmação
     if (!dentroDoHorario(config, agora)) continue;
 
-    const dias = diasAte(entry.dataAgendada, agora);
+    const dias = diasAte(entry.dataAgendada, agora, config.timezone);
     // Véspera da consulta (1 dia antes ou menor dia configurado)
     const diaReconfirmacao = Math.min(...config.diasAntesConfirmacao);
     if (dias !== diaReconfirmacao && dias !== 1) continue;
@@ -685,8 +397,7 @@ export async function dispararProgramados(agora: Date = new Date()): Promise<num
     });
     if (jaDisparadoHoje) continue;
 
-    await dispararEtapa({ entry, etapa: 2, config, tipo: 'CONFIRMACAO' });
-    disparos++;
+    try { await dispararEtapa({ entry, etapa: 2, config, tipo: 'CONFIRMACAO', agora }); disparos++; } catch (err) { console.error('[Confirmacao] Reconfirmação não disparada:', err); }
   }
 
   return disparos;
@@ -703,7 +414,7 @@ export async function verificarLembretes4Horas(agora: Date = new Date()): Promis
   const elegiveis = await prisma.queueEntry.findMany({
     where: {
       statusPaciente: { in: ['CONFIRMADO', 'RECONFIRMADO'] },
-      dataAgendada: { gte: hojeInicio, lte: hojeFim },
+      dataAgendada: { not: null },
       lembreteEnviadoEm: null,
     },
   });
@@ -731,34 +442,10 @@ export async function verificarLembretes4Horas(agora: Date = new Date()): Promis
       continue;
     }
 
-    const paciente = await prisma.paciente.findUnique({ where: { id: entry.pacienteId } });
-    if (!paciente) continue;
-
-    let local: string | undefined;
-    if (entry.unidadeId) {
-      const unidade = await prisma.unidade.findUnique({ where: { id: entry.unidadeId }, select: { nome: true } });
-      local = unidade?.nome ?? undefined;
-    }
-
-    const gateway = getMessagingGateway();
-    await gateway.enviarLembrete({
-      telefone: telefoneDe(paciente),
-      nomePaciente: paciente.nomeCompleto,
-      procedimento: grupoDe(entry),
-      dataAgendada: formatarData(entry.dataAgendada),
-      horaAgendada: entry.horaAgendada ?? undefined,
-      local,
-      queueEntryId: entry.id,
-      pacienteId: paciente.id,
-    });
-
-    await prisma.queueEntry.update({
-      where: { id: entry.id },
-      data: { lembreteEnviadoEm: agora },
-    });
-
-    console.log(`[Confirmacao] Lembrete 4h enviado para ${paciente.nomeCompleto} (entry=${entry.id})`);
-    enviados++;
+    try {
+      const ciclo = await prepararDisparo({ entry, etapa: config.qtdConfirmacoes, config, tipo: 'LEMBRETE', agora });
+      await processarOutbox(ciclo.callbackId); enviados++;
+    } catch (err) { console.error('[Confirmacao] Lembrete pendente:', err); }
   }
 
   return enviados;
@@ -787,6 +474,16 @@ export async function convocarEntrada(unidadeId: string | null, queueEntryId: st
   if (!entry) throw new Error('Entrada da fila não encontrada.');
   // REGULADOR é central do município — não bloqueia por unidade do usuário.
   void unidadeId;
+  const config = await getConfig(entry.unidadeId);
+  if (['CONVOCADO','CONFIRMADO','RECONFIRMADO'].includes(entry.statusPaciente)) {
+    const anterior = await prisma.cicloConfirmacao.findFirst({ where: { queueEntryId, status: 'CONVOCADO' }, orderBy: { enviadoEm: 'desc' } });
+    if (anterior?.deliveryStatus === 'FAILED') {
+      const tipo = anterior.tipo as 'CONFIRMACAO' | 'CONVOCACAO' | 'LEMBRETE';
+      const ciclo = await prepararDisparo({ entry, etapa: anterior.etapa, tentativa: anterior.tentativa, config, tipo, anteriorId: anterior.id });
+      await processarOutbox(ciclo.callbackId);
+      return entry;
+    }
+  }
   if (entry.statusPaciente !== 'AGUARDANDO') {
     throw new Error(`Paciente não está AGUARDANDO (status=${entry.statusPaciente}).`);
   }
@@ -797,12 +494,11 @@ export async function convocarEntrada(unidadeId: string | null, queueEntryId: st
     throw new Error('Sem vagas disponíveis para este procedimento/dia. Ajuste a capacidade antes de convocar.');
   }
 
-  const config = await getConfig(entry.unidadeId);
   await dispararEtapa({ entry, etapa: 1, config, tipo: 'CONVOCACAO' });
   return entry;
 }
 
-/** Convoca em lote todos os pacientes AGUARDANDO de uma fila/procedimento. */
+/** Preenche somente as vagas disponíveis em cada agenda, pela posição da fila. */
 export async function convocarTodosService(
   unidadeId: string | null,
   procedureName?: string,
@@ -812,7 +508,7 @@ export async function convocarTodosService(
   const candidatos = await prisma.queueEntry.findMany({
     where: {
       unidadeId: unidadeId ?? undefined,
-      statusPaciente: 'AGUARDANDO',
+      statusPaciente: 'AGUARDANDO', bloqueioEnvio: null,
       ...(dataAgendada ? { dataAgendada } : {}),
     },
   });
@@ -824,9 +520,10 @@ export async function convocarTodosService(
   let convocados = 0;
   let falhas = 0;
 
-  for (const entry of doGrupo) {
+  for (const entry of ordenarFila(doGrupo)) {
     try {
-      await dispararEtapa({ entry, etapa: 1, config, tipo: 'CONVOCACAO' });
+      if (!(await temVaga(entry.unidadeId, grupoDe(entry), entry.dataAgendada))) continue;
+      await dispararEtapa({ entry, etapa: 1, config: await getConfig(entry.unidadeId), tipo: 'CONVOCACAO' });
       convocados++;
     } catch (err) {
       console.error(`Falha ao convocar entrada ${entry.id}:`, err);

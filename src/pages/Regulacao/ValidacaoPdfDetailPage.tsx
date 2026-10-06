@@ -3,6 +3,8 @@ import { useParams, useNavigate, Link } from 'react-router';
 import { ArrowLeft, CheckCircle, Plus, Check, Loader2, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import apiClient from '../../services/apiClient';
+import { useQuery } from '@tanstack/react-query';
+import { listarUnidadesResponsaveis } from '../../services/confirmacaoService';
 import { PatientCard, type PdfImportRow } from '../../components/Regulacao/PatientCard';
 
 interface ImportDetail {
@@ -10,6 +12,8 @@ interface ImportDetail {
   originalFilename: string | null;
   status: string;
   rowsImported: number | null;
+  unidadeResponsavelId?: string | null;
+  errorLog?: string | null;
   rows: PdfImportRow[];
 }
 
@@ -24,6 +28,8 @@ function formatDateInput(value: string): string {
 export function ValidacaoPdfDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [unidadeResponsavelId, setUnidadeResponsavelId] = useState('');
+  const {data:unidades=[]}=useQuery({queryKey:['unidades-responsaveis'],queryFn:listarUnidadesResponsaveis});
   const [rows, setRows] = useState<PdfImportRow[]>([]);
   const [filename, setFilename] = useState<string | null>(null);
   const [pdfUrl, setPdfUrl] = useState('');
@@ -41,6 +47,8 @@ export function ValidacaoPdfDetailPage() {
       const loadedRows = d.rows || [];
       setRows(loadedRows);
       setFilename(d.originalFilename);
+      setUnidadeResponsavelId(d.unidadeResponsavelId || '');
+      if (d.errorLog) setError(d.errorLog);
       setRowsImported(d.rowsImported);
       if (loadedRows.length > 0 && loadedRows[0]?.rawData?.scheduled_date_raw) {
         setGlobalDate(loadedRows[0].rawData.scheduled_date_raw);
@@ -70,8 +78,8 @@ export function ValidacaoPdfDetailPage() {
     };
   }, [id]);
 
-  const approvedCount = rows.filter((r) => r.approved).length;
-  const isAlreadyImported = typeof rowsImported === 'number' && rowsImported > 0;
+  const approvedCount = rows.filter((r) => r.approved && !r.queueEntryId).length;
+  const isAlreadyImported = rows.length > 0 && rows.every(row => !!row.queueEntryId);
 
   const handleAddManualPatient = async () => {
     setAddingManual(true);
@@ -82,11 +90,10 @@ export function ValidacaoPdfDetailPage() {
           cns_raw: '',
           phone_raw: '',
           birth_date_raw: '',
-          age: '54',
-          procedure_name: 'Mamografia Bilateral de Rastreamento',
-          unidade_solicitante: 'UBS Centro - Ponta Porã',
+          procedure_name: rows[0]?.rawData.procedure_name || '',
+          unidade_solicitante: '',
           scheduled_date_raw: '',
-          hora_raw: '08:30'
+          hora_raw: ''
         }
       });
       setRows((prev) => [...prev, res.data]);
@@ -99,19 +106,11 @@ export function ValidacaoPdfDetailPage() {
   };
 
   const handleApproveAll = async () => {
-    for (const r of rows) {
-      if (!r.approved) {
-        try {
-          const res = await apiClient.patch<PdfImportRow>(`/api/regulacao/imports/${id}/rows/${r.id}`, {
-            approved: true
-          });
-          setRows((prev) => prev.map((row) => (row.id === res.data.id ? res.data : row)));
-        } catch {
-          // ignora falhas pontuais
-        }
-      }
-    }
-    toast.success('Todos os pacientes aprovados!');
+    try {
+      const res = await apiClient.patch<PdfImportRow[]>(`/api/regulacao/imports/${id}/rows-bulk`, { approvedAll: true });
+      setRows(res.data);
+      toast.success('Aprovações salvas. Revise os registros com erros antes de encaminhar.');
+    } catch { toast.error('Não foi possível salvar as aprovações.'); }
   };
 
   const handleApplyGlobalDate = async () => {
@@ -124,14 +123,7 @@ export function ValidacaoPdfDetailPage() {
       setRows(res.data);
       toast.success(`Data ${globalDate} aplicada para todos os ${res.data.length} pacientes!`);
     } catch {
-      // Fallback otimista
-      setRows((prev) =>
-        prev.map((r) => ({
-          ...r,
-          rawData: { ...r.rawData, scheduled_date_raw: globalDate }
-        }))
-      );
-      toast.success(`Data ${globalDate} aplicada para todos os pacientes!`);
+      toast.error('A data não foi salva. Tente novamente.');
     } finally {
       setApplyingDate(false);
     }
@@ -145,7 +137,7 @@ export function ValidacaoPdfDetailPage() {
         importados: number;
         total?: number;
         results?: { rowId: string; error?: string }[];
-      }>(`/api/regulacao/imports/${id}/approve`);
+      }>(`/api/regulacao/imports/${id}/approve`, {unidadeId:unidadeResponsavelId});
       const failed = (res.data.results || []).filter((r) => r.error);
       if (failed.length > 0) {
         const errorsByRowId = new Map(failed.map((r) => [r.rowId, r.error as string]));
@@ -280,6 +272,11 @@ export function ValidacaoPdfDetailPage() {
             </div>
           </div>
 
+          <label className="block p-4 text-xs font-semibold text-slate-700">Unidade responsável pela agenda
+            <select value={unidadeResponsavelId} onChange={e=>setUnidadeResponsavelId(e.target.value)} className="w-full border rounded-xl p-2 mt-1 bg-white">
+              <option value="">Selecione a unidade responsável</option>{unidades.map(u=><option key={u.id} value={u.id}>{u.nome}</option>)}
+            </select>
+          </label>
           {/* Lista de Patient Cards */}
           <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/50">
             {rows.length === 0 ? (
@@ -293,7 +290,7 @@ export function ValidacaoPdfDetailPage() {
                   importId={id!}
                   row={row}
                   index={i + 1}
-                  readOnly={isAlreadyImported}
+                  readOnly={!!row.queueEntryId}
                   onChange={(u) => setRows((prev) => prev.map((r) => (r.id === u.id ? u : r)))}
                 />
               ))

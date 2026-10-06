@@ -1,6 +1,5 @@
 import axios from 'axios';
 import { randomUUID } from 'crypto';
-import prisma from '../../config/prisma';
 import type {
   IMessagingGateway,
   GatewayResult,
@@ -13,6 +12,8 @@ import type {
 type Tipo = 'CONFIRMACAO' | 'COLETA_MOTIVO' | 'CONVOCACAO' | 'LEMBRETE';
 
 interface CorpoEnvio {
+  queueEntryId?: string;
+  expiresAt?: string;
   tipo: Tipo;
   telefone: string;
   nomePaciente: string;
@@ -48,6 +49,9 @@ export class ChatBotGateway implements IMessagingGateway {
       dataAgendada?: string;
       horaAgendada?: string;
       local?: string;
+      queueEntryId?: string;
+      pacienteId?: string;
+      expiresAt?: string;
     }
   ): Promise<GatewayResult> {
     const base = this.getBaseUrl();
@@ -70,11 +74,16 @@ export class ChatBotGateway implements IMessagingGateway {
       callbackUrl,
       callbackId: params.callbackId,
       webhookSecret,
+      queueEntryId: params.queueEntryId,
+      expiresAt: params.expiresAt,
     };
 
-    console.log(`[ChatBotGateway] Disparando ${tipo} para ${params.telefone} via ${endpoint} (tenant=${tenantId}):`, corpo);
+    if (process.env.NODE_ENV === 'production' && (!apiKey || !webhookSecret)) {
+      throw Object.assign(new Error('Configure CHATBOT_API_KEY e VIGIA_WEBHOOK_SECRET antes do envio.'), { definitive: true });
+    }
+    console.log(`[ChatBotGateway] ${tipo} callback=${params.callbackId} via ${endpoint}`);
 
-    let messageId = `chatbot.${randomUUID()}`;
+    let messageId = '';
     let status = 'SENT';
     let error: string | null = null;
 
@@ -90,44 +99,31 @@ export class ChatBotGateway implements IMessagingGateway {
         timeout: 15000,
       });
       const data = resp.data ?? {};
-      messageId = data.messageId ?? data.wamid ?? data.id ?? messageId;
-      status = data.status ?? 'SENT';
+      messageId = data.messageId ?? data.wamid ?? data.id ?? '';
+      status = data.status ?? 'UNKNOWN';
+      if (!messageId && !['UNKNOWN','SENDING','FAILED'].includes(status)) throw new Error('Bot não retornou identificador do provedor; resultado incerto.');
       console.log(`[ChatBotGateway] Mensagem enviada com sucesso! messageId=${messageId}`);
     } catch (err: any) {
       status = 'FAILED';
       error = err?.response?.data?.erro || err?.response?.data?.message || err?.message || 'Falha ao enviar ao ChatBot';
       console.error(`[ChatBotGateway] ERRO ao enviar para ChatBot:`, error, err?.response?.data);
 
-      await prisma.messageLog.create({
-        data: {
-          direction: 'OUTBOUND',
-          wamid: null,
-          templateName: params.templateName,
-          body: `${tipo} → ${params.telefone}`,
-          status: 'FAILED',
-          error,
-          rawPayload: { tipo, callbackId: params.callbackId, erroDetalhe: err?.response?.data } as any,
-        },
-      });
-      throw new Error(error!);
+      throw Object.assign(new Error(error!), { definitive: !!err?.response && err.response.status < 500 && ![408, 409, 429].includes(err.response.status) });
     }
-
-    await prisma.messageLog.create({
-      data: {
-        direction: 'OUTBOUND',
-        wamid: messageId,
-        templateName: params.templateName,
-        body: `${tipo} → ${params.telefone}`,
-        status: 'SENT',
-        rawPayload: { tipo, callbackId: params.callbackId, chatbot: true } as any,
-      },
-    });
 
     return { messageId, status };
   }
 
   async enviarConfirmacao(params: EnviarConfirmacaoParams): Promise<GatewayResult> {
     return this.enviar('CONFIRMACAO', params);
+  }
+
+  async consultarEnvio(callbackId: string): Promise<GatewayResult> {
+    const resp = await axios.get(`${this.getBaseUrl()}/api/saude/enviar-mensagem?callbackId=${encodeURIComponent(callbackId)}`, {
+      headers: { 'X-API-Key': process.env.CHATBOT_API_KEY || '', 'X-Tenant-Id': process.env.CHATBOT_TENANT_ID || '' },
+      timeout: 10000,
+    });
+    return resp.data;
   }
 
   async enviarColetaMotivo(params: EnviarColetaMotivoParams): Promise<GatewayResult> {
@@ -148,6 +144,9 @@ export class ChatBotGateway implements IMessagingGateway {
       local: params.local,
       templateName: 'lembrete_consulta',
       callbackId: params.callbackId || randomUUID(),
+      queueEntryId: params.queueEntryId,
+      pacienteId: params.pacienteId,
+      expiresAt: params.expiresAt,
     });
   }
 }

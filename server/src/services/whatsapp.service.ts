@@ -22,6 +22,7 @@ export class WhatsAppService {
 
     // Se o token da Meta não estiver configurado, loga o envio em modo simulação/DEV
     if (!this.token || !this.phoneNumberId) {
+      if (process.env.NODE_ENV === 'production') throw new Error('Envio simulado proibido em produção. Use a integração ChatBot.');
       console.log(`[WhatsApp DEV Mode] Simulação de envio para ${to} (QueueID: ${queueEntryId})`);
       return {
         wamid: `wamid.DEV_SIMULATION_${Date.now()}_${queueEntryId}`,

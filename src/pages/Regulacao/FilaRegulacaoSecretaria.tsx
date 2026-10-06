@@ -23,7 +23,7 @@ import { TableSkeleton } from '../../components/ui/TableSkeleton';
 import { cn } from '../../lib/utils';
 import type { FilaRegulacao } from '../../types';
 import { ImportacaoPdfModal } from './ImportacaoPdfModal';
-import { FilaConfirmacaoWhatsApp } from './FilaConfirmacaoWhatsApp';
+import { ConfirmacaoConvocacao } from '../../components/Regulacao/ConfirmacaoConvocacao';
 import { GestaoFilasPage } from './GestaoFilasPage';
 
 import { useAuth } from '../../context/AuthContext';
@@ -100,7 +100,7 @@ export function FilaRegulacaoSecretaria() {
   const filteredFichas = busca.trim()
     ? fichas.filter(f =>
         f.paciente?.nomeCompleto.toLowerCase().includes(busca.toLowerCase()) ||
-        f.paciente?.cpf.replace(/\D/g, '').includes(busca.replace(/\D/g, ''))
+        f.paciente?.cpf?.replace(/\D/g, '').includes(busca.replace(/\D/g, ''))
       )
     : fichas;
 
@@ -190,7 +190,7 @@ export function FilaRegulacaoSecretaria() {
       {isRegulador && activeView === 'exames' ? (
         <GestaoFilasPage />
       ) : isRegulador && activeView === 'whatsapp' ? (
-        <FilaConfirmacaoWhatsApp />
+        <ConfirmacaoConvocacao />
       ) : (
         <div className="space-y-6">
 

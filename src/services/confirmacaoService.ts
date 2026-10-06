@@ -39,6 +39,8 @@ export interface ConfirmacaoConfig {
 }
 
 export interface CicloAtual {
+  deliveryStatus?: string;
+  envioErro?: string | null;
   id: string;
   etapa: number;
   tentativa: number;
@@ -73,6 +75,7 @@ export interface PacienteFila {
 }
 
 export interface EntradaConfirmacao {
+  bloqueioEnvio?: string | null;
   id: string;
   posicao: number;
   statusPaciente: PacienteFilaStatus;
@@ -158,6 +161,8 @@ export async function getAbsenteismo(pacienteId: string): Promise<AbsenteismoRes
 // ==== Capacidade / vagas (SlotAgenda) ====
 
 export interface SlotComVagas {
+  unidadeId?: string;
+  ocupadas?: number;
   id?: string;
   procedimento: string;
   data: string; // ISO (defined) — normalizar com .slice(0,10)
@@ -170,6 +175,7 @@ export interface SlotComVagas {
 }
 
 export interface PendenteCapacidade {
+  unidadeId?: string;
   procedimento: string;
   data: string; // YYYY-MM-DD
   pacientes: number;
@@ -186,6 +192,7 @@ export async function getSlots(): Promise<SlotsResposta> {
 }
 
 export async function salvarSlot(payload: {
+  unidadeId?: string;
   procedimento: string;
   data: string;
   capacidadeTotal: number;
@@ -200,6 +207,9 @@ export async function excluirFila(procedureId: string): Promise<{ ok: boolean; m
 }
 
 export interface InserirPacienteFilaPayload {
+  cartaoSus: string;
+  dataNascimento: string;
+  localAtendimento: string;
   nomeCompleto: string;
   telefone: string;
   procedimentoNome: string;
@@ -255,3 +265,8 @@ export const MOTIVO_RECUSA_LABEL: Record<MotivoRecusa, string> = {
   JA_CONSULTOU_PARTICULAR: 'Já consultou particular',
   OUTRO: 'Outro motivo',
 };
+
+export async function listarUnidadesResponsaveis(): Promise<Array<{id:string;nome:string}>> {
+  const {data}=await apiClient.get<Array<{id:string;nome:string;ativa:boolean}>>('/api/unidades');
+  return data.filter(u=>u.ativa);
+}

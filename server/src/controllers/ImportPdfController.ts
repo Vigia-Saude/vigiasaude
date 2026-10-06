@@ -1,8 +1,9 @@
 import { Response } from 'express';
 import prisma from '../config/prisma';
 import { AuthRequest } from '../middlewares/auth';
-import { extractTableRows } from '../services/pdfParser.service';
-import pdfParse from 'pdf-parse';
+import { lerPdf, validarLinhaPdf } from '../services/pdfImportacao.service';
+import { parseCalendarDate } from '../services/regulacaoConfiavel.service';
+import { ultimaPosicaoFila } from '../services/filaPosicoes.service';
 import path from 'path';
 import fs from 'fs';
 
@@ -40,8 +41,8 @@ export class ImportPdfController {
 
       const filename = `${Date.now()}-${originalFilename}`;
 
-      const parsed = await pdfParse(req.file.buffer);
-      const rows = extractTableRows(parsed.text);
+      const parsed = await lerPdf(req.file.buffer);
+      const rows = parsed.rows;
 
       if (rows.length === 0) {
         res.status(400).json({
@@ -57,6 +58,7 @@ export class ImportPdfController {
           fileData: new Uint8Array(req.file.buffer),
           status: 'PROCESSING',
           rowsFound: rows.length,
+          errorLog: parsed.warning,
         }
       });
 
@@ -65,6 +67,9 @@ export class ImportPdfController {
           data: {
             importId: pdfImport.id,
             rawData: row as any,
+            sourceIndex: row.source_index,
+            sourcePage: row.source_page,
+            error: validarLinhaPdf(row),
             approved: false
           }
         });
@@ -77,7 +82,7 @@ export class ImportPdfController {
           processedAt: new Date()
         },
         omit: { fileData: true },
-        include: { rows: true }
+        include: { rows: { orderBy: [{ sourceIndex: 'asc' }, { criadoEm: 'asc' }] } }
       });
 
       res.status(201).json(result);
@@ -109,7 +114,7 @@ export class ImportPdfController {
       const item = await prisma.pdfImport.findUnique({
         where: { id },
         omit: { fileData: true },
-        include: { rows: true }
+        include: { rows: { orderBy: [{ sourceIndex: 'asc' }, { criadoEm: 'asc' }] } }
       });
 
       if (!item) {
@@ -180,24 +185,23 @@ export class ImportPdfController {
   criarRowManual = async (req: AuthRequest, res: Response): Promise<void> => {
     const importId = getParam(req.params.importId);
     const { rawData, raw_data } = req.body;
-    const finalRawData = rawData || raw_data || {
-      name: 'Novo Paciente',
-      cns_raw: '',
-      phone_raw: '',
-      birth_date_raw: '',
-      procedure_name: 'Mamografia Bilateral de Rastreamento',
-      unidade_solicitante: 'UBS Centro - Ponta Porã',
-      scheduled_date_raw: '',
-      hora_raw: '08:30'
-    };
+    const finalRawData = rawData || raw_data || {};
 
     try {
-      const newRow = await prisma.pdfImportRow.create({
+      const newRow = await prisma.$transaction(async tx => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('regulacao-importacao'))`;
+      const last = await tx.pdfImportRow.findFirst({ where: { importId }, orderBy: { sourceIndex: 'desc' } });
+      const created = await tx.pdfImportRow.create({
         data: {
           importId,
           rawData: finalRawData,
+          sourceIndex: (last?.sourceIndex || 0) + 1,
+          error: validarLinhaPdf(finalRawData),
           approved: false
         }
+      });
+      await tx.pdfImport.update({ where: { id: importId }, data: { rowsFound: { increment: 1 } } });
+      return created;
       });
       res.status(201).json(newRow);
     } catch (err: any) {
@@ -215,16 +219,18 @@ export class ImportPdfController {
         where: { id: rowId }
       });
 
-      if (!existing) {
+      if (!existing || existing.importId !== getParam(req.params.importId)) {
         res.status(404).json({ erro: 'Registro não encontrado.' });
         return;
       }
 
+      if (existing.queueEntryId) { res.status(409).json({ erro: 'Esta linha já foi encaminhada à fila. Corrija o cadastro pela regulação.' }); return; }
       const updated = await prisma.pdfImportRow.update({
         where: { id: rowId },
         data: {
           rawData: rawData ? { ...(existing.rawData as object), ...rawData } : existing.rawData,
-          approved: typeof approved === 'boolean' ? approved : existing.approved
+          approved: typeof approved === 'boolean' ? approved : existing.approved,
+          error: validarLinhaPdf(rawData ? { ...(existing.rawData as object), ...rawData } : existing.rawData)
         }
       });
 
@@ -237,31 +243,36 @@ export class ImportPdfController {
   // PATCH /api/regulacao/imports/:importId/rows-bulk
   bulkAtualizarRows = async (req: AuthRequest, res: Response): Promise<void> => {
     const importId = getParam(req.params.importId);
-    const { scheduled_date_raw, approvedAll } = req.body;
+    const { scheduled_date_raw, local_atendimento, approvedAll } = req.body;
 
     try {
       const rows = await prisma.pdfImportRow.findMany({
         where: { importId }
       });
 
+      await prisma.$transaction(async tx => {
       for (const r of rows) {
+        if (r.queueEntryId) continue;
         const raw = (r.rawData || {}) as any;
         const updatedRaw = {
           ...raw,
-          ...(scheduled_date_raw ? { scheduled_date_raw } : {})
+          ...(scheduled_date_raw ? { scheduled_date_raw } : {}),
+          ...(typeof local_atendimento === 'string' ? { local_atendimento: local_atendimento.trim() } : {})
         };
-        await prisma.pdfImportRow.update({
+        await tx.pdfImportRow.update({
           where: { id: r.id },
           data: {
             rawData: updatedRaw,
+            error: validarLinhaPdf(updatedRaw),
             ...(typeof approvedAll === 'boolean' ? { approved: approvedAll } : {})
           }
         });
       }
 
+      });
       const updatedRows = await prisma.pdfImportRow.findMany({
         where: { importId },
-        orderBy: { id: 'asc' }
+        orderBy: [{ sourceIndex: 'asc' }, { criadoEm: 'asc' }]
       });
 
       res.json(updatedRows);
@@ -280,100 +291,104 @@ export class ImportPdfController {
           importId,
           approved: true,
           queueEntryId: null
-        }
+        },
+        orderBy: [{ sourceIndex: 'asc' }, { criadoEm: 'asc' }]
       });
 
       if (!approvedRows || approvedRows.length === 0) {
-        res.status(400).json({ erro: 'Nenhuma linha marcada como aprovada para processar.' });
+        res.status(200).json({ mensagem: 'Nenhuma nova linha aprovada para processar.', importados: 0, imported: 0, results: [] });
         return;
       }
 
-      // Obter ou definir a unidade ESF padrão
-      let defaultUnidadeId = req.user?.unidadeId;
-      if (!defaultUnidadeId) {
-        const firstUnidade = await prisma.unidade.findFirst();
-        if (firstUnidade) {
-          defaultUnidadeId = firstUnidade.id;
-        } else {
-          const newUnidade = await prisma.unidade.create({
-            data: {
-              nome: 'Unidade Central de Saúde',
-              cnes: '0000000',
-              tenantSchema: 'tenant_central',
-              ativa: true
-            }
-          });
-          defaultUnidadeId = newUnidade.id;
-        }
+      const invalidRows = approvedRows.map(row => ({ id: row.id, error: validarLinhaPdf(row.rawData) })).filter(row => row.error);
+      if (invalidRows.length) { res.status(400).json({ erro: 'Corrija os campos obrigatórios antes de encaminhar.', results: invalidRows }); return; }
+
+      const documentoInicial = await prisma.pdfImport.findUniqueOrThrow({ where: { id: importId } });
+      const defaultUnidadeId = req.body?.unidadeId || documentoInicial.unidadeResponsavelId || req.user?.unidadeId;
+      if (!defaultUnidadeId || !await prisma.unidade.findFirst({ where: { id: defaultUnidadeId, ativa: true } })) {
+        res.status(400).json({ erro: 'Selecione a unidade responsável pela agenda antes de encaminhar.' }); return;
+      }
+      if (documentoInicial.unidadeResponsavelId && documentoInicial.unidadeResponsavelId !== defaultUnidadeId) {
+        res.status(409).json({ erro: 'Esta importação já tem outra unidade responsável. Confira a agenda.' }); return;
       }
 
+      const imported = await prisma.$transaction(async tx => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('regulacao-importacao'))`;
+      const documento = await tx.pdfImport.findUniqueOrThrow({ where: { id: importId } });
+      if (documento.unidadeResponsavelId && documento.unidadeResponsavelId !== defaultUnidadeId) throw new Error('Esta importação já tem outra unidade responsável. Confira a agenda.');
+      if (!documento.unidadeResponsavelId) await tx.pdfImport.update({ where: { id: importId }, data: { unidadeResponsavelId: defaultUnidadeId } });
+      const base = documento.queueBasePosition ?? (await ultimaPosicaoFila(tx)) + 1;
+      if (documento.queueBasePosition === null) await tx.pdfImport.update({ where: { id: importId }, data: { queueBasePosition: base } });
       let countImported = 0;
       const results: { rowId: string; error?: string }[] = [];
 
-      const parseDate = (value: unknown): Date | null => {
-        if (typeof value !== 'string' || !/^\d{2}\/\d{2}\/\d{4}$/.test(value)) return null;
-        const [day, month, year] = value.split('/').map(Number);
-        const d = new Date(year, month - 1, day);
-        return isNaN(d.getTime()) ? null : d;
-      };
+      const parseDate = parseCalendarDate;
       const onlyDigits = (value: unknown): string => (typeof value === 'string' ? value.replace(/\D/g, '') : '');
 
       for (const row of approvedRows) {
+        await tx.$executeRawUnsafe('SAVEPOINT import_row');
         try {
-          const raw = row.rawData as any;
-          const name = raw.name || 'Paciente Não Identificado';
-          const phone = onlyDigits(raw.phone_raw) || '67999999999';
+          const current = await tx.pdfImportRow.findUniqueOrThrow({ where: { id: row.id } });
+          if (current.queueEntryId || !current.approved) { await tx.$executeRawUnsafe('RELEASE SAVEPOINT import_row'); continue; }
+          const raw = current.rawData as any;
+          const invalid = validarLinhaPdf(raw);
+          if (invalid) throw new Error(invalid);
+          const name = raw.name.trim();
+          const phone = onlyDigits(raw.phone_raw);
           const cns = onlyDigits(raw.cns_raw) || null;
-          const procedimento = raw.procedure_name || 'MAMOGRAFIA / EXAME REGULAÇÃO';
+          const procedimento = raw.procedure_name.trim();
           const horaAgendadaRaw = raw.hora_raw || null;
           const dataAgendada = parseDate(raw.scheduled_date_raw);
           const dataNascimento = parseDate(raw.birth_date_raw);
 
           // Busca ou cria o paciente no VigiaSaude
-          let paciente = await prisma.paciente.findFirst({
-            where: cns ? { cartaoSus: cns } : { nomeCompleto: { equals: name, mode: 'insensitive' } }
+          let paciente = await tx.paciente.findFirst({
+            where: cns ? { cartaoSus: cns } : { nomeCompleto: { equals: name, mode: 'insensitive' }, dataNascimento: dataNascimento! }
           });
 
+          if (paciente && (paciente.nomeCompleto.trim().toUpperCase() !== name.toUpperCase() || paciente.dataNascimento.getTime() !== dataNascimento!.getTime())) throw new Error('Identificação pertence a um cadastro com nome ou nascimento diferente. Confira os dados.');
           if (!paciente) {
-            const generatedCpf = `${Math.floor(10000000000 + Math.random() * 90000000000)}`;
+            
             const generatedProntuario = `PRONT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-            paciente = await prisma.paciente.create({
+            paciente = await tx.paciente.create({
               data: {
                 nomeCompleto: name,
                 telefone: phone,
                 celular: phone,
                 cartaoSus: cns,
-                cpf: generatedCpf,
+                cpf: null,
                 prontuario: generatedProntuario,
-                dataNascimento: dataNascimento ?? new Date(2000, 0, 1),
+                dataNascimento: dataNascimento!,
                 sexo: 'OUTRO',
-                cep: '79900-000',
+                cep: '',
                 logradouro: 'Não informado',
-                numero: 'S/N',
-                bairro: 'Centro',
-                municipio: 'Ponta Porã'
+                numero: '',
+                bairro: '',
+                municipio: ''
               }
             });
           }
 
+          else await tx.paciente.update({ where: { id: paciente.id }, data: { celular: phone, telefone: phone } });
+
           // Deduplicação inteligente de QueueEntry
-          let queueEntry = await prisma.queueEntry.findFirst({
+          let queueEntry = await tx.queueEntry.findFirst({
             where: {
               pacienteId: paciente.id,
+              unidadeId: defaultUnidadeId,
               procedimentoNome: procedimento,
+              horaAgendada: horaAgendadaRaw,
               dataAgendada: dataAgendada ? { equals: dataAgendada } : undefined,
               statusPaciente: { in: ['AGUARDANDO', 'CONVOCADO', 'CONFIRMADO', 'RECONFIRMADO'] }
             }
           });
 
           if (!queueEntry) {
-            const lastEntry = await prisma.queueEntry.findFirst({
-              orderBy: { posicao: 'desc' }
-            });
-            const nextPos = (lastEntry?.posicao || 0) + 1;
+            if (!current.sourceIndex) throw new Error('Recupere a ordem deste PDF antes de aprovar.');
+            const nextPos = current.sourcePage ? base + current.sourceIndex - 1 : (await ultimaPosicaoFila(tx)) + 1;
 
-            queueEntry = await prisma.queueEntry.create({
+            queueEntry = await tx.queueEntry.create({
               data: {
                 pacienteId: paciente.id,
                 importId,
@@ -383,17 +398,18 @@ export class ImportPdfController {
                 horaAgendada: horaAgendadaRaw,
                 unidadeId: defaultUnidadeId,
                 procedimentoNome: procedimento,
-                statusPaciente: 'AGUARDANDO'
+                statusPaciente: 'AGUARDANDO',
+                localAtendimento: raw.local_atendimento || null,
+                unidadeSolicitante: raw.unidade_solicitante || null
               }
             });
           } else {
             // Atualiza para vincular à importação atual e garantir a data mais recente
-            queueEntry = await prisma.queueEntry.update({
+            queueEntry = await tx.queueEntry.update({
               where: { id: queueEntry.id },
               data: {
                 importId: queueEntry.importId || importId,
-                dataAgendada: dataAgendada ?? queueEntry.dataAgendada,
-                horaAgendada: horaAgendadaRaw ?? queueEntry.horaAgendada,
+                ...(queueEntry.statusPaciente === 'AGUARDANDO' ? { dataAgendada: dataAgendada ?? queueEntry.dataAgendada, horaAgendada: horaAgendadaRaw ?? queueEntry.horaAgendada, localAtendimento: raw.local_atendimento || queueEntry.localAtendimento } : {}),
               }
             });
           }
@@ -402,26 +418,17 @@ export class ImportPdfController {
           let rowUnidadeId = defaultUnidadeId;
           const unidadeNomeRaw = (raw.unidade_solicitante || '').trim();
           if (unidadeNomeRaw) {
-            const existingUnidade = await prisma.unidade.findFirst({
+            const existingUnidade = await tx.unidade.findFirst({
               where: { nome: { equals: unidadeNomeRaw, mode: 'insensitive' } }
             });
             if (existingUnidade) {
               rowUnidadeId = existingUnidade.id;
-            } else {
-              const newUnidade = await prisma.unidade.create({
-                data: {
-                  nome: unidadeNomeRaw,
-                  cnes: `CNES-${Math.floor(1000000 + Math.random() * 9000000)}`,
-                  tenantSchema: `tenant_${Date.now()}`,
-                  ativa: true
-                }
-              });
-              rowUnidadeId = newUnidade.id;
+
             }
           }
 
           // Deduplicação em FilaRegulacao
-          const existingFila = await prisma.filaRegulacao.findFirst({
+          const existingFila = await tx.filaRegulacao.findFirst({
             where: {
               pacienteId: paciente.id,
               procedimentoSolicitado: procedimento,
@@ -430,7 +437,7 @@ export class ImportPdfController {
           });
 
           if (!existingFila) {
-            await prisma.filaRegulacao.create({
+            await tx.filaRegulacao.create({
               data: {
                 unidadeEsfId: rowUnidadeId,
                 responsavelEncaminhamento: 'Importação PDF (SES-MS / Regulação)',
@@ -446,7 +453,7 @@ export class ImportPdfController {
               }
             });
           } else {
-            await prisma.filaRegulacao.update({
+            await tx.filaRegulacao.update({
               where: { id: existingFila.id },
               data: {
                 horaAgendada: horaAgendadaRaw || existingFila.horaAgendada,
@@ -455,7 +462,7 @@ export class ImportPdfController {
             });
           }
 
-          await prisma.pdfImportRow.update({
+          await tx.pdfImportRow.update({
             where: { id: row.id },
             data: {
               pacienteId: paciente.id,
@@ -464,25 +471,32 @@ export class ImportPdfController {
             }
           });
 
+          await tx.$executeRawUnsafe('RELEASE SAVEPOINT import_row');
           countImported++;
           results.push({ rowId: row.id });
         } catch (rowErr: any) {
+          await tx.$executeRawUnsafe('ROLLBACK TO SAVEPOINT import_row');
+          await tx.$executeRawUnsafe('RELEASE SAVEPOINT import_row');
           const message = rowErr?.message || 'Falha ao processar esta linha.';
           results.push({ rowId: row.id, error: message });
-          await prisma.pdfImportRow.update({
+          await tx.pdfImportRow.update({
             where: { id: row.id },
             data: { error: message }
           }).catch(() => {});
         }
       }
 
-      await prisma.pdfImport.update({
+      await tx.pdfImport.update({
         where: { id: importId },
         data: {
           status: 'PROCESSED',
-          rowsImported: countImported
+          rowsImported: (documento.rowsImported || 0) + countImported
         }
       });
+
+      return { countImported, results };
+      }, { timeout: 120000 });
+      const { countImported, results } = imported;
 
       res.json({
         mensagem: 'Linhas aprovadas processadas.',

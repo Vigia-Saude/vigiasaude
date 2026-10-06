@@ -1,26 +1,34 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // --- Mock do prisma (mesmo padrão de PedidoController.test.ts) ---
 vi.mock('../config/prisma', () => {
   const mock: any = {
     cicloConfirmacao: {
       findUnique: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
       findFirst: vi.fn(),
       findMany: vi.fn(),
       create: vi.fn(),
+      updateMany: vi.fn(),
       update: vi.fn(),
     },
     queueEntry: {
       findUnique: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
       findMany: vi.fn(),
+      findFirst: vi.fn(),
+      count: vi.fn(),
+      updateMany: vi.fn(),
       update: vi.fn(),
     },
-    paciente: { findUnique: vi.fn(), update: vi.fn() },
+    paciente: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn() },
     unidade: { findUnique: vi.fn() },
-    historicoAbsenteismo: { create: vi.fn() },
-    messageLog: { create: vi.fn() },
+    historicoAbsenteismo: { create: vi.fn(), updateMany: vi.fn() },
+    messageLog: { create: vi.fn(), updateMany: vi.fn() },
     configuracaoRegulacao: { findUnique: vi.fn() },
-    slotAgenda: { findUnique: vi.fn() },
+    slotAgenda: { findUnique: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
+    regulacaoOutbox: { create: vi.fn(), findMany: vi.fn(), updateMany: vi.fn(), update: vi.fn() },
+    $queryRaw: vi.fn(),
     $transaction: vi.fn(),
   };
   mock.$transaction.mockImplementation((ops: any) =>
@@ -54,10 +62,31 @@ const gatewayFake = {
 };
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-09-10T10:00:00Z'));
+  for (const fn of Object.values(gatewayFake)) fn.mockResolvedValue({ messageId: 'mock.1', status: 'SENT' });
   setMessagingGateway(gatewayFake as any);
   p.$transaction.mockImplementation((ops: any) => (Array.isArray(ops) ? Promise.all(ops) : ops(p)));
+  p.$queryRaw.mockResolvedValue([{id:'slot-1',ocupadas:0,capacidade_total:5,event_id:'event'}]);
+  p.queueEntry.findUniqueOrThrow.mockImplementation((args:any)=>p.queueEntry.findUnique(args));
+  p.paciente.findUniqueOrThrow.mockImplementation((args:any)=>p.paciente.findUnique(args));
+  p.queueEntry.findMany.mockResolvedValue([]);
+  p.queueEntry.count.mockResolvedValue(0);
+  p.queueEntry.updateMany.mockResolvedValue({count:1});
+  p.cicloConfirmacao.updateMany.mockResolvedValue({count:1});
+  p.slotAgenda.findMany.mockResolvedValue([]);
+  const cycles:any[]=[],outbox:any[]=[];
+  p.cicloConfirmacao.create.mockImplementation(async ({data}:any)=>{const c={...data,id:`cycle-${cycles.length}`};cycles.push(c);return c});
+  p.cicloConfirmacao.findUnique.mockImplementation(async ({where}:any)=>cycles.find(c=>where.id?c.id===where.id:c.callbackId===where.callbackId)||null);
+  p.cicloConfirmacao.findUniqueOrThrow.mockImplementation((args:any)=>p.cicloConfirmacao.findUnique(args));
+  p.cicloConfirmacao.findFirst.mockResolvedValue(null);
+  p.regulacaoOutbox.create.mockImplementation(async ({data}:any)=>{const item={...data,id:`outbox-${outbox.length}`,status:'PENDING'};outbox.push(item);return item});
+  p.regulacaoOutbox.findMany.mockImplementation(async ({where}:any)=>outbox.filter(x=>where.status.in.includes(x.status)&&(!where.callbackId||where.callbackId===x.callbackId)));
+  p.regulacaoOutbox.updateMany.mockImplementation(async ({where,data}:any)=>{const items=outbox.filter(x=>(!where.id||where.id===x.id)&&x.status===where.status);items.forEach(x=>Object.assign(x,data));return {count:items.length}});
+  p.regulacaoOutbox.update.mockImplementation(async ({where,data}:any)=>Object.assign(outbox.find(x=>x.id===where.id),data));
 });
+afterEach(()=>vi.useRealTimers());
 
 // ====================================================================
 // 1. Horário de operação (seção 4.10) — puro
@@ -104,7 +133,7 @@ describe('calcularNovoScore', () => {
 // 3. Ordenação da fila (seção 4.6) — puro
 // ====================================================================
 describe('ordenarFila', () => {
-  it('urgência VERMELHO > AMARELO > NORMAL e, em empate, FIFO por posição', () => {
+  it('preserva exclusivamente a posição, mesmo quando existe urgência', () => {
     const entries = [
       { id: 'a', nivelUrgencia: 'NORMAL', posicao: 1 },
       { id: 'b', nivelUrgencia: 'VERMELHO', posicao: 5 },
@@ -112,7 +141,7 @@ describe('ordenarFila', () => {
       { id: 'd', nivelUrgencia: 'VERMELHO', posicao: 2 },
     ];
     const ordem = ordenarFila(entries).map((e) => e.id);
-    expect(ordem).toEqual(['d', 'b', 'c', 'a']); // VERMELHO(pos2, pos5), AMARELO, NORMAL
+    expect(ordem).toEqual(['a', 'd', 'c', 'b']);
   });
 });
 
@@ -127,6 +156,7 @@ describe('processarResposta', () => {
     dataAgendada: new Date('2026-09-10T00:00:00Z'),
     procedimentoNome: 'Cardiologia',
     nivelUrgencia: 'NORMAL',
+    statusPaciente: 'CONVOCADO',
     posicao: 1,
   };
   // Config sempre dentro do horário para os testes.
@@ -194,7 +224,7 @@ describe('processarResposta', () => {
     expect(p.queueEntry.findMany).toHaveBeenCalled(); // convocarProximo tentou buscar o próximo
   });
 
-  it('NÃO sem motivo informado → RECUSOU e envia coleta de motivo (fallback)', async () => {
+  it('NÃO sem motivo libera imediatamente; o bot coleta o motivo separadamente', async () => {
     p.cicloConfirmacao.findUnique.mockResolvedValue({
       id: 'ciclo-1', queueEntryId: 'entry-1', etapa: 1, status: 'CONVOCADO', callbackId: 'cb-1',
     });
@@ -207,7 +237,7 @@ describe('processarResposta', () => {
 
     expect(r.ok).toBe(true);
     expect(r.statusPaciente).toBe('RECUSOU');
-    expect(gatewayFake.enviarColetaMotivo).toHaveBeenCalledTimes(1);
+    expect(gatewayFake.enviarColetaMotivo).not.toHaveBeenCalled();
   });
 
   it('callbackId inexistente → ok:false', async () => {
@@ -216,10 +246,12 @@ describe('processarResposta', () => {
     expect(r.ok).toBe(false);
   });
 
-  it('ciclo já resolvido → ok:false (idempotente)', async () => {
-    p.cicloConfirmacao.findUnique.mockResolvedValue({ id: 'ciclo-1', status: 'CONFIRMADO' });
+  it('confirmação duplicada retorna sucesso sem repetir score', async () => {
+    p.cicloConfirmacao.findUnique.mockResolvedValue({ id: 'ciclo-1', queueEntryId: 'entry-1', status: 'CONFIRMADO' });
+    p.queueEntry.findUnique.mockResolvedValue(entry);
     const r = await processarResposta('cb-1', { resposta: 'SIM' });
-    expect(r.ok).toBe(false);
+    expect(r.ok).toBe(true);
+    expect(p.historicoAbsenteismo.create).not.toHaveBeenCalled();
   });
 });
 
@@ -229,17 +261,17 @@ describe('processarResposta', () => {
 describe('vagasInfo / temVaga', () => {
   const data = new Date('2026-09-10T00:00:00Z');
 
-  it('capacidade indefinida (sem slot) → não bloqueia', async () => {
+  it('capacidade indefinida (sem slot) bloqueia', async () => {
     p.slotAgenda.findUnique.mockResolvedValue(null);
     p.queueEntry.findMany.mockResolvedValue([]);
     const info = await vagasInfo('uni-1', 'Cardiologia', data);
     expect(info.definido).toBe(false);
     expect(info.disponiveis).toBeNull();
-    expect(await temVaga('uni-1', 'Cardiologia', data)).toBe(true);
+    expect(await temVaga('uni-1', 'Cardiologia', data)).toBe(false);
   });
 
   it('disponiveis = capacidade - confirmados - convocados', async () => {
-    p.slotAgenda.findUnique.mockResolvedValue({ capacidadeTotal: 5 });
+    p.slotAgenda.findUnique.mockResolvedValue({ capacidadeTotal: 5, ocupadas: 3 });
     p.queueEntry.findMany.mockResolvedValue([
       { procedimentoNome: 'Cardiologia', procedimentoId: null, statusPaciente: 'CONFIRMADO' },
       { procedimentoNome: 'Cardiologia', procedimentoId: null, statusPaciente: 'RECONFIRMADO' },
@@ -253,7 +285,7 @@ describe('vagasInfo / temVaga', () => {
   });
 
   it('capacidade esgotada → temVaga false', async () => {
-    p.slotAgenda.findUnique.mockResolvedValue({ capacidadeTotal: 2 });
+    p.slotAgenda.findUnique.mockResolvedValue({ capacidadeTotal: 2, ocupadas: 2 });
     p.queueEntry.findMany.mockResolvedValue([
       { procedimentoNome: 'Cardiologia', procedimentoId: null, statusPaciente: 'CONFIRMADO' },
       { procedimentoNome: 'Cardiologia', procedimentoId: null, statusPaciente: 'CONVOCADO' },
@@ -299,12 +331,12 @@ describe('dispararProgramados', () => {
     p.cicloConfirmacao.findFirst.mockResolvedValue(null); // não disparado hoje
     p.paciente.findUnique.mockResolvedValue({
       id: 'pac-conf-1',
-      nomeCompleto: 'Maria Souza',
+      nomeCompleto: 'Maria Souza',cartaoSus:'700000000000001',dataNascimento:new Date('1980-01-01'),
       telefone: '5567999990001',
       celular: '',
     });
     p.unidade.findUnique.mockResolvedValue({ id: 'uni-1', nome: 'UBS Central' });
-    p.cicloConfirmacao.create.mockResolvedValue({ id: 'ciclo-conf-2' });
+    p.queueEntry.findUnique.mockResolvedValue({ ...entryConfirmado, horaAgendada:'14:00', localAtendimento: 'UBS Central' });
     p.queueEntry.update.mockResolvedValue({});
 
     const total = await dispararProgramados(agora);
@@ -338,7 +370,7 @@ describe('dispararProgramados', () => {
       expect.objectContaining({
         where: { id: 'entry-conf-1' },
         data: expect.objectContaining({
-          statusPaciente: 'RECONFIRMADO',
+          statusPaciente: 'CONVOCADO',
           status: 'AWAITING_RESPONSE',
         }),
       })
@@ -458,10 +490,11 @@ describe('verificarLembretes4Horas', () => {
     };
 
     p.queueEntry.findMany.mockResolvedValue([entryConfirmado, entryReconfirmado]);
+    p.queueEntry.findUnique.mockImplementation(async ({where}:any)=>({...([entryConfirmado,entryReconfirmado].find(e=>e.id===where.id)), localAtendimento:'Policlínica Central'}));
     p.configuracaoRegulacao.findUnique.mockResolvedValue(configAberta);
     p.paciente.findUnique
-      .mockResolvedValueOnce({ id: 'pac-1', nomeCompleto: 'João Silva', telefone: '5567999990001', celular: '' })
-      .mockResolvedValueOnce({ id: 'pac-2', nomeCompleto: 'Ana Paula', telefone: '5567999990002', celular: '' });
+      .mockResolvedValueOnce({ id: 'pac-1', nomeCompleto: 'João Silva',cartaoSus:'700000000000001',dataNascimento:new Date('1980-01-01'), telefone: '5567999990001', celular: '' })
+      .mockResolvedValueOnce({ id: 'pac-2', nomeCompleto: 'Ana Paula',cartaoSus:'700000000000002',dataNascimento:new Date('1980-01-01'), telefone: '5567999990002', celular: '' });
     p.unidade.findUnique.mockResolvedValue({ id: 'uni-1', nome: 'Policlínica Central' });
     p.queueEntry.update.mockResolvedValue({});
 

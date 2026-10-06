@@ -53,3 +53,4 @@ nota-fiscal*.xml
 # IDE/Assistant directories
 .claude/
 graphify-out/
+.env*

@@ -220,5 +220,10 @@ describe('ChatBotGateway - Integração com ChatBot Vinhedo', () => {
     expect(body.local).toBeUndefined();
     expect(body.callbackId).toBeDefined();
   });
+  it('não inventa identificador para uma resposta de sucesso incompleta',async()=>{
+    vi.mocked(axios.post).mockResolvedValueOnce({data:{status:'SENT'}});
+    await expect(new ChatBotGateway().enviarConfirmacao({telefone:'67999990001',nomePaciente:'TESTE',templateName:'primeiro_contato',callbackId:'test'})).rejects.toThrow('resultado incerto');
+  });
+
 });
 

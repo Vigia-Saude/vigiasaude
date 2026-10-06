@@ -15,6 +15,7 @@ export interface GatewayResult {
 }
 
 export interface EnviarConfirmacaoParams {
+  expiresAt?: string;
   telefone: string;
   nomePaciente: string;
   procedimento: string;
@@ -38,6 +39,7 @@ export interface EnviarColetaMotivoParams {
 }
 
 export interface EnviarConvocacaoParams {
+  expiresAt?: string;
   telefone: string;
   nomePaciente: string;
   procedimento: string;
@@ -51,6 +53,7 @@ export interface EnviarConvocacaoParams {
 }
 
 export interface EnviarLembreteParams {
+  expiresAt?: string;
   telefone: string;
   nomePaciente: string;
   procedimento: string;
@@ -63,6 +66,7 @@ export interface EnviarLembreteParams {
 }
 
 export interface IMessagingGateway {
+  consultarEnvio?(callbackId: string): Promise<GatewayResult | null>;
   /** Mensagem de confirmação/reconfirmação de presença (etapas 1..N). */
   enviarConfirmacao(params: EnviarConfirmacaoParams): Promise<GatewayResult>;
 

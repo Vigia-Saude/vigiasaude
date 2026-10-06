@@ -1,6 +1,9 @@
 import { Request, Response } from 'express';
+import { randomUUID } from 'crypto';
+import { ultimaPosicaoFila } from '../services/filaPosicoes.service';
 import { z } from 'zod';
 import prisma from '../config/prisma';
+import { parseCalendarDate, validPhone } from '../services/regulacaoConfiavel.service';
 import { AuthRequest } from '../middlewares/auth';
 import {
   processarResposta,
@@ -25,7 +28,7 @@ const configSchema = z
     timeoutRespostaHoras: z.number().int().min(1).max(168),
     horarioInicio: z.string().regex(HHMM),
     horarioFim: z.string().regex(HHMM),
-    timezone: z.string().min(1).max(64),
+    timezone: z.string().min(1).max(64).refine(value => { try { new Intl.DateTimeFormat('pt-BR', { timeZone: value }); return true; } catch { return false; } }, 'Fuso horário inválido'),
     templateConfirmacao: z.string().min(1).max(120),
     templateReconfirmacao: z.string().min(1).max(120),
     templateColetaMotivo: z.string().min(1).max(120),
@@ -34,6 +37,7 @@ const configSchema = z
   .partial();
 
 const slotSchema = z.object({
+  unidadeId: z.string().uuid(),
   procedimento: z.string().min(1).max(200),
   data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   capacidadeTotal: z.number().int().min(0).max(1000),
@@ -42,7 +46,11 @@ const slotSchema = z.object({
 const respostaSchema = z.object({
   callbackId: z.string().uuid().optional(),
   queueEntryId: z.string().uuid().optional(),
-  resposta: z.enum(['SIM', 'NAO']),
+  resposta: z.enum(['SIM', 'NAO']).optional(),
+  eventId: z.string().min(1).max(250).optional(),
+  eventType: z.enum(['RESPOSTA', 'MOTIVO', 'DELIVERY']).optional(),
+  deliveryStatus: z.enum(['SENT', 'DELIVERED', 'READ', 'FAILED', 'ACCEPTED']).optional(),
+  error: z.string().max(1000).optional(),
   motivoRecusa: z
     .enum([
       'MELHORA_SINTOMAS',
@@ -56,15 +64,18 @@ const respostaSchema = z.object({
   motivoTextoLivre: z.string().max(500).optional(),
   timestamp: z.string().optional(),
   wamid: z.string().optional(),
-});
+}).refine(v => v.eventType === 'DELIVERY' ? !!v.deliveryStatus : !!v.resposta, { message: 'Resposta ou status de entrega obrigatório.' });
 
 const inserirFilaSchema = z.object({
   nomeCompleto: z.string().min(2, 'Nome é obrigatório').max(200),
+  cartaoSus: z.string().regex(/^\d{15}$/,'CNS deve conter 15 dígitos'),
+  dataNascimento: z.string(),
+  localAtendimento: z.string().trim().min(3).max(300),
   telefone: z.string().min(8, 'Telefone inválido').max(30),
   procedimentoNome: z.string().min(2, 'Procedimento é obrigatório').max(200),
-  dataAgendada: z.string().optional(),
-  horaAgendada: z.string().regex(HHMM, 'Hora deve estar no formato HH:MM').optional(),
-  unidadeId: z.string().uuid().optional(),
+  dataAgendada: z.string(),
+  horaAgendada: z.string().regex(HHMM, 'Hora deve estar no formato HH:MM'),
+  unidadeId: z.string().uuid(),
   nivelUrgencia: z.enum(['NORMAL', 'AMARELO', 'VERMELHO']).default('NORMAL'),
 });
 
@@ -105,7 +116,9 @@ export class ConfirmacaoController {
     try {
       const unidadeId = req.user?.unidadeId ?? null;
       const entry = await convocarEntrada(unidadeId, String(req.params.queueEntryId));
-      res.json({ mensagem: 'Paciente convocado.', queueEntryId: entry.id });
+      const ciclo = await prisma.cicloConfirmacao.findFirst({ where: { queueEntryId: entry.id }, orderBy: { enviadoEm: 'desc' } });
+      const statusEnvio = ciclo?.deliveryStatus || 'QUEUED';
+      res.json({ mensagem: statusEnvio === 'FAILED' ? `Falha no envio: ${ciclo?.envioErro || 'verifique o disparo'}. A vaga permanece reservada.` : statusEnvio === 'UNKNOWN' ? 'Resultado do envio incerto. A vaga permanece reservada enquanto o sistema confere o disparo.' : 'Convocação registrada. Aguarde a confirmação de entrega do WhatsApp.', statusEnvio, queueEntryId: entry.id });
     } catch (err: any) {
       res.status(400).json({ erro: err.message });
     }
@@ -119,7 +132,7 @@ export class ConfirmacaoController {
       const dataParsed = dataAgendada ? new Date(dataAgendada) : null;
       const resultado = await convocarTodosService(unidadeId, procedureName, dataParsed);
       res.json({
-        mensagem: `${resultado.convocados} paciente(s) convocado(s) com sucesso!`,
+        mensagem: `${resultado.convocados} convocação(ões) registrada(s). Confira os estados de entrega e as falhas na lista.`,
         ...resultado,
       });
     } catch (err: any) {
@@ -231,7 +244,7 @@ export class ConfirmacaoController {
     try {
       const unidadeId = req.user?.unidadeId ?? null;
       const slots = await prisma.slotAgenda.findMany({
-        where: unidadeId ? { unidadeId } : {},
+        where: {},
         orderBy: [{ data: 'asc' }, { procedimento: 'asc' }],
       });
 
@@ -241,31 +254,32 @@ export class ConfirmacaoController {
           procedimento: s.procedimento,
           data: s.data,
           origem: s.origem,
-          ...(await vagasInfo(unidadeId, s.procedimento, s.data)),
+          unidadeId: s.unidadeId,
+          ocupadas: s.ocupadas,
+          ...(await vagasInfo(s.unidadeId, s.procedimento, s.data)),
         }))
       );
 
       // Grupos com fila ativa mas sem capacidade definida (alerta — seção 4.8)
       const entries = await prisma.queueEntry.findMany({
         where: {
-          unidadeId: unidadeId ?? undefined,
           statusPaciente: { in: ['AGUARDANDO', 'CONVOCADO'] },
           dataAgendada: { not: null },
         },
-        select: { procedimentoNome: true, procedimentoId: true, dataAgendada: true },
+        select: { unidadeId: true, procedimentoNome: true, procedimentoId: true, dataAgendada: true },
       });
-      const mapa = new Map<string, { procedimento: string; data: string; pacientes: number }>();
+      const mapa = new Map<string, { unidadeId: string | null; procedimento: string; data: string; pacientes: number }>();
       for (const e of entries) {
         if (!e.dataAgendada) continue;
         const procedimento = grupoDe(e);
         const dataStr = e.dataAgendada.toISOString().slice(0, 10);
-        const chave = `${procedimento}__${dataStr}`;
-        const atual = mapa.get(chave) ?? { procedimento, data: dataStr, pacientes: 0 };
+        const chave = `${e.unidadeId}__${procedimento}__${dataStr}`;
+        const atual = mapa.get(chave) ?? { unidadeId: e.unidadeId, procedimento, data: dataStr, pacientes: 0 };
         atual.pacientes++;
         mapa.set(chave, atual);
       }
       const pendentes = [...mapa.values()].filter(
-        (g) => !slots.some((s) => s.procedimento === g.procedimento && s.data.toISOString().slice(0, 10) === g.data)
+        (g) => !slots.some((s) => s.unidadeId === g.unidadeId && s.procedimento === g.procedimento && s.data.toISOString().slice(0, 10) === g.data)
       );
 
       res.json({ slots: comUso, pendentes });
@@ -277,28 +291,15 @@ export class ConfirmacaoController {
   // PUT /api/regulacao/slots  — define/atualiza a capacidade de um procedimento/dia
   salvarSlot = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      let unidadeId = req.user?.unidadeId ?? null;
-      if (!unidadeId) {
-        let firstUnidade = (await prisma.unidade.findFirst({ where: { ativa: true } })) || (await prisma.unidade.findFirst());
-        if (!firstUnidade) {
-          firstUnidade = await prisma.unidade.create({
-            data: {
-              nome: 'Secretaria Municipal de Saúde',
-              cnes: '0000001',
-              tenantSchema: 'tenant_central',
-              ativa: true,
-            },
-          });
-        }
-        unidadeId = firstUnidade.id;
-      }
       const parsed = slotSchema.safeParse(req.body);
       if (!parsed.success) {
         res.status(400).json({ erro: 'Dados inválidos', detalhes: parsed.error.issues });
         return;
       }
       const { procedimento, data, capacidadeTotal } = parsed.data;
-      const dataDate = new Date(`${data}T00:00:00.000Z`);
+      const unidadeId = parsed.data.unidadeId;
+      const dataDate = parseCalendarDate(data);
+      if (!dataDate) { res.status(400).json({ erro: 'Data inválida.' }); return; }
 
       const slot = await prisma.slotAgenda.upsert({
         where: { unidadeId_procedimento_data: { unidadeId, procedimento, data: dataDate } },
@@ -316,9 +317,9 @@ export class ConfirmacaoController {
   // POST /api/regulacao/confirmacao/callback  (PÚBLICO — chamado pelo ChatBot)
   callback = async (req: Request, res: Response): Promise<void> => {
     try {
-      // Verificação opcional de segredo compartilhado (HMAC real = fase futura).
+      // Segredo compartilhado obrigatório na integração.
       const secret = process.env.VIGIA_WEBHOOK_SECRET;
-      if (secret && req.headers['x-webhook-secret'] !== secret) {
+      if (!secret || req.headers['x-webhook-secret'] !== secret) {
         res.status(401).json({ erro: 'Assinatura do webhook inválida.' });
         return;
       }
@@ -329,7 +330,7 @@ export class ConfirmacaoController {
       }
       const { callbackId, ...payload } = parsed.data;
       const resultado = await processarResposta(callbackId, payload as RespostaPayload);
-      res.status(200).json(resultado);
+      res.status(resultado.ok ? 200 : 409).json(resultado);
     } catch (err: any) {
       res.status(500).json({ erro: err.message });
     }
@@ -339,6 +340,7 @@ export class ConfirmacaoController {
   // Injeta um callback simulado por callbackId OU queueEntryId, sem WhatsApp real.
   simularResposta = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+      if (process.env.NODE_ENV === 'production') { res.status(404).json({ erro: 'Simulação indisponível em produção.' }); return; }
       const parsed = respostaSchema.safeParse(req.body);
       if (!parsed.success) {
         res.status(400).json({ erro: 'Dados inválidos', detalhes: parsed.error.issues });
@@ -370,68 +372,34 @@ export class ConfirmacaoController {
       }
       const data = parsed.data;
       const telefoneLimpo = data.telefone.replace(/\D/g, '');
+      if (!validPhone(telefoneLimpo)) { res.status(400).json({ erro: 'Celular inválido.' }); return; }
 
-      let unidadeId = data.unidadeId || req.user?.unidadeId || null;
-      if (!unidadeId) {
-        const firstUnidade = (await prisma.unidade.findFirst({ where: { ativa: true } })) || (await prisma.unidade.findFirst());
-        unidadeId = firstUnidade?.id ?? null;
+      const unidadeId = data.unidadeId;
+      if (!await prisma.unidade.findFirst({ where: { id: unidadeId, ativa: true } })) { res.status(400).json({ erro: 'Selecione uma unidade responsável ativa.' }); return; }
+
+      const nascimento = parseCalendarDate(data.dataNascimento);
+      if (!nascimento || nascimento > new Date()) { res.status(400).json({ erro: 'Informe a data de nascimento correta.' }); return; }
+      const dataAgendada = parseCalendarDate(data.dataAgendada);
+      if (!dataAgendada) { res.status(400).json({ erro: 'Informe uma data válida para a agenda.' }); return; }
+      const novaEntrada = await prisma.$transaction(async tx => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('regulacao-importacao'))`;
+      // Telefone pode pertencer a uma família; a identidade é o CNS.
+      let paciente = await tx.paciente.findFirst({ where: { cartaoSus: data.cartaoSus } });
+      if (paciente && (paciente.nomeCompleto.trim().toUpperCase() !== data.nomeCompleto.trim().toUpperCase() || paciente.dataNascimento.getTime() !== nascimento.getTime())) {
+        throw new Error('O CNS pertence a um cadastro com nome ou nascimento diferente. Confira os dados.');
       }
+      if (!paciente) paciente = await tx.paciente.create({ data: {
+        nomeCompleto: data.nomeCompleto.trim().toUpperCase(), telefone: telefoneLimpo, celular: telefoneLimpo,
+        cartaoSus: data.cartaoSus, cpf: null, prontuario: `PRONT-${randomUUID()}`, dataNascimento: nascimento,
+        sexo: 'OUTRO', cep: '', logradouro: '', numero: '', bairro: '', municipio: '', scoreConfianca: 100,
+      } });
+      else await tx.paciente.update({ where: { id: paciente.id }, data: { telefone: telefoneLimpo, celular: telefoneLimpo } });
 
-      // 1. Localiza ou cria o paciente
-      let paciente = await prisma.paciente.findFirst({
-        where: {
-          OR: [
-            { telefone: telefoneLimpo },
-            { celular: telefoneLimpo },
-            { nomeCompleto: { equals: data.nomeCompleto, mode: 'insensitive' } },
-          ],
-        },
-      });
+      const existente = await tx.queueEntry.findFirst({ where: { pacienteId: paciente.id, unidadeId, procedimentoNome: data.procedimentoNome.trim(), dataAgendada, horaAgendada: data.horaAgendada, statusPaciente: { in: ['AGUARDANDO','CONVOCADO','CONFIRMADO','RECONFIRMADO'] } } });
+      if (existente) return existente;
+      const proximaPosicao = (await ultimaPosicaoFila(tx)) + 1;
 
-      if (!paciente) {
-        const generatedCpf = `${Math.floor(10000000000 + Math.random() * 90000000000)}`;
-        const generatedProntuario = `PRONT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-
-        paciente = await prisma.paciente.create({
-          data: {
-            nomeCompleto: data.nomeCompleto.trim().toUpperCase(),
-            telefone: telefoneLimpo,
-            celular: telefoneLimpo,
-            cartaoSus: `${Date.now()}`.padEnd(15, '0').slice(0, 15),
-            cpf: generatedCpf,
-            prontuario: generatedProntuario,
-            dataNascimento: new Date(1990, 0, 1),
-            sexo: 'OUTRO',
-            cep: '79900-000',
-            logradouro: 'Não informado',
-            numero: 'S/N',
-            bairro: 'Centro',
-            municipio: 'Ponta Porã',
-            scoreConfianca: 100,
-          },
-        });
-      } else {
-        await prisma.paciente.update({
-          where: { id: paciente.id },
-          data: { telefone: telefoneLimpo, celular: telefoneLimpo },
-        });
-      }
-
-      // 2. Calcula a próxima posição na fila
-      const ultimaEntrada = await prisma.queueEntry.findFirst({
-        where: {
-          unidadeId: unidadeId ?? undefined,
-          procedimentoNome: data.procedimentoNome.trim(),
-        },
-        orderBy: { posicao: 'desc' },
-        select: { posicao: true },
-      });
-      const proximaPosicao = (ultimaEntrada?.posicao ?? 0) + 1;
-
-      // 3. Cria a entrada na fila (QueueEntry) com status AGUARDANDO
-      const dataAgendada = data.dataAgendada ? new Date(data.dataAgendada) : new Date();
-
-      const novaEntrada = await prisma.queueEntry.create({
+      const criada = await tx.queueEntry.create({
         data: {
           pacienteId: paciente.id,
           unidadeId,
@@ -442,13 +410,17 @@ export class ConfirmacaoController {
           nivelUrgencia: data.nivelUrgencia,
           dataAgendada,
           horaAgendada: data.horaAgendada || null,
+          localAtendimento: data.localAtendimento,
         },
+      });
+
+      return criada;
       });
 
       res.status(201).json({
         mensagem: 'Paciente inserido na fila com sucesso!',
         queueEntryId: novaEntrada.id,
-        pacienteId: paciente.id,
+        pacienteId: novaEntrada.pacienteId,
         statusPaciente: novaEntrada.statusPaciente,
       });
     } catch (err: any) {
@@ -467,6 +439,7 @@ export class ConfirmacaoController {
         return;
       }
       const telefoneLimpo = parsed.data.telefone.replace(/\D/g, '');
+      if (!validPhone(telefoneLimpo)) { res.status(400).json({ erro: 'Celular inválido.' }); return; }
 
       const entry = await prisma.queueEntry.findUnique({
         where: { id: queueEntryId },
@@ -489,6 +462,7 @@ export class ConfirmacaoController {
 
   // POST /api/regulacao/confirmacao/entrada/:queueEntryId/redefinir
   redefinirEntrada = async (req: AuthRequest, res: Response): Promise<void> => {
+    if (process.env.NODE_ENV === 'production') { res.status(404).json({ erro: 'Reinício de teste indisponível em produção.' }); return; }
     try {
       const queueEntryId = String(req.params.queueEntryId);
       const entry = await prisma.queueEntry.findUnique({
@@ -499,12 +473,15 @@ export class ConfirmacaoController {
         return;
       }
 
-      await prisma.cicloConfirmacao.deleteMany({ where: { queueEntryId } });
+      const pendente = await prisma.cicloConfirmacao.findFirst({ where: { queueEntryId, deliveryStatus: { in: ['QUEUED','UNKNOWN','ACCEPTED','SENT'] }, status: 'CONVOCADO' } });
+      if (pendente) { res.status(409).json({ erro: 'Concilie o envio pendente antes de liberar ou redefinir a vaga.' }); return; }
+      await prisma.cicloConfirmacao.updateMany({ where: { queueEntryId, status: 'CONVOCADO' }, data: { status: 'EXPIRADO' } });
 
       const atualizado = await prisma.queueEntry.update({
         where: { id: queueEntryId },
         data: {
           statusPaciente: 'AGUARDANDO',
+          bloqueioEnvio: null,
           status: 'PENDING',
           notificadoEm: null,
           respondidoEm: null,

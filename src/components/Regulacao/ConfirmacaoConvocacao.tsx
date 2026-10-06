@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import {
   listarConfirmacaoDetalhes,
+  listarUnidadesResponsaveis,
   getConfirmacaoConfig,
   convocarPaciente,
   convocarTodos,
@@ -75,6 +76,7 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
   const [modalConvocarTodos, setModalConvocarTodos] = useState(false);
   const [modalInserir, setModalInserir] = useState(false);
   const [formInserir, setFormInserir] = useState({
+    unidadeId: '', cartaoSus: '', dataNascimento: '', localAtendimento: '',
     nomeCompleto: '',
     telefone: '',
     procedimentoNome: procedureName || '',
@@ -90,10 +92,11 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
   } | null>(null);
   const [novoTelefone, setNovoTelefone] = useState('');
 
-  const { data: entradas = [], isLoading } = useQuery({
+  const { data: unidades = [] } = useQuery({queryKey:['unidades-responsaveis'],queryFn:listarUnidadesResponsaveis});
+  const { data: entradas = [], isLoading, isError } = useQuery({
     queryKey: ['confirmacao-detalhes'],
     queryFn: listarConfirmacaoDetalhes,
-    refetchInterval: 3000,
+    refetchInterval: 5000,
   });
   const { data: config } = useQuery({ queryKey: ['confirmacao-config'], queryFn: getConfirmacaoConfig });
 
@@ -103,18 +106,18 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
 
   const convocarMut = useMutation({
     mutationFn: (id: string) => convocarPaciente(id),
-    onSuccess: (r) => { toast.success(r.mensagem); invalidar(); },
+    onSuccess: (r) => { if (['FAILED','UNKNOWN'].includes((r as any).statusEnvio)) toast.error(r.mensagem); else toast.success(r.mensagem); invalidar(); },
     onError: (e: any) => toast.error(e.response?.data?.erro || 'Não foi possível convocar.'),
   });
 
   const convocarTodosMut = useMutation({
     mutationFn: () => convocarTodos({ procedureName }),
     onSuccess: (r) => {
-      toast.success(r.mensagem || `${r.convocados} pacientes convocados com sucesso!`);
+      toast.success(r.mensagem || `${r.convocados} convocações registradas. Aguarde a confirmação de entrega.`);
       setModalConvocarTodos(false);
       invalidar();
     },
-    onError: (e: any) => toast.error(e.response?.data?.erro || 'Falha ao convocar todos os pacientes.'),
+    onError: (e: any) => toast.error(e.response?.data?.erro || 'Falha ao preencher as vagas.'),
   });
 
   const inserirMut = useMutation({
@@ -123,7 +126,8 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
       toast.success(r.mensagem || 'Paciente inserido na fila com sucesso!');
       setModalInserir(false);
       setFormInserir({
-        nomeCompleto: '',
+        unidadeId: '', cartaoSus: '', dataNascimento: '', localAtendimento: '',
+    nomeCompleto: '',
         telefone: '',
         procedimentoNome: procedureName || '',
         dataAgendada: '',
@@ -169,24 +173,15 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
     const arr = procedureName
       ? entradas.filter((e) => (e.procedimentoNome ?? '').toLowerCase() === procedureName.toLowerCase())
       : entradas;
-    const ativo = (s: PacienteFilaStatus) => (s === 'AGUARDANDO' || s === 'CONVOCADO' ? 0 : 1);
-    return [...arr].sort((a, b) => {
-      const rs = ativo(a.statusPaciente) - ativo(b.statusPaciente);
-      if (rs !== 0) return rs;
-      const ru = (RANK[b.nivelUrgencia] ?? 1) - (RANK[a.nivelUrgencia] ?? 1);
-      if (ru !== 0) return ru;
-      return a.posicao - b.posicao;
-    });
+    return [...arr].sort((a, b) => a.posicao - b.posicao);
   }, [entradas, procedureName]);
 
   // Próximo elegível para convocar (urgência + FIFO entre os AGUARDANDO).
   const proximoElegivelId = useMemo(() => {
     const aguardando = lista.filter((e) => e.statusPaciente === 'AGUARDANDO');
     if (aguardando.length === 0) return null;
-    const ordenado = [...aguardando].sort((a, b) => {
-      const r = (RANK[b.nivelUrgencia] ?? 1) - (RANK[a.nivelUrgencia] ?? 1);
-      return r !== 0 ? r : a.posicao - b.posicao;
-    });
+    const ordenado = [...aguardando].filter(e => !e.bloqueioEnvio).sort((a, b) => a.posicao - b.posicao);
+    if (!ordenado.length) return null;
     return ordenado[0].id;
   }, [lista]);
 
@@ -207,6 +202,7 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
   return (
     <div className="space-y-4">
       {/* Capacidade / vagas por dia (seção 4.8) */}
+      {isError && <div className="p-3 text-rose-700 bg-rose-50 rounded-xl">Não foi possível consultar a fila. Verifique a disponibilidade da API antes de convocar.</div>}
       <CapacidadeVagas procedureName={procedureName} />
 
       {/* Banner de ações automáticas */}
@@ -275,7 +271,7 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
             ) : (
               <>
                 <Send className="h-4 w-4" />
-                <span>Convocar Todos ({contadores.aguardando})</span>
+                <span>Preencher Vagas ({contadores.aguardando})</span>
               </>
             )}
           </button>
@@ -319,7 +315,7 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
                     });
                     setNovoTelefone(tel);
                   }}
-                  podeConvocar={e.statusPaciente === 'AGUARDANDO'}
+                  podeConvocar={e.statusPaciente === 'AGUARDANDO' || (['CONVOCADO','CONFIRMADO','RECONFIRMADO'].includes(e.statusPaciente) && e.cicloAtual?.deliveryStatus === 'FAILED')}
                   onConvocar={() => convocarMut.mutate(e.id)}
                   convocando={convocarMut.isPending && convocarMut.variables === e.id}
                   onRedefinir={() => redefinirMut.mutate(e.id)}
@@ -344,7 +340,7 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
         />
       )}
 
-      {/* Modal de Confirmação: Convocar Todos */}
+      {/* Modal de Confirmação: Preencher Vagas */}
       {modalConvocarTodos && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-slate-200 space-y-4">
@@ -353,7 +349,7 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
                 <Send className="h-6 w-6 text-emerald-600" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Convocar Todos os Pacientes</h3>
+                <h3 className="text-lg font-bold text-slate-900">Preencher Vagas os Pacientes</h3>
                 <p className="text-xs text-slate-500">Disparo em lote via WhatsApp</p>
               </div>
             </div>
@@ -381,7 +377,7 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
                 disabled={convocarTodosMut.isPending}
                 className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50 cursor-pointer">
                 {convocarTodosMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                {convocarTodosMut.isPending ? 'Enviando convocações...' : 'Sim, convocar todos'}
+                {convocarTodosMut.isPending ? 'Enviando convocações...' : 'Sim, preencher vagas'}
               </button>
             </div>
           </div>
@@ -429,6 +425,12 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
                 inserirMut.mutate(formInserir);
               }}
               className="space-y-4">
+              <label className="block text-xs font-bold text-slate-700">Unidade responsável pela agenda *
+                <select required value={formInserir.unidadeId} onChange={(e)=>setFormInserir(p=>({...p,unidadeId:e.target.value}))}
+                  className="w-full rounded-xl border border-slate-200 p-2.5 mt-1 bg-white">
+                  <option value="">Selecione a unidade</option>{unidades.map(u=><option key={u.id} value={u.id}>{u.nome}</option>)}
+                </select>
+              </label>
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   Nome Completo *
@@ -442,6 +444,24 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
                   className="w-full text-xs rounded-xl border border-slate-200 p-2.5 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-medium"
                 />
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="text-xs font-bold text-slate-700">CNS *
+                  <input required inputMode="numeric" pattern="[0-9]{15}" maxLength={15} value={formInserir.cartaoSus}
+                    onChange={(e) => setFormInserir(p => ({ ...p, cartaoSus: e.target.value.replace(/\D/g,'') }))}
+                    className="w-full rounded-xl border border-slate-200 p-2.5 mt-1" />
+                </label>
+                <label className="text-xs font-bold text-slate-700">Nascimento *
+                  <input required type="date" value={formInserir.dataNascimento}
+                    onChange={(e) => setFormInserir(p => ({ ...p, dataNascimento: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-200 p-2.5 mt-1" />
+                </label>
+              </div>
+              <label className="block text-xs font-bold text-slate-700">Local do atendimento *
+                <input required value={formInserir.localAtendimento}
+                  onChange={(e) => setFormInserir(p => ({ ...p, localAtendimento: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 p-2.5 mt-1" />
+              </label>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -498,7 +518,7 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
                   <div className="relative">
                     <CalendarIcon className="h-4 w-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
                     <input
-                      type="date"
+                      type="date" required
                       value={formInserir.dataAgendada}
                       onChange={(e) => setFormInserir((p) => ({ ...p, dataAgendada: e.target.value }))}
                       className="w-full text-xs rounded-xl border border-slate-200 pl-9 p-2.5 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-medium bg-white"
@@ -513,7 +533,7 @@ export function ConfirmacaoConvocacao({ procedureName }: Props) {
                   <div className="relative">
                     <Clock className="h-4 w-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
                     <input
-                      type="time"
+                      type="time" required
                       value={formInserir.horaAgendada}
                       onChange={(e) => setFormInserir((p) => ({ ...p, horaAgendada: e.target.value }))}
                       className="w-full text-xs rounded-xl border border-slate-200 pl-9 p-2.5 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-medium bg-white"
@@ -671,7 +691,10 @@ function LinhaPaciente({
         </td>
         <td className="py-4 px-5">
           <div className="font-bold text-slate-900">{e.paciente?.nomeCompleto ?? 'Paciente'}</div>
-          <div className="text-[11px] font-mono text-slate-400 mt-0.5">{e.paciente?.cartaoSus ?? '—'}</div>
+          <div className="text-[11px] font-mono text-slate-400 mt-0.5">Posição {e.posicao} · {e.paciente?.cartaoSus ?? '—'}</div>
+          {e.bloqueioEnvio && <div className="text-xs text-rose-600">{e.bloqueioEnvio}</div>}
+          {e.cicloAtual && <div className="text-xs text-slate-600">Envio: {({QUEUED:'Pendente',ACCEPTED:'Aceito pelo provedor',SENT:'Aceito pelo provedor',DELIVERED:'Entregue',READ:'Lido',FAILED:'Falhou',UNKNOWN:'Incerto — aguarda conciliação'} as Record<string,string>)[e.cicloAtual.deliveryStatus || 'QUEUED']}</div>}
+          {e.cicloAtual?.envioErro && <div className="text-xs text-rose-600">{e.cicloAtual.envioErro}</div>}
         </td>
         <td className="py-4 px-5">
           <button
@@ -740,7 +763,7 @@ function LinhaPaciente({
         </td>
         <td className="py-4 px-5 text-right whitespace-nowrap">
           <div className="flex items-center justify-end gap-1.5">
-            {e.statusPaciente !== 'AGUARDANDO' && (
+            {import.meta.env.DEV && e.statusPaciente !== 'AGUARDANDO' && (
               <button
                 onClick={onRedefinir}
                 disabled={redefinindo}
@@ -770,7 +793,7 @@ function LinhaPaciente({
               ) : (
                 <>
                   <Send className="h-3.5 w-3.5" />
-                  <span>Convocar</span>
+                  <span>{e.cicloAtual?.deliveryStatus === 'FAILED' ? 'Tentar envio novamente' : 'Convocar'}</span>
                 </>
               )}
             </button>
@@ -827,7 +850,7 @@ function LinhaPaciente({
               </div>
 
               {/* Simulação (teste do fluxo mockado) */}
-              {e.statusPaciente === 'CONVOCADO' && (
+              {import.meta.env.DEV && e.statusPaciente === 'CONVOCADO' && (
                 <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-4 space-y-3">
                   <h5 className="flex items-center gap-1.5 text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
                     <FlaskConical className="h-3.5 w-3.5 text-indigo-600" /> Simular resposta do paciente (teste)

@@ -1,8 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import apiClient from '../../services/apiClient';
 
 export interface PdfImportRow {
+  sourceIndex?: number;
+  sourcePage?: number;
   id: string;
+  queueEntryId?: string | null;
   rawData: {
     ficha?: string;
     name?: string;
@@ -12,6 +15,7 @@ export interface PdfImportRow {
     age?: number | string;
     procedure_name?: string;
     unidade_solicitante?: string;
+    local_atendimento?: string;
     cid10?: string;
     scheduled_date_raw?: string;
     hora_raw?: string;
@@ -55,6 +59,7 @@ export function PatientCard({ importId, row, index, readOnly, onChange }: {
   const [data, setData] = useState(row.rawData);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  useEffect(() => { setData(row.rawData); }, [row.rawData]);
 
   async function persist(nextData: typeof data, approvedState?: boolean) {
     if (readOnly) return;
@@ -68,6 +73,7 @@ export function PatientCard({ importId, row, index, readOnly, onChange }: {
       setError('');
       onChange(res.data);
     } catch {
+      setData(row.rawData);
       setError('Falha ao salvar alterações.');
     } finally {
       setSaving(false);
@@ -95,8 +101,9 @@ export function PatientCard({ importId, row, index, readOnly, onChange }: {
       <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
         <div className="font-semibold text-slate-800 text-sm flex items-center gap-2.5">
           <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-bold shrink-0">
-            {index}
+            {row.sourceIndex ?? index}
           </span>
+          {row.sourcePage && <span className="text-[10px] text-slate-400">Pág. {row.sourcePage}</span>}
           <span className="truncate max-w-[220px] sm:max-w-xs">{data.name || 'Paciente sem Nome'}</span>
         </div>
         <button
@@ -242,6 +249,13 @@ export function PatientCard({ importId, row, index, readOnly, onChange }: {
             placeholder="Ex: Mamografia Bilateral de Rastreamento"
             className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-2 text-slate-800 font-medium focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all disabled:opacity-75 disabled:bg-slate-100"
           />
+        </div>
+
+        <div>
+          <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Local do atendimento</label>
+          <input type="text" disabled={readOnly} value={data.local_atendimento ?? ''}
+            onChange={(e) => handleFieldChange('local_atendimento', e.target.value)} onBlur={() => persist(data)}
+            placeholder="Informe onde será realizado o exame" className="w-full border border-slate-200 rounded-xl px-3 py-2" />
         </div>
 
         {/* Unidade Solicitante */}

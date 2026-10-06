@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { FileUp, CheckCircle, AlertCircle, Loader2, Edit2, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 import apiClient from '../../services/apiClient';
+import { useQuery } from '@tanstack/react-query';
+import { listarUnidadesResponsaveis } from '../../services/confirmacaoService';
 
 interface ImportacaoPdfModalProps {
   isOpen: boolean;
@@ -30,6 +32,8 @@ export function ImportacaoPdfModal({ isOpen, onClose, onSuccess }: ImportacaoPdf
   const [loading, setLoading] = useState(false);
   const [approving, setApproving] = useState(false);
   const [importId, setImportId] = useState<string | null>(null);
+  const [unidadeResponsavelId, setUnidadeResponsavelId] = useState('');
+  const {data:unidades=[]}=useQuery({queryKey:['unidades-responsaveis'],queryFn:listarUnidadesResponsaveis});
   const [rows, setRows] = useState<PdfRow[]>([]);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{ name: string; phone_raw: string; cns_raw: string }>({
@@ -81,6 +85,7 @@ export function ImportacaoPdfModal({ isOpen, onClose, onSuccess }: ImportacaoPdf
         approved: nextApproved
       });
     } catch (err) {
+      setRows(prev => prev.map(r => r.id === rowId ? { ...r, approved: currentApproved } : r));
       toast.error('Erro ao atualizar aprovação');
     }
   };
@@ -114,7 +119,7 @@ export function ImportacaoPdfModal({ isOpen, onClose, onSuccess }: ImportacaoPdf
     setApproving(true);
 
     try {
-      const res = await apiClient.post(`/api/regulacao/imports/${importId}/approve`);
+      const res = await apiClient.post(`/api/regulacao/imports/${importId}/approve`, {unidadeId:unidadeResponsavelId});
       const data = res.data;
 
       toast.success(`${data.importados} pacientes encaminhados para a Fila da Regulação!`);
@@ -190,13 +195,18 @@ export function ImportacaoPdfModal({ isOpen, onClose, onSuccess }: ImportacaoPdf
                   <span>{rows.length} Pacientes identificados. Marque as linhas desejadas para aprovar.</span>
                 </div>
                 <button
-                  onClick={() => setRows(prev => prev.map(r => ({ ...r, approved: true })))}
+                  onClick={async () => { try { const res = await apiClient.patch(`/api/regulacao/imports/${importId}/rows-bulk`, { approvedAll: true }); setRows(res.data); } catch { toast.error('Não foi possível salvar as aprovações.'); } }}
                   className="text-xs font-semibold text-blue-700 dark:text-blue-300 hover:underline"
                 >
                   Marcar Todos
                 </button>
               </div>
 
+          <label className="block p-4 text-xs font-semibold text-slate-700">Unidade responsável pela agenda
+            <select value={unidadeResponsavelId} onChange={e=>setUnidadeResponsavelId(e.target.value)} className="w-full border rounded-xl p-2 mt-1 bg-white">
+              <option value="">Selecione a unidade responsável</option>{unidades.map(u=><option key={u.id} value={u.id}>{u.nome}</option>)}
+            </select>
+          </label>
               {/* Tabela de Validação de Staging */}
               <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
                 <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">

@@ -49,7 +49,7 @@ apiClient.interceptors.response.use(
     const config = error.config as any;
 
     // Retry automático (até 2 vezes) em caso de queda de rede ou cold-start do Railway
-    if (config && (!error.response || error.code === 'ERR_NETWORK') && (config.__retryCount || 0) < 2) {
+    if (config && ['get','head','options'].includes((config.method || 'get').toLowerCase()) && (!error.response || error.code === 'ERR_NETWORK') && (config.__retryCount || 0) < 2) {
       config.__retryCount = (config.__retryCount || 0) + 1;
       await new Promise((resolve) => setTimeout(resolve, 1000 * config.__retryCount));
       return apiClient(config);

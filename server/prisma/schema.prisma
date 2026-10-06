@@ -667,7 +667,7 @@ model PedidoReposicaoItem {
 model Paciente {
   id                  String   @id @default(uuid())
   prontuario          String   @unique
-  cpf                 String   @unique
+  cpf                 String?  @unique
   cartaoSus           String?  @map("cartao_sus")
   nomeCompleto        String   @map("nome_completo")
   dataNascimento      DateTime @map("data_nascimento") @db.Date
@@ -866,6 +866,8 @@ model PdfImport {
   status           ImportStatus   @default(PENDING)
   rowsFound        Int?           @map("rows_found")
   rowsImported     Int?           @map("rows_imported")
+  unidadeResponsavelId String?     @map("unidade_responsavel_id")
+  queueBasePosition Int?          @map("queue_base_position")
   errorLog         String?        @map("error_log")
   processedAt      DateTime?      @map("processed_at")
   criadoEm         DateTime       @default(now()) @map("criado_em")
@@ -884,9 +886,12 @@ model PdfImportRow {
   queueEntryId String?   @map("queue_entry_id")
   error        String?
   approved     Boolean   @default(false)
+  sourceIndex  Int?      @map("source_index")
+  sourcePage   Int?      @map("source_page")
   criadoEm     DateTime  @default(now()) @map("criado_em")
 
   @@index([importId])
+  @@unique([importId, sourceIndex])
   @@map("pdf_import_rows")
 }
 
@@ -914,6 +919,11 @@ model QueueEntry {
   nivelUrgencia    NivelUrgencia      @default(NORMAL) @map("nivel_urgencia")
   procedimentoNome String?            @map("procedimento_nome") // nome legível p/ agrupar a fila
   ciclos           CicloConfirmacao[]
+  reserva          ReservaAgenda?
+  envios           RegulacaoOutbox[]
+  bloqueioEnvio    String? @map("bloqueio_envio")
+  localAtendimento String? @map("local_atendimento")
+  unidadeSolicitante String? @map("unidade_solicitante")
 
   @@index([procedimentoId, status, posicao])
   @@index([pacienteId])
@@ -957,6 +967,10 @@ model CicloConfirmacao {
   expiraEm         DateTime      @map("expira_em")
   respondidoEm     DateTime?     @map("respondido_em")
   resposta         String? // "SIM" | "NAO"
+  tipo             String @default("CONFIRMACAO")
+  deliveryStatus   String @default("QUEUED") @map("delivery_status")
+  deliveredAt      DateTime? @map("delivered_at")
+  envioErro        String? @map("envio_erro")
   motivoRecusa     MotivoRecusa? @map("motivo_recusa")
   motivoTextoLivre String?       @map("motivo_texto_livre")
   criadoEm         DateTime      @default(now()) @map("criado_em")
@@ -1013,6 +1027,9 @@ model SlotAgenda {
   procedimento    String
   data            DateTime @db.Date
   capacidadeTotal Int      @map("capacidade_total")
+  ocupadas        Int      @default(0)
+  reposicaoPendente Boolean @default(false) @map("reposicao_pendente")
+  reservas        ReservaAgenda[]
   origem          String   @default("MANUAL") // MANUAL | PDF
   criadoEm        DateTime @default(now()) @map("criado_em")
   atualizadoEm    DateTime @updatedAt @map("atualizado_em")
@@ -1020,6 +1037,40 @@ model SlotAgenda {
   @@unique([unidadeId, procedimento, data])
   @@index([unidadeId, data])
   @@map("slots_agenda")
+}
+
+model ReservaAgenda {
+  id           String @id @default(uuid())
+  slotId       String @map("slot_id")
+  slot         SlotAgenda @relation(fields: [slotId], references: [id])
+  queueEntryId String @unique @map("queue_entry_id")
+  queueEntry   QueueEntry @relation(fields: [queueEntryId], references: [id], onDelete: Cascade)
+  ativa        Boolean @default(true)
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  @@index([slotId, ativa])
+  @@map("reservas_agenda")
+}
+
+model RegulacaoOutbox {
+  id           String @id @default(uuid())
+  callbackId   String @unique @map("callback_id")
+  queueEntryId String @map("queue_entry_id")
+  queueEntry   QueueEntry @relation(fields: [queueEntryId], references: [id], onDelete: Cascade)
+  payload      Json
+  status       String @default("PENDING")
+  attempts     Int @default(0)
+  error        String?
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  @@index([status, criadoEm])
+  @@map("regulacao_outbox")
+}
+
+model RegulacaoEvento {
+  eventId    String @id @map("event_id")
+  callbackId String @map("callback_id")
+  criadoEm   DateTime @default(now()) @map("criado_em")
+  @@map("regulacao_eventos")
 }
 
 enum ViagemStatus {

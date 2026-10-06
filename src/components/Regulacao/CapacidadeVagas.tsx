@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { CalendarRange, Save, AlertTriangle, Loader2 } from 'lucide-react';
-import { getSlots, salvarSlot, type SlotComVagas, type PendenteCapacidade } from '../../services/confirmacaoService';
+import { getSlots, salvarSlot, listarUnidadesResponsaveis, type SlotComVagas, type PendenteCapacidade } from '../../services/confirmacaoService';
 
 interface Props {
   procedureName?: string;
@@ -14,6 +14,8 @@ function formatData(iso: string): string {
 }
 
 interface LinhaCapacidade {
+  unidadeId?: string;
+  ocupadas?: number;
   data: string; // YYYY-MM-DD
   definido: boolean;
   capacidadeTotal: number | null;
@@ -26,6 +28,7 @@ export function CapacidadeVagas({ procedureName }: Props) {
   const qc = useQueryClient();
   const [edits, setEdits] = useState<Record<string, string>>({});
 
+  const {data: unidades = []} = useQuery({queryKey:['unidades-responsaveis'],queryFn:listarUnidadesResponsaveis});
   const { data, isLoading } = useQuery({ queryKey: ['slots'], queryFn: getSlots });
 
   const salvarMut = useMutation({
@@ -44,6 +47,8 @@ export function CapacidadeVagas({ procedureName }: Props) {
     const definidos: LinhaCapacidade[] = (data.slots as SlotComVagas[])
       .filter((s) => s.procedimento.toLowerCase() === norm)
       .map((s) => ({
+        unidadeId: s.unidadeId,
+        ocupadas: s.ocupadas,
         data: s.data.slice(0, 10),
         definido: true,
         capacidadeTotal: s.capacidadeTotal,
@@ -52,7 +57,7 @@ export function CapacidadeVagas({ procedureName }: Props) {
       }));
     const pendentes: LinhaCapacidade[] = (data.pendentes as PendenteCapacidade[])
       .filter((p) => p.procedimento.toLowerCase() === norm)
-      .map((p) => ({ data: p.data, definido: false, capacidadeTotal: null, confirmados: 0, disponiveis: null, pacientes: p.pacientes }));
+      .map((p) => ({ unidadeId: p.unidadeId, data: p.data, definido: false, capacidadeTotal: null, confirmados: 0, disponiveis: null, pacientes: p.pacientes }));
     return [...definidos, ...pendentes].sort((a, b) => a.data.localeCompare(b.data));
   }, [data, procedureName]);
 
@@ -64,13 +69,15 @@ export function CapacidadeVagas({ procedureName }: Props) {
   }
   if (linhas.length === 0) return null;
 
-  const salvar = (data: string) => {
-    const valor = parseInt(edits[data] ?? '', 10);
+  const salvar = (linha: LinhaCapacidade) => {
+    const data=linha.data;
+    const key=`${linha.unidadeId}-${data}`;
+    const valor = parseInt(edits[key] ?? '', 10);
     if (isNaN(valor) || valor < 0) {
       toast.error('Informe uma capacidade válida.');
       return;
     }
-    salvarMut.mutate({ procedimento: procedureName, data, capacidadeTotal: valor });
+    salvarMut.mutate({ unidadeId: linha.unidadeId, procedimento: procedureName, data, capacidadeTotal: valor });
   };
 
   return (
@@ -93,28 +100,28 @@ export function CapacidadeVagas({ procedureName }: Props) {
         <table className="w-full text-left text-xs min-w-[520px]">
           <thead>
             <tr className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100">
-              <th className="py-2 pr-4">Data</th>
+              <th className="py-2 pr-4">Unidade responsável / Data</th>
               <th className="py-2 pr-4">Capacidade</th>
-              <th className="py-2 pr-4">Confirmados</th>
+              <th className="py-2 pr-4">Reservadas / Confirmados</th>
               <th className="py-2 pr-4">Disponíveis</th>
               <th className="py-2 text-right">Ação</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
             {linhas.map((l) => (
-              <tr key={l.data} className={l.definido ? '' : 'bg-amber-50/40'}>
-                <td className="py-2 pr-4 font-semibold text-slate-700 whitespace-nowrap">{formatData(l.data)}</td>
+              <tr key={`${l.unidadeId}-${l.data}`} className={l.definido ? '' : 'bg-amber-50/40'}>
+                <td className="py-2 pr-4 font-semibold text-slate-700 whitespace-nowrap">{unidades.find(u=>u.id===l.unidadeId)?.nome || 'Unidade não informada'}<br />{formatData(l.data)}</td>
                 <td className="py-2 pr-4">
                   <input
                     type="number"
                     min={0}
                     placeholder={l.definido ? String(l.capacidadeTotal) : 'definir'}
-                    value={edits[l.data] ?? (l.definido ? String(l.capacidadeTotal) : '')}
-                    onChange={(e) => setEdits((s) => ({ ...s, [l.data]: e.target.value }))}
+                    value={edits[`${l.unidadeId}-${l.data}`] ?? (l.definido ? String(l.capacidadeTotal) : '')}
+                    onChange={(e) => setEdits((s) => ({ ...s, [`${l.unidadeId}-${l.data}`]: e.target.value }))}
                     className="w-20 rounded-md border border-slate-300 px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                   />
                 </td>
-                <td className="py-2 pr-4 text-slate-600">{l.definido ? l.confirmados : '—'}</td>
+                <td className="py-2 pr-4 text-slate-600">{l.definido ? `${l.ocupadas ?? l.confirmados} / ${l.confirmados}` : '—'}</td>
                 <td className="py-2 pr-4">
                   {l.definido ? (
                     <span
@@ -129,7 +136,7 @@ export function CapacidadeVagas({ procedureName }: Props) {
                 </td>
                 <td className="py-2 text-right">
                   <button
-                    onClick={() => salvar(l.data)}
+                    onClick={() => salvar(l)}
                     disabled={salvarMut.isPending}
                     className="inline-flex items-center gap-1 text-xs font-bold text-indigo-700 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg disabled:opacity-50 cursor-pointer">
                     {salvarMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}

@@ -1,6 +1,7 @@
 import cron, { ScheduledTask } from 'node-cron';
 import { verificarTimeouts, dispararProgramados, verificarLembretes4Horas } from '../services/confirmacao.service';
 import { pingDatabase } from '../config/prisma';
+import { processarOutbox, recuperarReposicoes } from '../services/regulacaoConfiavel.service';
 
 // ====================================================================
 // Agendador do módulo de Confirmação Automatizada (cron jobs — seção 7)
@@ -15,6 +16,7 @@ const TIMEZONE = process.env.CRON_TIMEZONE || 'America/Campo_Grande';
 let tarefas: ScheduledTask[] = [];
 let rodandoTimeouts = false;
 let rodandoProgramados = false;
+let rodandoOutbox = false;
 
 async function comGuarda(nome: string, jaRodando: () => boolean, setRodando: (v: boolean) => void, fn: () => Promise<unknown>) {
   if (jaRodando()) {
@@ -56,6 +58,10 @@ export function startSchedulers(): void {
   }
 
   // 7.1 — Verificação de timeouts / reenvios e lembretes 4h (a cada 15 minutos)
+  tarefas.push(cron.schedule('* * * * *', () => comGuarda('outboxReposicoes', () => rodandoOutbox, v => (rodandoOutbox = v), async () => {
+    await processarOutbox();
+    await recuperarReposicoes(null);
+  }), { timezone: TIMEZONE }));
   tarefas.push(
     cron.schedule(
       '*/15 * * * *',
@@ -68,10 +74,10 @@ export function startSchedulers(): void {
     )
   );
 
-  // 7.2 — Disparos automáticos programados (diário, 08:00 local)
+  // Evaluate each agenda within its own configured timezone and opening hours.
   tarefas.push(
     cron.schedule(
-      '0 8 * * *',
+      '*/5 * * * *',
       () =>
         comGuarda('dispararProgramados', () => rodandoProgramados, (v) => (rodandoProgramados = v), () =>
           dispararProgramados()

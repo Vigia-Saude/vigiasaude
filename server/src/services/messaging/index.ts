@@ -16,6 +16,7 @@ export function getMessagingGateway(): IMessagingGateway {
   if (modo === 'chatbot') {
     return new ChatBotGateway();
   }
+  if (process.env.NODE_ENV === 'production') throw Object.assign(new Error('Gateway real de mensagens obrigatório em produção.'), { definitive: true });
 
   if (modo !== 'mock') {
     console.warn(`[messaging] MESSAGING_GATEWAY="${modo}" desconhecido; usando mock.`);
