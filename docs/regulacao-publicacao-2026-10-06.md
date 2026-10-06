@@ -6,7 +6,7 @@ O bot foi publicado em https://taxinha-bot.vercel.app. A assinatura da Meta est�
 
 ## Evidências
 
-- 90 testes do backend Vigia e 25 testes do bot passaram; as compilações e a checagem de tipos passaram.
+- 90 testes do backend Vigia e 27 testes do bot passaram; as compilações e a checagem de tipos passaram.
 - PostgreSQL real, em schema descartável: 20 solicitações concorrentes para uma vaga, reconfirmação, cancelamento duplicado, reposição e redução de capacidade. O contador permaneceu dentro do limite.
 - Prisma real: o bloqueio transacional usado por importação e inclusão manual foi executado sem alteração de dados. Locks que retornam `void` usam `$executeRaw`.
 - PDF de mamografia: 49 registros comparados com extração independente, sem diferença na sequência e nos campos examinados. Fixtures versionadas são sintéticas.
@@ -14,10 +14,12 @@ O bot foi publicado em https://taxinha-bot.vercel.app. A assinatura da Meta est�
 - Teste real: agenda futura de teste, capacidade 1, contato autorizado, envio aceito inicialmente pela Meta e posteriormente recusado com erro **131042 — Business eligibility payment issue**. O bot persistiu o evento e o Vigia recebeu a falha. A ocupação permaneceu 1/1; falha técnica não gerou ausência.
 - Repetição do mesmo evento real de falha: HTTP 200, um único callback concluído, sem segundo efeito.
 - Depois de o responsável vincular o cartão à conta WhatsApp, a retentativa técnica foi entregue pela Meta às 12:55:43 de Cuiabá. O callback chegou à API da VPS e o Vigia passou a mostrar `DELIVERED`, sem erro, mantendo ocupação 1/1 e a próxima entrada aguardando. Tentativas técnicas anteriores foram substituídas, preservando a reserva.
+- A resposta real do contato de teste chegou pelo webhook e foi aceita pelo Vigia: entrada `CONFIRMADO`, próxima entrada `AGUARDANDO`, ocupação 1/1. O callback persistente concluiu o processamento.
+- Um lembrete foi antecipado manualmente para o teste de desistência, após a confirmação. Isso explica as duas mensagens consecutivas observadas pelo responsável; não foi execução automática do cron. A Meta confirmou leitura do lembrete. A apresentação da confirmação foi restaurada com data, horário e local; o texto do lembrete deixou de afirmar “hoje” e utiliza a data informada.
 
 ## Pendência para aceite
 
-A conta WhatsApp utilizada estava sem forma de pagamento vinculada. O responsável concluiu o vínculo diretamente na Meta, e a entrega controlada foi comprovada pelo webhook. Ainda é necessário concluir, com respostas reais do contato de teste, a confirmação, desistência e reposição. Não considerar aceitação do provedor como entrega.
+A conta WhatsApp utilizada estava sem forma de pagamento vinculada. O responsável concluiu o vínculo diretamente na Meta, e a entrega e confirmação controladas foram comprovadas pelo webhook. Ainda é necessário concluir, com respostas reais do contato de teste, a desistência e reposição. Não considerar aceitação do provedor como entrega.
 
 O lembrete fora da janela de 24 horas permanece bloqueado enquanto `lembrete_consulta` não estiver aprovado e explicitamente habilitado. Não usar a lista real de mamografia para testes.
 
