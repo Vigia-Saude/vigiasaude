@@ -6,7 +6,7 @@ O bot foi publicado em https://taxinha-bot.vercel.app. A assinatura da Meta est�
 
 ## Evidências
 
-- 90 testes do backend Vigia e 27 testes do bot passaram; as compilações e a checagem de tipos passaram.
+- 97 testes do backend Vigia e 27 testes do bot passaram; as compilações e a checagem de tipos passaram.
 - PostgreSQL real, em schema descartável: 20 solicitações concorrentes para uma vaga, reconfirmação, cancelamento duplicado, reposição e redução de capacidade. O contador permaneceu dentro do limite.
 - Prisma real: o bloqueio transacional usado por importação e inclusão manual foi executado sem alteração de dados. Locks que retornam `void` usam `$executeRaw`.
 - PDF de mamografia: 49 registros comparados com extração independente, sem diferença na sequência e nos campos examinados. Fixtures versionadas são sintéticas.
@@ -24,6 +24,10 @@ A conta WhatsApp utilizada estava sem forma de pagamento vinculada. O responsáv
 O lembrete fora da janela de 24 horas permanece bloqueado enquanto `lembrete_consulta` não estiver aprovado e explicitamente habilitado. Não usar a lista real de mamografia para testes.
 
 ## Operação
+
+CNS e nascimento são opcionais ao inserir manualmente um paciente na fila. A migração `20261006174000_nascimento_pendente` tornou `pacientes.data_nascimento` anulável; campos desconhecidos permanecem `null`. Dados informados continuam sendo validados. As pendências aparecem na fila com o botão **Completar cadastro**, que preenche o mesmo paciente sem criar entrada, reserva ou envio nem alterar a posição. A convocação mantém as exigências de identificação e nascimento. Datas desconhecidas são exibidas como “Não informado” nas telas de pacientes.
+
+Esta atualização foi publicada na API da VPS com backup `/root/vigia-deploy-backups/1791308247434/before.tgz` e no frontend `dpl_BZ83vXk6rxTcigK6unxeCyXgRXZr`, com alias público `vigiasaude-brown.vercel.app`. O teste transacional com PostgreSQL/Prisma real salvou identificação e nascimento nulos sem reserva/envio, depois reverteu todos os dados sintéticos. Na interface publicada, os dois campos foram verificados com `required=false` e validade aceita em branco. Healthcheck retornou 200 e a nova rota protegida retornou 401 sem autenticação.
 
 Capacidade é obrigatória por unidade responsável, procedimento e data. Reservas pendentes, incertas, convocadas e confirmadas ocupam a vaga. Reenvios e lembretes reutilizam a reserva. Resultado incerto exige conciliação; o botão de retentativa é disponível somente para falha definitiva. Reinício de teste e simulação estão bloqueados em produção.
 
