@@ -1,12 +1,12 @@
 import { Link, useLocation } from 'react-router';
 import { 
-  ClipboardList, 
+  MessageCircle,
+  ExternalLink,
   Settings,
   ChevronLeft,
   Shield,
   FileCheck,
   ListOrdered,
-  History
 } from 'lucide-react';
 
 interface SidebarReguladorProps {
@@ -16,6 +16,7 @@ interface SidebarReguladorProps {
 
 export default function SidebarRegulador({ isOpen, setIsOpen }: SidebarReguladorProps) {
   const location = useLocation();
+  const chatPanelUrl = import.meta.env.VITE_CHAT_PANEL_URL;
 
   const links = [
     { name: 'Validação PDF', path: '/regulador/validacao-pdf', icon: FileCheck },
@@ -83,6 +84,13 @@ export default function SidebarRegulador({ isOpen, setIsOpen }: SidebarRegulador
               </Link>
             );
           })}
+          {chatPanelUrl && (
+            <a href={chatPanelUrl} target="_blank" rel="noopener noreferrer" onClick={() => setIsOpen(false)} className="mt-3 flex items-center gap-3 rounded-lg px-4 py-3 text-slate-400 hover:bg-indigo-900 hover:text-white">
+              <MessageCircle className="h-5 w-5 shrink-0" />
+              <span className="text-sm">Painel WhatsApp</span>
+              <ExternalLink className="ml-auto h-4 w-4" />
+            </a>
+          )}
         </nav>
       </aside>
     </>

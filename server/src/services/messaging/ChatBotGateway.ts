@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { randomUUID } from 'crypto';
+import { appEnvironment, assertDestination } from '../../config/environment.cjs';
 import type {
   IMessagingGateway,
   GatewayResult,
@@ -29,12 +30,16 @@ interface CorpoEnvio {
 
 export class ChatBotGateway implements IMessagingGateway {
   private getBaseUrl(): string {
-    const raw = (process.env.CHATBOT_URL || '').trim() || 'https://taxinha-bot.vercel.app';
+    const raw = (process.env.CHATBOT_URL || '').trim();
+    if (!raw) throw Object.assign(new Error('CHATBOT_URL não configurada para este ambiente.'), { definitive: true });
+    assertDestination(raw);
     return raw.replace(/\/+$/, '');
   }
 
   private getCallbackUrl(): string {
-    const raw = ((process.env.VIGIA_PUBLIC_URL || '').trim() || 'https://api.13.140.41.170.sslip.io').replace(/\/+$/, '');
+    const raw = (process.env.VIGIA_PUBLIC_URL || '').trim().replace(/\/+$/, '');
+    if (!raw) throw Object.assign(new Error('VIGIA_PUBLIC_URL não configurada para este ambiente.'), { definitive: true });
+    assertDestination(raw);
     return `${raw}/api/regulacao/confirmacao/callback`;
   }
 
@@ -56,7 +61,7 @@ export class ChatBotGateway implements IMessagingGateway {
   ): Promise<GatewayResult> {
     const base = this.getBaseUrl();
     const apiKey = process.env.CHATBOT_API_KEY?.trim() || '';
-    const tenantId = (process.env.CHATBOT_TENANT_ID || '').trim() || 'dd135a7e-5b8c-4c2d-9ca0-b5a67e55b545';
+    const tenantId = (process.env.CHATBOT_TENANT_ID || '').trim();
     const callbackUrl = this.getCallbackUrl();
     const webhookSecret = process.env.VIGIA_WEBHOOK_SECRET?.trim() || undefined;
 
@@ -78,7 +83,7 @@ export class ChatBotGateway implements IMessagingGateway {
       expiresAt: params.expiresAt,
     };
 
-    if (process.env.NODE_ENV === 'production' && (!apiKey || !webhookSecret)) {
+    if (appEnvironment() === 'production' && (!apiKey || !webhookSecret || !tenantId)) {
       throw Object.assign(new Error('Configure CHATBOT_API_KEY e VIGIA_WEBHOOK_SECRET antes do envio.'), { definitive: true });
     }
     console.log(`[ChatBotGateway] ${tipo} callback=${params.callbackId} via ${endpoint}`);

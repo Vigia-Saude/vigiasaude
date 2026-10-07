@@ -1,10 +1,21 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vitest/config'
+import { loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { appEnvironment, assertDestination } from './server/src/config/environment.cjs'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = { ...loadEnv(mode, process.cwd(), ''), ...process.env };
+  if (env.VITE_API_URL) assertDestination(env.VITE_API_URL, env);
+  if (env.VITE_CHAT_PANEL_URL) {
+    const panel = assertDestination(env.VITE_CHAT_PANEL_URL, env);
+    if (!['http:', 'https:'].includes(panel.protocol)) throw new Error('URL do painel WhatsApp inválida.');
+  }
+  return {
+  define: { 'import.meta.env.VITE_APP_ENV': JSON.stringify(appEnvironment(env)) },
+  cacheDir: '.cache/vite',
   plugins: [
     react(),
     tailwindcss(),
@@ -56,4 +67,5 @@ export default defineConfig({
     css: true,
     exclude: ['**/node_modules/**', '**/dist/**', '**/cypress/**', '**/.{idea,git,cache,output,temp}/**'],
   },
+  };
 })

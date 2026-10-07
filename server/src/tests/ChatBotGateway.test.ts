@@ -128,36 +128,26 @@ describe('ChatBotGateway - Integração com ChatBot Vinhedo', () => {
     ).rejects.toThrow('Template não encontrado.');
   });
 
-  it('deve usar fallbacks padrão (taxinha-bot, tenant Ponta Porã, sslip.io) quando envs não estiverem definidas', async () => {
+  it('bloqueia envio sem configuração, sem assumir produção como fallback', async () => {
     delete process.env.CHATBOT_URL;
     delete process.env.CHATBOT_TENANT_ID;
     delete process.env.VIGIA_PUBLIC_URL;
     delete process.env.CHATBOT_API_KEY;
+    await expect(new ChatBotGateway().enviarConfirmacao({
+      telefone: '5567999990001', nomePaciente: 'TESTE', templateName: 'primeiro_contato', callbackId: 'test'
+    })).rejects.toThrow('CHATBOT_URL não configurada');
+    expect(axios.post).not.toHaveBeenCalled();
+  });
 
-    vi.mocked(axios.post).mockResolvedValueOnce({
-      data: { messageId: 'wamid.fallback123', status: 'SENT' },
-    });
-
-    const gateway = new ChatBotGateway();
-    const result = await gateway.enviarConfirmacao({
-      telefone: '5567999990001',
-      nomePaciente: 'Maria Souza',
-      procedimento: 'Mamografia',
-      dataAgendada: '02/09/2026',
-      templateName: 'confirmacao_agendamento',
-      callbackId: 'fallback-id-123',
-    });
-
-    expect(result).toEqual({ messageId: 'wamid.fallback123', status: 'SENT' });
-    expect(axios.post).toHaveBeenCalledTimes(1);
-
-    const [url, body, options] = vi.mocked(axios.post).mock.calls[0];
-    expect(url).toBe('https://taxinha-bot.vercel.app/api/saude/enviar-mensagem');
-    expect(options?.headers).toEqual({
-      'Content-Type': 'application/json',
-      'X-Tenant-Id': 'dd135a7e-5b8c-4c2d-9ca0-b5a67e55b545',
-    });
-    expect(body.callbackUrl).toBe('https://api.13.140.41.170.sslip.io/api/regulacao/confirmacao/callback');
+  it('recusa bot ou callback de produção no desenvolvimento antes de enviar', async () => {
+    process.env.APP_ENV = 'development';
+    process.env.CHATBOT_URL = 'https://taxinha-bot.vercel.app';
+    const params = { telefone: '5567999990001', nomePaciente: 'TESTE', templateName: 'primeiro_contato', callbackId: 'test' };
+    await expect(new ChatBotGateway().enviarConfirmacao(params)).rejects.toThrow('destino de produção');
+    process.env.CHATBOT_URL = 'https://chatbot.test.gov.br';
+    process.env.VIGIA_PUBLIC_URL = 'https://api.13.140.41.170.sslip.io';
+    await expect(new ChatBotGateway().enviarConfirmacao(params)).rejects.toThrow('destino de produção');
+    expect(axios.post).not.toHaveBeenCalled();
   });
 
   it('deve enviar lembrete com tipo LEMBRETE, horaAgendada e local', async () => {

@@ -9,9 +9,10 @@ WORKDIR /app
 COPY package*.json ./
 COPY tsconfig.json ./
 COPY prisma.config.ts* ./
+COPY src/config/environment.cjs src/config/environment.d.cts ./src/config/
 
 # Instala dependências
-RUN npm install
+RUN npm ci --ignore-scripts
 
 # Copia schemas do Prisma e código-fonte
 COPY prisma ./prisma

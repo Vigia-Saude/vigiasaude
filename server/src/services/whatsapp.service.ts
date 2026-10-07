@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { appEnvironment } from '../config/environment.cjs';
 
 interface SendTemplateParams {
   to: string; // Número no formato E.164 (ex: +5567999999999)
@@ -19,6 +20,10 @@ export class WhatsAppService {
    */
   static async sendConfirmationTemplate(params: SendTemplateParams): Promise<{ wamid: string; rawPayload: any }> {
     const { to, templateName, queueEntryId, patientName, procedureName, scheduledDate } = params;
+
+    if (appEnvironment() === 'development') {
+      throw new Error('Envio direto Meta bloqueado em desenvolvimento. Use o ChatBot de testes.');
+    }
 
     // Se o token da Meta não estiver configurado, loga o envio em modo simulação/DEV
     if (!this.token || !this.phoneNumberId) {

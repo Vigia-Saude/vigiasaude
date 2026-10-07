@@ -2,8 +2,12 @@ import { PrismaClient } from '@prisma/client'
 import { Pool } from 'pg'
 import { PrismaPg } from '@prisma/adapter-pg'
 import * as dotenv from 'dotenv'
+import { assertDatabaseIsolation } from '../src/config/environment.cjs'
 
 dotenv.config()
+if (assertDatabaseIsolation() !== 'development') {
+  throw new Error('Este seed limpa dados e só pode ser executado em desenvolvimento.');
+}
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL })
 const adapter = new PrismaPg(pool)

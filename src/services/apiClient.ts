@@ -1,15 +1,11 @@
 import axios from 'axios';
 
-// URL ativa da API Vigia Saúde no VPS Contabo com terminação SSL
-const ACTIVE_PROD_API = 'https://api.13.140.41.170.sslip.io';
-const ACTIVE_DEV_API = 'https://api.13.140.41.170.sslip.io';
-
 export const getApiBaseUrl = (): string => {
   const host = typeof window !== 'undefined' ? window.location.hostname : '';
   const isOnline = host !== '' && host !== 'localhost' && host !== '127.0.0.1';
 
   // Quando rodando online na Vercel, usamos caminho relativo ('') para acionar
-  // os rewrites transparentes do vercel.json. Isso garante funcionamento mesmo
+  // os rewrites transparentes do vercel.mjs. Isso garante funcionamento mesmo
   // em redes com firewall restrito (ex: TCE-MS, hospitais) e elimina problemas de CORS.
   if (isOnline) {
     return '';
@@ -18,9 +14,10 @@ export const getApiBaseUrl = (): string => {
   const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl && typeof envUrl === 'string' && envUrl.trim().length > 0) {
     const trimmed = envUrl.trim().replace(/\/+$/, '');
-    if (!trimmed.includes('railway.app')) {
-      return trimmed;
+    if (['api.13.140.41.170.sslip.io', 'vigiasaude-brown.vercel.app', 'vigiasaude-tiscinovacoes-projects.vercel.app'].includes(new URL(trimmed).hostname)) {
+      throw new Error('Execução local bloqueada: VITE_API_URL aponta para produção.');
     }
+    return trimmed;
   }
 
   return 'http://localhost:3001';

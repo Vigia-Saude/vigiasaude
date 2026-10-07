@@ -7,6 +7,7 @@ import { router } from './routes';
 import './index.css';
 
 import { AuthProvider } from './context/AuthContext';
+import { EnvironmentBanner } from './components/EnvironmentBanner';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -25,6 +26,7 @@ createRoot(document.getElementById('root')!).render(
       <AuthProvider>
         <Toaster position="top-right" richColors />
         <RouterProvider router={router} />
+        <EnvironmentBanner />
       </AuthProvider>
     </QueryClientProvider>
   </StrictMode>

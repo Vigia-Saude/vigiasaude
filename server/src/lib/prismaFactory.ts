@@ -1,12 +1,14 @@
 import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { assertDatabaseIsolation } from '../config/environment.cjs';
 
 const SCHEMA_REGEX = /^tenant_[a-z][a-z0-9_]{1,50}$/;
 
 const clientCache = new Map<string, PrismaClient>();
 
 export function getPrismaForSchema(schema: string): PrismaClient {
+  assertDatabaseIsolation();
   if (!SCHEMA_REGEX.test(schema)) {
     throw new Error(`Schema inválido: "${schema}". Use o padrão tenant_nome_unidade`);
   }

@@ -2,6 +2,14 @@
 // npm install --save-dev prisma dotenv
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
+import { assertDatabaseIsolation } from './src/config/environment.cjs';
+
+const environment = assertDatabaseIsolation();
+if(environment === 'production' && process.argv.some((arg,index,args) =>
+  (arg === 'migrate' && ['dev','reset'].includes(args[index+1])) ||
+  (arg === 'db' && args[index+1] === 'push'))) {
+  throw new Error('Reset e sincronização destrutiva são exclusivos do desenvolvimento.');
+}
 
 export default defineConfig({
   schema: "prisma/schema.prisma",

@@ -10,6 +10,7 @@ import authRoutes from './routes/authRoutes'
 import apiRoutes from './routes/apiRoutes'
 import { authMiddleware, roleMiddleware } from './middlewares/auth'
 import prisma from './config/prisma'
+import { appEnvironment, browserOriginAllowed } from './config/environment.cjs'
 
 dotenv.config()
 
@@ -38,42 +39,17 @@ app.use((req, res, next) => {
 
 // Middlewares de Segurança
 app.use(helmet())
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:3000',
-  'http://localhost:3002',
-]
-if (process.env.CORS_ORIGIN) {
-  process.env.CORS_ORIGIN.split(',').forEach(o => allowedOrigins.push(o.trim()))
-}
-
+app.use((req,res,next)=>{
+  if(!browserOriginAllowed(req.headers.origin)){
+    res.status(403).json({error:'Esta URL não pertence a este ambiente. Use o endereço correto de produção ou desenvolvimento.'});
+    return;
+  }
+  next();
+});
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    
-    try {
-      const url = new URL(origin);
-      const hostname = url.hostname;
-      
-      // Permitir qualquer subdomínio da Vercel, Railway ou localhost
-      if (
-        hostname.endsWith('.vercel.app') ||
-        hostname.endsWith('.up.railway.app') ||
-        hostname === 'localhost' ||
-        hostname === '127.0.0.1'
-      ) {
-        return callback(null, true);
-      }
-    } catch {
-      // Ignora erro de parse
-    }
-    
-    // Em produção/deploy, aceita a origem
-    return callback(null, true);
+    if(browserOriginAllowed(origin)) return callback(null,true);
+    return callback(new Error('Origem fora do ambiente permitido.'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -116,7 +92,7 @@ app.get('/', (req, res) => {
 app.get('/health', async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'OK', database: 'connected', message: 'Servidor Vigia Saúde está online.' });
+    res.json({ status: 'OK', database: 'connected', environment: appEnvironment(), message: 'Servidor Vigia Saúde está online.' });
   } catch (err: any) {
     res.json({ status: 'OK', database: 'reconnecting', message: 'Servidor online.' });
   }

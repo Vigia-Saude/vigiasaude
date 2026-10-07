@@ -2,8 +2,10 @@ import { PrismaClient } from '@prisma/client'
 import { Pool } from 'pg'
 import { PrismaPg } from '@prisma/adapter-pg'
 import * as dotenv from 'dotenv'
+import { assertDatabaseIsolation, appEnvironment } from './environment.cjs'
 
 dotenv.config()
+assertDatabaseIsolation()
 
 if (!process.env.DATABASE_URL) {
   console.error('❌ DATABASE_URL não encontrada nas variáveis de ambiente!')
@@ -37,14 +39,18 @@ function normalizarConnString(raw: string): string {
 }
 
 const connectionString = normalizarConnString(process.env.DATABASE_URL || '')
-const isLocal = connectionString.includes('localhost') || connectionString.includes('127.0.0.1')
+const databaseHost = connectionString ? new URL(connectionString).hostname : ''
+const isLocal = ['localhost', '127.0.0.1', '[::1]'].includes(databaseHost)
+const internalDevelopment = appEnvironment() === 'development' &&
+  !!process.env.APP_DATABASE_HOST && process.env.APP_DATABASE_HOST === databaseHost &&
+  process.env.DB_SSL_MODE === 'disable'
 
 const pool = new Pool({
   connectionString,
   max: Number(process.env.DB_POOL_MAX || 8),
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 15000,
-  ssl: isLocal ? false : { rejectUnauthorized: false },
+  ssl: isLocal || internalDevelopment ? false : { rejectUnauthorized: false },
   keepAlive: true,
   keepAliveInitialDelayMillis: 10000,
   allowExitOnIdle: false,
