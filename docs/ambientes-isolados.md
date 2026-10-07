@@ -33,7 +33,7 @@ Produção mantém /root/vigiasaude e seus volumes. Evolution e o sistema da igr
 
 Nesta máquina, os utilitários ficam no diretório pai ops/. prepare-development-bundles.cjs prepara arquivos sem .env, pacientes, uploads ou node_modules. cloud-development.cjs update atualiza apenas DEV e guarda imagens anteriores. check, check-vigia e verify validam serviços e dados próprios de teste. Se o cliente expirar durante um build, consultar status antes de repetir: o build da VPS pode continuar.
 
-deploy-vercel.cjs vigia|bot|panel preview|production usa a conta correta para publicar arquivos. O Vercel bloqueou a implantação baseada na identidade do autor Git por falta de permissão na equipe; foi usada implantação manual autenticada, sem falsificar autoria. Até regularizar essa associação, push Git não comprova publicação: verificar deployment READY e aliases.
+main e developer foram atualizadas nos dois repositórios. Os seis deployments Git correspondentes passaram com estado READY. Na configuração inicial, houve bloqueio de autoria Git e foi usada implantação manual autenticada, sem falsificar autoria; o envio com as identidades configuradas nos repositórios passou. deploy-vercel.cjs vigia|bot|panel preview|production continua disponível como publicação manual. Sempre verificar deployment READY e aliases após push.
 
 Não existe endpoint SSH público. O utilitário autorizado usa build privado temporário, valida a chave do servidor e apaga a implantação ao terminar. Senhas não entram no repositório/site. Snapshots locais/Vercel usam Windows DPAPI no diretório privado do operador.
 
@@ -41,7 +41,7 @@ Não existe endpoint SSH público. O utilitário autorizado usa build privado te
 
 O frontend Vigia local aponta à API DEV. O Chat, sem DATABASE_URL local configurado, encaminha seus endereços locais ao DEV na VPS. Para rodar o backend integralmente no PC, provisionar banco/Supabase local ou conexão privada autorizada. Não copiar .env de produção para conseguir rodar localmente.
 
-Preview/Development da Vercel contêm somente identificação e destinos DEV. Credenciais de banco, Meta, Evolution, Inngest Cloud e integrações de produção foram restringidas a Production. Os .env locais antigos devem ficar apenas em backups privados, fora do carregamento automático.
+Preview/Development da Vercel contêm somente identificação e destinos DEV. Credenciais de banco, Meta, Evolution, Inngest Cloud e integrações de produção foram restringidas a Production. Os .env locais antigos foram retirados do carregamento automático e guardados em backups privados criptografados. O frontend DEV na Vercel conserva a proteção existente: entrar na conta Vercel autorizada antes do login do Vigia.
 
 ## Migrações
 
