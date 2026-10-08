@@ -11,6 +11,7 @@ export function buildVercelConfiguration(env = process.env) {
   }
   if (env.VERCEL_ENV && url.protocol !== 'https:') throw new Error('Publicação exige API HTTPS.');
   return {
+    git: { deploymentEnabled: false },
     buildCommand: 'npm run build',
     outputDirectory: 'dist',
     framework: 'vite',
